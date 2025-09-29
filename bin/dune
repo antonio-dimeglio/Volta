@@ -1,0 +1,4 @@
+(executable
+ (public_name volta)
+ (name main)
+ (libraries volta))

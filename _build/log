@@ -1,0 +1,16 @@
+# dune exec volta
+# OCAMLPARAM: unset
+# Shared cache: enabled-except-user-rules
+# Shared cache location: /Users/quantum/.cache/dune/db
+# Workspace root: /Users/quantum/Desktop/Volta
+# Auto-detected concurrency: 10
+# Dune context:
+#  { name = "default"
+#  ; kind = "default"
+#  ; profile = Dev
+#  ; merlin = true
+#  ; fdo_target_exe = None
+#  ; build_dir = In_build_dir "default"
+#  ; instrument_with = []
+#  }
+$ /Users/quantum/.opam/default/bin/ocamlc.opt -config > /var/folders/7m/x8c4rg2n10s95s73f462_pr00000gn/T/dune_f06c64_output
