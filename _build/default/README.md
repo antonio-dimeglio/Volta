@@ -49,11 +49,11 @@ match result {
 
 ## Building from Source
 
-Volta is implemented in C following the architecture described in "Crafting Interpreters" by Robert Nystrom.
+Volta is implemented using OCaml.
 
 ### Prerequisites
 
-- GCC or Clang compiler
+- Ocaml + dune
 - Make
 
 ### Build Instructions

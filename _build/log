@@ -1,9 +1,9 @@
-# dune exec volta
+# dune build
 # OCAMLPARAM: unset
 # Shared cache: enabled-except-user-rules
-# Shared cache location: /Users/quantum/.cache/dune/db
-# Workspace root: /Users/quantum/Desktop/Volta
-# Auto-detected concurrency: 10
+# Shared cache location: /home/quantum/.cache/dune/db
+# Workspace root: /home/quantum/coding/Volta
+# Auto-detected concurrency: 16
 # Dune context:
 #  { name = "default"
 #  ; kind = "default"
@@ -13,4 +13,8 @@
 #  ; build_dir = In_build_dir "default"
 #  ; instrument_with = []
 #  }
-$ /Users/quantum/.opam/default/bin/ocamlc.opt -config > /var/folders/7m/x8c4rg2n10s95s73f462_pr00000gn/T/dune_f06c64_output
+$ /home/quantum/.opam/default/bin/ocamlc.opt -config > /tmp/dune_767a07_output
+$ (cd _build/default && /home/quantum/.opam/default/bin/ocamldep.opt -modules -impl lib/lexer/Lexer.ml) > _build/default/lib/lexer/.lexer.objs/lexer.impl.d
+> File "lib/lexer/Lexer.ml", line 20, characters 0-0:
+> Error: Syntax error
+[2]
