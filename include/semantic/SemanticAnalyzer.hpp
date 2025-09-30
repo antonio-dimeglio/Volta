@@ -1,9 +1,104 @@
 #pragma once
 
+#include <memory>
+#include <unordered_map>
+#include <vector>
+#include <string>
+#include "ast/Expression.hpp"
+#include "ast/Statement.hpp"
+#include "error/ErrorReporter.hpp"
+#include "semantic/Type.hpp"
+#include "semantic/SymbolTable.hpp"
+
 namespace volta::semantic {
 
+/**
+ * SemanticAnalyzer performs static analysis on the AST:
+ * - Type checking and inference
+ * - Name resolution
+ * - Mutability checking
+ * - Control flow validation
+ */
 class SemanticAnalyzer {
+public:
+    explicit SemanticAnalyzer(volta::errors::ErrorReporter& reporter);
 
+    // Main entry point: analyze entire program
+    bool analyze(const volta::ast::Program& program);
+
+    // Get the inferred/checked type of an expression (after analysis)
+    std::shared_ptr<Type> getExpressionType(const volta::ast::Expression* expr) const;
+
+private:
+    // === Pass 1: Collect top-level declarations ===
+    void collectDeclarations(const volta::ast::Program& program);
+    void collectFunction(const volta::ast::FnDeclaration& fn);
+    void collectStruct(const volta::ast::StructDeclaration& structDecl);
+
+    // === Pass 2: Resolve types ===
+    void resolveTypes(const volta::ast::Program& program);
+    std::shared_ptr<Type> resolveTypeAnnotation(const volta::ast::Type* typeAnnotation);
+
+    // === Pass 3: Type check and validate ===
+    void analyzeProgram(const volta::ast::Program& program);
+    void analyzeStatement(const volta::ast::Statement* stmt);
+    void analyzeVarDeclaration(const volta::ast::VarDeclaration* varDecl);
+    void analyzeFnDeclaration(const volta::ast::FnDeclaration* fnDecl);
+    void analyzeIfStatement(const volta::ast::IfStatement* ifStmt);
+    void analyzeWhileStatement(const volta::ast::WhileStatement* whileStmt);
+    void analyzeForStatement(const volta::ast::ForStatement* forStmt);
+    void analyzeReturnStatement(const volta::ast::ReturnStatement* returnStmt);
+    std::shared_ptr<Type> analyzeMatchExpression(const volta::ast::MatchExpression* matchExpr);
+
+    // Expression type checking (returns inferred type)
+    std::shared_ptr<Type> analyzeExpression(const volta::ast::Expression* expr);
+    std::shared_ptr<Type> analyzeBinaryExpression(const volta::ast::BinaryExpression* binExpr);
+    std::shared_ptr<Type> analyzeUnaryExpression(const volta::ast::UnaryExpression* unaryExpr);
+    std::shared_ptr<Type> analyzeCallExpression(const volta::ast::CallExpression* callExpr);
+    std::shared_ptr<Type> analyzeIdentifier(const volta::ast::IdentifierExpression* identifier);
+    std::shared_ptr<Type> analyzeLiteral(const volta::ast::Expression* literal);
+
+    // Type operations
+    bool areTypesCompatible(const Type* expected, const Type* actual);
+    std::shared_ptr<Type> inferBinaryOpType(volta::ast::BinaryExpression::Operator op, const Type* left, const Type* right);
+    std::shared_ptr<Type> inferUnaryOpType(volta::ast::UnaryExpression::Operator op, const Type* operand);
+
+    // Symbol table operations
+    void enterScope();
+    void exitScope();
+    void declareVariable(const std::string& name, std::shared_ptr<Type> type, bool isMutable, volta::errors::SourceLocation loc);
+    void declareFunction(const std::string& name, std::shared_ptr<Type> functionType, volta::errors::SourceLocation loc);
+
+    // Lookup operations
+    std::shared_ptr<Type> lookupVariable(const std::string& name, volta::errors::SourceLocation loc);
+    std::shared_ptr<Type> lookupFunction(const std::string& name, volta::errors::SourceLocation loc);
+    bool isVariableMutable(const std::string& name);
+
+    // Control flow state
+    void enterLoop();
+    void exitLoop();
+    void enterFunction(std::shared_ptr<Type> returnType);
+    void exitFunction();
+    bool inLoop() const { return loopDepth_ > 0; }
+    std::shared_ptr<Type> currentFunctionReturnType() const { return currentReturnType_; }
+
+    // Error reporting helpers
+    void error(const std::string& message, volta::errors::SourceLocation loc);
+    void typeError(const std::string& message, const Type* expected, const Type* actual, volta::errors::SourceLocation loc);
+
+private:
+    volta::errors::ErrorReporter& errorReporter_;
+    std::unique_ptr<SymbolTable> symbolTable_;
+
+    // Store inferred types for expressions
+    std::unordered_map<const volta::ast::Expression*, std::shared_ptr<Type>> expressionTypes_;
+
+    // Control flow state
+    int loopDepth_ = 0;
+    std::shared_ptr<Type> currentReturnType_ = nullptr;
+
+    // Analysis state
+    bool hasErrors_ = false;
 };
 
-}
+} // namespace volta::semantic
