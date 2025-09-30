@@ -140,7 +140,7 @@ TEST_F(SemanticAnalyzerTest, SimpleFunctionDeclaration) {
 
 TEST_F(SemanticAnalyzerTest, FunctionWithExpressionBody) {
     EXPECT_TRUE(analyzeSource(R"(
-        fn square(x: int) -> int { return x * x }
+        fn square(x: int) -> int = x * x
     )"));
     EXPECT_FALSE(errorReporter->hasErrors());
 }
@@ -262,15 +262,15 @@ TEST_F(SemanticAnalyzerTest, WhileLoopNonBoolCondition) {
     EXPECT_TRUE(errorReporter->hasErrors());
 }
 
-// TEST_F(SemanticAnalyzerTest, ForLoopWithArray) {
-//     EXPECT_TRUE(analyzeSource(R"(
-//         numbers := [1, 2, 3, 4, 5]
-//         for num in numbers {
-//             x := num + 1
-//         }
-//     )"));
-//     EXPECT_FALSE(errorReporter->hasErrors());
-// }
+TEST_F(SemanticAnalyzerTest, ForLoopWithArray) {
+    EXPECT_TRUE(analyzeSource(R"(
+        numbers := [1, 2, 3, 4, 5]
+        for num in numbers {
+            x := num + 1
+        }
+    )"));
+    EXPECT_FALSE(errorReporter->hasErrors());
+}
 
 TEST_F(SemanticAnalyzerTest, ForLoopWithRange) {
     EXPECT_TRUE(analyzeSource(R"(
@@ -468,17 +468,17 @@ TEST_F(SemanticAnalyzerTest, VariablesAndFunctionsInteraction) {
     EXPECT_FALSE(errorReporter->hasErrors());
 }
 
-// TEST_F(SemanticAnalyzerTest, NestedControlFlow) {
-//     EXPECT_TRUE(analyzeSource(R"(
-//         fn findMax(arr: Array[int]) -> int {
-//             max: mut int = 0
-//             for num in arr {
-//                 if num > max {
-//                     max = num
-//                 }
-//             }
-//             return max
-//         }
-//     )"));
-//     EXPECT_FALSE(errorReporter->hasErrors());
-// }
+TEST_F(SemanticAnalyzerTest, NestedControlFlow) {
+    EXPECT_TRUE(analyzeSource(R"(
+        fn findMax(arr: Array[int]) -> int {
+            max: mut int = 0
+            for num in arr {
+                if num > max {
+                    max = num
+                }
+            }
+            return max
+        }
+    )"));
+    EXPECT_FALSE(errorReporter->hasErrors());
+}

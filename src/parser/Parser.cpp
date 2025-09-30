@@ -219,15 +219,24 @@ std::unique_ptr<volta::ast::FnDeclaration> Parser::parseFnDeclaration() {
     consume(TokenType::ARROW, "Expected '->' after function parameters.");
     auto returnType = parseType();
 
-    auto body = parseBlock();
-    
+    std::unique_ptr<Block> body = nullptr;
+    std::unique_ptr<Expression> expressionBody = nullptr;
+
+    // Check for expression body: fn foo() -> int = expr
+    if (match(TokenType::ASSIGN)) {
+        expressionBody = parseExpression();
+    } else {
+        // Regular block body: fn foo() -> int { ... }
+        body = parseBlock();
+    }
+
     return std::make_unique<FnDeclaration>(
         funcName,
-        std::move(typeParams),   
-        std::move(params),        
+        std::move(typeParams),
+        std::move(params),
         std::move(returnType),
         std::move(body),
-        nullptr,                 
+        std::move(expressionBody),
         startLoc
     );
 }
@@ -626,8 +635,28 @@ std::unique_ptr<volta::ast::Expression> Parser::parsePrimary() {
         auto name = previous().lexeme;
 
         // Check for struct literal: Point { x: 1, y: 2 }
+        // Must be followed by { identifier : to disambiguate from blocks
         if (check(TokenType::LBRACE)) {
-            return parseStructLiteral();
+            // Lookahead to see if this is really a struct literal
+            size_t saved = current_;
+            advance(); // consume {
+
+            bool isStructLiteral = false;
+            if (check(TokenType::IDENTIFIER)) {
+                advance(); // consume identifier
+                if (check(TokenType::COLON)) {
+                    isStructLiteral = true;
+                }
+            } else if (check(TokenType::RBRACE)) {
+                // Empty braces - could be empty struct
+                isStructLiteral = true;
+            }
+
+            current_ = saved; // restore position
+
+            if (isStructLiteral) {
+                return parseStructLiteral();
+            }
         }
 
         return std::make_unique<IdentifierExpression>(name, loc);
