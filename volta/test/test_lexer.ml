@@ -110,26 +110,26 @@ let identifier_tests = "Identifier Tests" >::: [
 let integration_tests = "Integration Tests" >::: [
   "test simple expression" >:: test_tokenize "1 + 2" [
     make_token Integer "1" 1 1;
-    make_token Plus "+" 1 1;
-    make_token Integer "2" 1 1;
-    make_token Eof "" 1 1
+    make_token Plus "+" 1 3;
+    make_token Integer "2" 1 5;
+    make_token Eof "" 1 6
   ];
 
   "test variable assignment" >:: test_tokenize "x = 42" [
     make_token Identifier "x" 1 1;
-    make_token Assign "=" 1 1;
-    make_token Integer "42" 1 1;
-    make_token Eof "" 1 1
+    make_token Assign "=" 1 3;
+    make_token Integer "42" 1 5;
+    make_token Eof "" 1 7
   ];
 
   "test function call" >:: test_tokenize "add(1, 2)" [
     make_token Identifier "add" 1 1;
-    make_token LParen "(" 1 1;
-    make_token Integer "1" 1 1;
-    make_token Identifier "," 1 1;  (* Note: comma not implemented yet *)
-    make_token Integer "2" 1 1;
-    make_token RParen ")" 1 1;
-    make_token Eof "" 1 1
+    make_token LParen "(" 1 4;
+    make_token Integer "1" 1 5;
+    make_token Comma "," 1 6;
+    make_token Integer "2" 1 8;
+    make_token RParen ")" 1 9;
+    make_token Eof "" 1 10
   ];
 ]
 
@@ -137,16 +137,16 @@ let integration_tests = "Integration Tests" >::: [
 let whitespace_tests = "Whitespace Tests" >::: [
   "test spaces between tokens" >:: test_tokenize "1 + 2" [
     make_token Integer "1" 1 1;
-    make_token Plus "+" 1 1;
-    make_token Integer "2" 1 1;
-    make_token Eof "" 1 1
+    make_token Plus "+" 1 3;
+    make_token Integer "2" 1 5;
+    make_token Eof "" 1 6
   ];
 
   "test multiple spaces" >:: test_tokenize "1   +   2" [
     make_token Integer "1" 1 1;
-    make_token Plus "+" 1 1;
-    make_token Integer "2" 1 1;
-    make_token Eof "" 1 1
+    make_token Plus "+" 1 5;
+    make_token Integer "2" 1 9;
+    make_token Eof "" 1 10
   ];
 ]
 

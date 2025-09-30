@@ -17,292 +17,184 @@ type token = {
 let create program =
   { program; idx = 0; line = 1; column = 1; }
 
-let is_at_end lexer =
+let is_at_end (lexer: lexer)=
     lexer.idx >= String.length lexer.program
   
-let peek lexer = 
+let peek (lexer: lexer) = 
   if lexer.idx + 1 < String.length lexer.program then 
     Some lexer.program.[lexer.idx + 1]
   else 
     None 
 
-let current_char lexer =
+let current_char (lexer: lexer) =
   if is_at_end lexer then None
   else Some lexer.program.[lexer.idx]
 
-let advance lexer =
-  if not (is_at_end lexer) then (
-    if lexer.program.[lexer.idx] = '\n' then (
+let advance (lexer: lexer) =
+  if is_at_end lexer then 
+    None
+  else (
+    let c = lexer.program.[lexer.idx] in
+    lexer.idx <- lexer.idx + 1;
+    if c = '\n' then (
       lexer.line <- lexer.line + 1;
       lexer.column <- 1
     ) else
       lexer.column <- lexer.column + 1;
-    lexer.idx <- lexer.idx + 1
+    Some c
   )
 
-let rec skip_whitespace lexer =
-  if not (is_at_end lexer) &&
-    (lexer.program.[lexer.idx] = ' ' ||
-    lexer.program.[lexer.idx] = '\t' ||
-    lexer.program.[lexer.idx] = '\r' ||
-    lexer.program.[lexer.idx] = '\n') then (
-
-    advance lexer;
-    skip_whitespace lexer
-  ) else
-    ()
-
 let is_digit c = c >= '0' && c <= '9'
-
-let scan_number lexer =
-  let start = lexer.idx in
-  let dot = ref false in
-  while (match current_char lexer with
-    | Some c when is_digit c -> true
-    | Some '.' when not !dot -> (dot := true; true)
-    | _ -> false) do
-    advance lexer
-  done;
-  let lexeme =
-    String.sub lexer.program start (lexer.idx - start)
-  in
-  {
-    ttype = (if !dot then Real else Integer);
-    lexeme;
-    line = lexer.line;
-    column = lexer.column;
-  }
-  
-(* inclusive range requires lookahead of 2 as it is ..=, but this doesnt allow it
-  alas, for now this impl is okay. *)
-let scan_symbol lexer =
-  match current_char lexer, peek lexer with
-  | Some '+', Some '=' ->
-      advance lexer;  
-      advance lexer;  
-      { ttype = PlusAssign;
-        lexeme = "+=";
-        line = lexer.line;
-        column = lexer.column }
-  | Some '+', _ ->
-      advance lexer;
-      { ttype = Plus;
-        lexeme = "+";
-        line = lexer.line;
-        column = lexer.column }
-  | Some '-', Some '=' ->
-    advance lexer;
-    advance lexer; 
-    { ttype = MinusAssign;
-      lexeme = "-=";
-      line = lexer.line;
-      column = lexer.column }
-  | Some '-', _ ->
-    advance lexer; 
-    { ttype = Minus;
-      lexeme = "-";
-      line = lexer.line;
-      column = lexer.column }
-  | Some '*', Some '=' ->
-      advance lexer;  
-      advance lexer;  
-      { ttype = MultAssign;
-        lexeme = "*=";
-        line = lexer.line;
-        column = lexer.column }
-  | Some '*', Some '*' ->
-      advance lexer;  
-      advance lexer;  
-      { ttype = Power;
-        lexeme = "**";
-        line = lexer.line;
-        column = lexer.column }
-  | Some '*', _ ->
-      advance lexer;
-      { ttype = Mult;
-        lexeme = "*";
-        line = lexer.line;
-        column = lexer.column }
-  | Some '/', Some '=' ->
-    advance lexer;
-    advance lexer; 
-    { ttype = DivAssign;
-      lexeme = "/=";
-      line = lexer.line;
-      column = lexer.column }
-  | Some '/', _ ->
-    advance lexer; 
-    { ttype = Div;
-      lexeme = "/";
-      line = lexer.line;
-      column = lexer.column }
-  | Some '%', _ ->
-    advance lexer; 
-    { ttype = Modulo;
-      lexeme = "%";
-      line = lexer.line;
-      column = lexer.column }
-  | Some '=', Some '=' ->
-      advance lexer;  
-      advance lexer;  
-      { ttype = Equals;
-        lexeme = "==";
-        line = lexer.line;
-        column = lexer.column }
-  | Some '=', _ ->
-      advance lexer;
-      { ttype = Assign;
-        lexeme = "=";
-        line = lexer.line;
-        column = lexer.column }
-  | Some '!', Some '=' ->
-      advance lexer;  
-      advance lexer;  
-      { ttype = NotEquals;
-        lexeme = "!=";
-        line = lexer.line;
-        column = lexer.column }
-  | Some '!', _ ->
-      advance lexer;
-      { ttype = Not;
-        lexeme = "!";
-        line = lexer.line;
-        column = lexer.column }
-  | Some '>', Some '=' ->
-      advance lexer;  
-      advance lexer;  
-      { ttype = GEQ;
-        lexeme = ">=";
-        line = lexer.line;
-        column = lexer.column }
-  | Some '>', _ ->
-      advance lexer;
-      { ttype = GT;
-        lexeme = ">";
-        line = lexer.line;
-        column = lexer.column }
-  | Some '<', Some '=' ->
-    advance lexer;
-    advance lexer; 
-    { ttype = LEQ;
-      lexeme = "<=";
-      line = lexer.line;
-      column = lexer.column }
-  | Some '<', _ ->
-    advance lexer;
-    { ttype = LT;
-      lexeme = "<";
-      line = lexer.line;
-      column = lexer.column }
-  | Some ':', Some '=' ->
-    advance lexer;
-    advance lexer;
-    { ttype = InferAssign;
-      lexeme = ":=";
-      line = lexer.line;
-      column = lexer.column }
-  | Some ':', _ ->
-    advance lexer;
-    { ttype = Colon;
-      lexeme = ":";
-      line = lexer.line;
-      column = lexer.column }
-  | Some '(', _ ->
-    advance lexer;
-    { ttype = LParen; lexeme = "("; line = lexer.line; column = lexer.column }
-  | Some ')', _ ->
-    advance lexer;
-    { ttype = RParen; lexeme = ")"; line = lexer.line; column = lexer.column }
-  | Some '[', _ ->
-    advance lexer;
-    { ttype = LSquare; lexeme = "["; line = lexer.line; column = lexer.column }
-  | Some ']', _ ->
-    advance lexer;
-    { ttype = RSquare; lexeme = "]"; line = lexer.line; column = lexer.column }
-  | Some '{', _ ->
-    advance lexer;
-    { ttype = LBrace; lexeme = "{"; line = lexer.line; column = lexer.column }
-  | Some '}', _ ->
-    advance lexer;
-    { ttype = RBrace; lexeme = "}"; line = lexer.line; column = lexer.column }
-  | _, _ ->
-    failwith ("Unexpected character: " ^
-      match current_char lexer with
-      | Some c -> String.make 1 c
-      | None -> "EOF")
-
-let scan_string lexer =
-  advance lexer; (* skip opening quote *)
-  let buffer = Buffer.create 16 in
-  let rec loop () =
-    match current_char lexer with
-    | Some '"' ->
-        advance lexer; (* skip closing quote *)
-        Buffer.contents buffer
-    | Some '\\' ->
-        advance lexer;
-        (match current_char lexer with
-        | Some 'n' -> Buffer.add_char buffer '\n'; advance lexer; loop ()
-        | Some 't' -> Buffer.add_char buffer '\t'; advance lexer; loop ()
-        | Some 'r' -> Buffer.add_char buffer '\r'; advance lexer; loop ()
-        | Some '\\' -> Buffer.add_char buffer '\\'; advance lexer; loop ()
-        | Some '"' -> Buffer.add_char buffer '"'; advance lexer; loop ()
-        | Some c -> Buffer.add_char buffer c; advance lexer; loop ()
-        | None -> failwith "Unterminated string: unexpected end of file")
-    | Some c ->
-        Buffer.add_char buffer c;
-        advance lexer;
-        loop ()
-    | None -> failwith "Unterminated string: unexpected end of file"
-  in
-  let content = loop () in
-  {
-    ttype = StringLiteral;
-    lexeme = content;
-    line = lexer.line;
-    column = lexer.column;
-  }
-
 let is_alpha c = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c = '_'
+let is_alphanumeric c = is_digit c || is_alpha c
 
-let is_alnum c = is_alpha c || is_digit c
-
-let scan_identifier_or_keyword lexer =
-  let start = lexer.idx in
-  (* Advance through all alphanumeric characters *)
-  while (match current_char lexer with
-    | Some c when is_alnum c -> true
-    | _ -> false) do
-    advance lexer
-  done;
-  let lexeme = String.sub lexer.program start (lexer.idx - start) in
-  (* Check if it's a keyword using the map from Token_type *)
-  let ttype =
-    try Token_type.StringMap.find lexeme Token_type.keywords
-    with Not_found -> Identifier
+let scan_number (lexer: lexer) =
+  let start_idx = lexer.idx in
+  let start_line = lexer.line in
+  let start_col = lexer.column in
+  
+  let rec scan_digits has_dot has_exp =
+  match current_char lexer with
+  | Some c when is_digit c -> 
+      ignore (advance lexer);
+      scan_digits has_dot has_exp
+  | Some '.' when not has_dot && not has_exp ->
+      (match peek lexer with
+       | Some c when is_digit c ->
+           ignore (advance lexer);
+           scan_digits true has_exp
+       | _ -> (has_dot, has_exp))
+  | Some ('e' | 'E') when not has_exp ->
+      ignore (advance lexer);
+      (match current_char lexer with
+       | Some ('+' | '-') -> ignore (advance lexer)
+       | _ -> ());
+      (* Verify at least one digit follows *)
+      (match current_char lexer with
+       | Some c when is_digit c -> scan_digits has_dot true
+       | _ -> failwith "Invalid number: expected digit after 'e'")
+  | _ -> (has_dot, has_exp)
+  in
+  
+  let (has_dot, has_exp) = scan_digits false false in
+  let lexeme = String.sub lexer.program start_idx (lexer.idx - start_idx) in
+  let ttype = 
+    if has_dot || has_exp then Real 
+    else Integer 
   in
   {
     ttype;
     lexeme;
-    line = lexer.line;
-    column = lexer.column;
+    line = start_line;
+    column = start_col;
   }
 
-let scan_token lexer =
-  skip_whitespace lexer;
-  match current_char lexer with
-    | Some ('0'..'9') -> scan_number lexer
-    | Some '.' -> scan_number lexer  (* can be either a number or the . operator*)
+let scan_symbol (lexer:lexer) = 
+  let start_line = lexer.line in 
+  let start_col = lexer.column in 
+  let c1 = match advance lexer with Some c -> c | None -> failwith "EOF" in 
+
+  let two_char = String.make 1 c1 ^ 
+    (match current_char lexer with Some c -> String.make 1 c | None -> "") in
+
+  match Hashtbl.find_opt Token_type.two_char_ops two_char with
+  | Some ttype -> 
+      ignore (advance lexer);
+      { ttype; lexeme = two_char; line = start_line; column = start_col }
+  | None ->
+      match Hashtbl.find_opt Token_type.one_char_ops c1 with
+      | Some ttype -> 
+          { ttype; lexeme = String.make 1 c1; line = start_line; column = start_col }
+      | None -> failwith ("Unexpected character: " ^ String.make 1 c1)
+
+let scan_string (lexer:lexer) =
+  let start_line = lexer.line in 
+  let start_col = lexer.column in 
+
+  ignore (advance lexer); (* consume the token*)
+  let buffer = Buffer.create 16 in
+  let rec scan_chars () =
+    match current_char lexer with
+    | Some '"' -> 
+        ignore (advance lexer); 
+        Buffer.contents buffer
+    | Some '\\' ->
+        ignore (advance lexer);
+        (match current_char lexer with
+         | Some 'n' -> Buffer.add_char buffer '\n'; ignore (advance lexer); scan_chars ()
+         | Some 't' -> Buffer.add_char buffer '\t'; ignore (advance lexer); scan_chars ()
+         | Some 'r' -> Buffer.add_char buffer '\r'; ignore (advance lexer); scan_chars ()
+         | Some '\\' -> Buffer.add_char buffer '\\'; ignore (advance lexer); scan_chars ()
+         | Some '"' -> Buffer.add_char buffer '"'; ignore (advance lexer); scan_chars ()
+         | Some c -> Buffer.add_char buffer c; ignore (advance lexer); scan_chars ()
+         | None -> failwith "Unterminated string")
+    | Some c ->
+        Buffer.add_char buffer c;
+        ignore (advance lexer);
+        scan_chars ()
+    | None -> failwith "Unterminated string"
+  in
+
+  let content = scan_chars () in 
+  { ttype = StringLiteral; lexeme = content; line = start_line; column = start_col}
+
+let scan_literal_or_keyword (lexer: lexer) = 
+  let start_line = lexer.line in 
+  let start_col = lexer.column in 
+  let buffer = Buffer.create 16 in
+  let rec scan_lit_or_kw () = 
+    match current_char lexer with 
+    | Some c when is_alphanumeric c ->
+      Buffer.add_char buffer c;
+      ignore (advance lexer);
+      scan_lit_or_kw ()
+    | Some _ -> 
+      Buffer.contents buffer 
+    | None -> 
+      Buffer.contents buffer
+  in
+  
+  let lexeme = scan_lit_or_kw () in
+  let ttype = 
+    try Token_type.StringMap.find lexeme Token_type.keywords
+    with Not_found -> Identifier
+  in
+  { ttype; lexeme; line = start_line; column = start_col }
+
+let rec skip_comment (lexer: lexer) = 
+  match current_char lexer with 
+  | Some '\n' -> ()
+  | Some _ -> 
+    ignore (advance lexer);
+    skip_comment lexer 
+  | None -> ()
+
+
+let rec scan_token lexer =
+  if is_at_end lexer then
+    { ttype = Eof; lexeme = ""; line = lexer.line; column = lexer.column }
+  else
+    match current_char lexer with
+    | Some ' ' | Some '\t' | Some '\r' | Some '\n' ->
+        ignore (advance lexer);
+        scan_token lexer
+    | Some '#' ->
+        skip_comment lexer;
+        scan_token lexer
     | Some '"' -> scan_string lexer
-    | Some ('a'..'z' | 'A'..'Z' | '_') -> scan_identifier_or_keyword lexer
+    | Some '.' ->
+        (match peek lexer with
+         | Some c when is_digit c -> scan_number lexer
+         | _ -> scan_symbol lexer)
+    | Some ('0'..'9') -> scan_number lexer
+    | Some ('a'..'z' | 'A'..'Z' | '_') -> scan_literal_or_keyword lexer
     | Some _ -> scan_symbol lexer
     | None -> { ttype = Eof; lexeme = ""; line = lexer.line; column = lexer.column }
 
-
-let tokenize lexer = 
-  let tokens = ref [] in 
-  while not (is_at_end lexer) do
-    let token = scan_token lexer in
-    tokens := token :: !tokens 
-  done; 
-  List.rev !tokens 
+let tokenize (lexer: lexer) =
+  let rec aux acc =
+    let tok = scan_token lexer in
+    if tok.ttype = Eof then List.rev (tok :: acc)
+    else aux (tok :: acc)
+  in
+  aux []

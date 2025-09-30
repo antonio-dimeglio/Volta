@@ -23,7 +23,7 @@ type token_type =
   LParen | RParen | LSquare | RSquare | LBrace | RBrace | 
 
   (* Misc *)
-  Colon | Arrow | MatchArrow | Dot |Eof
+  Colon | Arrow | MatchArrow | Dot | Comma | Semicolon | Eof
 
   module StringMap = Map.Make(String)
 
@@ -70,6 +70,26 @@ let token_to_string = function
   | LParen -> "LParen" | RParen -> "RParen" | LSquare -> "LSquare"
   | RSquare -> "RSquare" | LBrace -> "LBrace" | RBrace -> "RBrace"
 
-  | Colon -> "Colon" | Arrow -> "Arrow" 
+  | Colon -> "Colon" | Arrow -> "Arrow"
   | MatchArrow -> "MatchArrow" | Dot -> "Dot"
+  | Comma -> "Comma" | Semicolon -> "Semicolon"
   | Eof -> "Eof"
+
+let two_char_ops = Hashtbl.create 16 
+let () = 
+  List.iter (fun (s, t) -> Hashtbl.add two_char_ops s t ) [
+    ("+=", PlusAssign); ("-=", MinusAssign); ("*=", MultAssign);
+    ("**", Power); ("/=", DivAssign); ("==", Equals);
+    ("!=", NotEquals); (">=", GEQ); ("<=", LEQ); (":=", InferAssign);
+    ("->", Arrow); ("=>", MatchArrow)
+  ]
+
+let one_char_ops = Hashtbl.create 32
+let () =
+  List.iter (fun (c, t) -> Hashtbl.add one_char_ops c t) [
+    ('+', Plus); ('-', Minus); ('*', Mult); ('/', Div);
+    ('%', Modulo); ('=', Assign); ('!', Not); ('>', GT);
+    ('<', LT); (':', Colon); ('(', LParen); (')', RParen);
+    ('[', LSquare); (']', RSquare); ('{', LBrace); ('}', RBrace);
+    ('.', Dot); (',', Comma); (';', Semicolon)
+  ]
