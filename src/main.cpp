@@ -4,6 +4,9 @@
 #include <fstream>
 #include <sstream>
 
+
+using namespace volta::lexer;
+
 void printUsage(const char* programName) {
     std::cout << "Volta Programming Language\n";
     std::cout << "Usage:\n";
@@ -25,13 +28,13 @@ std::string readFile(const std::string& filename) {
 void runFile(const std::string& filename) {
     try {
         std::string source = readFile(filename);
-        volta::Lexer lexer(source);
+        Lexer lexer (source);
         auto tokens = lexer.tokenize();
 
         // For now, just print tokens
         std::cout << "Tokens:\n";
         for (const auto& token : tokens) {
-            std::cout << "  " << volta::tokenTypeToString(token.type)
+            std::cout << "  " << tokenTypeToString(token.type)
                       << " '" << token.lexeme << "'"
                       << " (line " << token.line << ", col " << token.column << ")\n";
         }
@@ -59,12 +62,12 @@ void runRepl() {
         }
 
         try {
-            volta::Lexer lexer(line);
+            Lexer lexer(line);
             auto tokens = lexer.tokenize();
 
             for (const auto& token : tokens) {
-                if (token.type != volta::TokenType::END_OF_FILE) {
-                    std::cout << volta::tokenTypeToString(token.type)
+                if (token.type != TokenType::END_OF_FILE) {
+                    std::cout << tokenTypeToString(token.type)
                               << " '" << token.lexeme << "'\n";
                 }
             }

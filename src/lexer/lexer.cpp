@@ -2,7 +2,8 @@
 #include <stdexcept>
 #include <cctype>
 
-namespace volta {
+
+namespace volta::lexer {
 
 Lexer::Lexer(std::string source)
     : source_(std::move(source)), idx_(0), line_(1), column_(1) {}
@@ -63,7 +64,7 @@ void Lexer::skipComment() {
     }
 }
 
-Token Lexer::scanNumber() {
+std::optional<Token> Lexer::scanNumber() {
     int startIdx = idx_;
     int startLine = line_;
     int startCol = column_;
@@ -92,7 +93,11 @@ Token Lexer::scanNumber() {
 
             // Verify at least one digit follows
             if (!currentChar().has_value() || !isDigit(currentChar().value())) {
-                throw std::runtime_error("Invalid number: expected digit after 'e'");
+                errorReporter.reportSyntaxError(
+                    "Invalid number: expected digit after 'e'", 
+                    volta::errors::SourceLocation("", line_, column_, 1) // TODO: Improve the error reporting by having a file reference and length variable
+                );
+                return {};
             }
         } else {
             break;
@@ -107,7 +112,7 @@ Token Lexer::scanNumber() {
     return Token(type, lexeme, startLine, startCol);
 }
 
-Token Lexer::scanString() {
+std::optional<Token> Lexer::scanString() {
     int startLine = line_;
     int startCol = column_;
 
@@ -119,7 +124,11 @@ Token Lexer::scanString() {
         auto c = currentChar();
 
         if (!c.has_value()) {
-            throw std::runtime_error("Unterminated string");
+                errorReporter.reportSyntaxError(
+                    "Unterminated string.", 
+                    volta::errors::SourceLocation("", line_, column_, 1) // TODO: Improve the error reporting by having a file reference and length variable
+                );
+            return {};
         }
 
         if (c.value() == '"') {
@@ -132,7 +141,11 @@ Token Lexer::scanString() {
             auto escaped = currentChar();
 
             if (!escaped.has_value()) {
-                throw std::runtime_error("Unterminated string");
+                errorReporter.reportSyntaxError(
+                    "Unterminated string.", 
+                    volta::errors::SourceLocation("", line_, column_, 1) // TODO: Improve the error reporting by having a file reference and length variable
+                );
+            return {};
             }
 
             switch (escaped.value()) {
@@ -173,13 +186,17 @@ Token Lexer::scanIdentifierOrKeyword() {
     return Token(type, lexeme, startLine, startCol);
 }
 
-Token Lexer::scanSymbol() {
+std::optional<Token> Lexer::scanSymbol() {
     int startLine = line_;
     int startCol = column_;
 
     auto c1Opt = advance();
     if (!c1Opt.has_value()) {
-        throw std::runtime_error("Unexpected EOF");
+        errorReporter.reportSyntaxError(
+            "Unexpected EOF.", 
+            volta::errors::SourceLocation("", line_, column_, 1) // TODO: Improve the error reporting by having a file reference and length variable
+        );
+        return {};
     }
 
     char c1 = c1Opt.value();
@@ -229,11 +246,15 @@ Token Lexer::scanSymbol() {
         case ',': return Token(TokenType::COMMA, oneChar, startLine, startCol);
         case ';': return Token(TokenType::SEMICOLON, oneChar, startLine, startCol);
         default:
-            throw std::runtime_error("Unexpected character: " + oneChar);
+            errorReporter.reportSyntaxError(
+                "Unexpected character.", 
+                volta::errors::SourceLocation("", line_, column_, 1) // TODO: Improve the error reporting by having a file reference and length variable
+            );
+            return {};
     }
 }
 
-Token Lexer::scanToken() {
+std::optional<Token> Lexer::scanToken() {
     skipWhitespace();
 
     if (isAtEnd()) {
@@ -281,7 +302,12 @@ std::vector<Token> Lexer::tokenize() {
     std::vector<Token> tokens;
 
     while (!isAtEnd()) {
-        Token token = scanToken();
+        auto maybeToken = scanToken();
+        if (!maybeToken.has_value()) {
+            return tokens; 
+        }
+
+        Token token = maybeToken.value();
         tokens.push_back(token);
 
         if (token.type == TokenType::END_OF_FILE) {

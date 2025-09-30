@@ -1,10 +1,9 @@
-#ifndef VOLTA_TOKEN_HPP
-#define VOLTA_TOKEN_HPP
+#pragma once
 
 #include <string>
 #include <unordered_map>
 
-namespace volta {
+namespace volta::lexer {
 
 enum class TokenType {
     // Literals
@@ -98,5 +97,3 @@ std::string tokenTypeToString(TokenType type);
 const std::unordered_map<std::string, TokenType>& getKeywords();
 
 } // namespace volta
-
-#endif // VOLTA_TOKEN_HPP

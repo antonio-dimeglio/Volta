@@ -1,6 +1,6 @@
 #include "lexer/token.hpp"
 
-namespace volta {
+namespace volta::lexer {
 
 std::string tokenTypeToString(TokenType type) {
     switch (type) {

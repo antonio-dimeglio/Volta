@@ -1,13 +1,13 @@
-#ifndef VOLTA_LEXER_HPP
-#define VOLTA_LEXER_HPP
+#pragma once 
 
 #include "token.hpp"
+#include "error/ErrorReporter.hpp"
 #include <string>
 #include <vector>
 #include <memory>
 #include <optional>
 
-namespace volta {
+namespace volta::lexer {
 
 class Lexer {
 public:
@@ -17,13 +17,17 @@ public:
     std::vector<Token> tokenize();
 
     // Scan a single token
-    Token scanToken();
+    std::optional<Token> scanToken();
+
+    // Get the error reporter
+    const volta::errors::ErrorReporter& getErrorReporter() const { return errorReporter; }
 
 private:
     std::string source_;
     size_t idx_;
     int line_;
     int column_;
+    volta::errors::ErrorReporter errorReporter;
 
     // Helper methods
     bool isAtEnd() const;
@@ -36,10 +40,10 @@ private:
     void skipComment();
 
     // Token scanning methods
-    Token scanNumber();
-    Token scanString();
+    std::optional<Token> scanNumber();
+    std::optional<Token> scanString();
     Token scanIdentifierOrKeyword();
-    Token scanSymbol();
+    std::optional<Token> scanSymbol();
 
     // Character classification
     static bool isDigit(char c);
@@ -48,5 +52,3 @@ private:
 };
 
 } // namespace volta
-
-#endif // VOLTA_LEXER_HPP

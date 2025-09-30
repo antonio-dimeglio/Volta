@@ -30,14 +30,9 @@ TEST_DIR := tests
 TARGET := $(BIN_DIR)/volta
 TEST_TARGET := $(BIN_DIR)/test_volta
 
-# Source files
-LEXER_SOURCES := $(wildcard $(SRC_DIR)/lexer/*.cpp)
-PARSER_SOURCES := $(wildcard $(SRC_DIR)/parser/*.cpp)
-INTERPRETER_SOURCES := $(wildcard $(SRC_DIR)/interpreter/*.cpp)
-UTILS_SOURCES := $(wildcard $(SRC_DIR)/utils/*.cpp)
+# Source files - automatically detect all subdirectories
+ALL_SOURCES := $(shell find $(SRC_DIR) -name '*.cpp' ! -name 'main.cpp')
 MAIN_SOURCE := $(SRC_DIR)/main.cpp
-
-ALL_SOURCES := $(LEXER_SOURCES) $(PARSER_SOURCES) $(INTERPRETER_SOURCES) $(UTILS_SOURCES)
 
 # Object files
 OBJECTS := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(ALL_SOURCES))
@@ -52,11 +47,11 @@ TEST_OBJECTS := $(patsubst $(TEST_DIR)/%.cpp,$(BUILD_DIR)/tests/%.o,$(TEST_SOURC
 all: $(TARGET)
 
 # Create directories
-$(BUILD_DIR) $(BIN_DIR) $(BUILD_DIR)/lexer $(BUILD_DIR)/parser $(BUILD_DIR)/interpreter $(BUILD_DIR)/utils $(BUILD_DIR)/tests:
+$(BUILD_DIR) $(BIN_DIR) $(BUILD_DIR)/lexer $(BUILD_DIR)/parser $(BUILD_DIR)/interpreter $(BUILD_DIR)/utils $(BUILD_DIR)/error $(BUILD_DIR)/tests:
 	@mkdir -p $@
 
 # Compile source files
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp | $(BUILD_DIR) $(BUILD_DIR)/lexer $(BUILD_DIR)/parser $(BUILD_DIR)/interpreter $(BUILD_DIR)/utils
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp | $(BUILD_DIR) $(BUILD_DIR)/lexer $(BUILD_DIR)/parser $(BUILD_DIR)/interpreter $(BUILD_DIR)/utils $(BUILD_DIR)/error
 	@echo "Compiling $<..."
 	@$(CXX) $(CXXFLAGS) -c $< -o $@
 
