@@ -49,12 +49,13 @@ match result {
 
 ## Building from Source
 
-Volta is implemented using OCaml.
+Volta is implemented in C++17.
 
 ### Prerequisites
 
-- Ocaml + dune
+- C++17 compatible compiler (GCC 7+, Clang 5+, or MSVC 2017+)
 - Make
+- (Optional) clang-format for code formatting
 
 ### Build Instructions
 
@@ -67,21 +68,42 @@ make
 
 ```bash
 # Run a Volta script
-./volta script.vlt
+./bin/volta examples/hello.vlt
 
 # Start the REPL
-./volta
+./bin/volta
+```
+
+### Other Make Targets
+
+```bash
+make debug      # Build with debug symbols
+make test       # Build and run tests
+make clean      # Remove build artifacts
+make install    # Install system-wide (requires sudo)
+make format     # Format code with clang-format
 ```
 
 ## Project Structure
 
 ```
 /Users/quantum/Desktop/Volta/
-├── src/           # Source code for the interpreter
-├── docs/          # Documentation and specifications
-├── examples/      # Example Volta programs
-├── tests/         # Test suite
-└── lib/           # Standard library implementation
+├── src/
+│   ├── lexer/         # Lexical analyzer
+│   ├── parser/        # Parser (coming soon)
+│   ├── interpreter/   # Interpreter (coming soon)
+│   ├── utils/         # Utility functions
+│   └── main.cpp       # Entry point
+├── include/
+│   ├── lexer/         # Lexer headers
+│   ├── parser/        # Parser headers
+│   ├── interpreter/   # Interpreter headers
+│   └── utils/         # Utility headers
+├── tests/             # Test suite
+├── examples/          # Example Volta programs
+├── docs/              # Documentation and specifications
+├── build/             # Build artifacts (generated)
+└── bin/               # Compiled binaries (generated)
 ```
 
 ## Language Guide

@@ -1,8 +1,0 @@
-lib: [
-  "_build/install/default/lib/volta/META"
-  "_build/install/default/lib/volta/dune-package"
-  "_build/install/default/lib/volta/opam"
-]
-bin: [
-  "_build/install/default/bin/volta"
-]
