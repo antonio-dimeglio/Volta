@@ -1,3 +1,9 @@
 {
-    "makefile.configureOnOpen": false
+    "makefile.configureOnOpen": false,
+    "ocaml.sandbox": {
+        "kind": "opam",
+        "switch": "default"
+    },
+    "ocaml.dune.autoDetect": true,
+    "ocaml.trace.server": "verbose"
 }

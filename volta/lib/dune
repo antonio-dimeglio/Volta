@@ -1,0 +1,3 @@
+(library
+ (name volta))
+(include_subdirs unqualified)

@@ -1,3 +1,0 @@
-(test
- (name test_volta)
- (libraries volta ounit2))

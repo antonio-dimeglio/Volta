@@ -1,3 +1,0 @@
-(library
- (name lexer)
- (modules token_type Lexer))

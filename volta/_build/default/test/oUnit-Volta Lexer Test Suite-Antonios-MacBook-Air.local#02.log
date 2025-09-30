@@ -1,0 +1,225 @@
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:0:Keyword Tests:1:test return keyword.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:0:Keyword Tests:1:test return keyword has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: { ttype = Return; lexeme = "return"; line = 1; column = 1 }
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: but got: { ttype = Return; lexeme = "return"; line = 1; column = 7 } in test Volta Lexer Test Suite:0:Keyword Tests:1:test return keyword.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:0:Keyword Tests:1:test return keyword.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:0:Keyword Tests:5:test for keyword.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:0:Keyword Tests:5:test for keyword has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: { ttype = For; lexeme = "for"; line = 1; column = 1 }
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: but got: { ttype = For; lexeme = "for"; line = 1; column = 4 } in test Volta Lexer Test Suite:0:Keyword Tests:5:test for keyword.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:0:Keyword Tests:5:test for keyword.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:0:Keyword Tests:7:test match keyword.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:0:Keyword Tests:7:test match keyword has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: { ttype = Match; lexeme = "match"; line = 1; column = 1 }
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: but got: { ttype = Match; lexeme = "match"; line = 1; column = 6 } in test Volta Lexer Test Suite:0:Keyword Tests:7:test match keyword.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:0:Keyword Tests:7:test match keyword.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:0:Keyword Tests:9:test mut keyword.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:0:Keyword Tests:9:test mut keyword has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: { ttype = Mut; lexeme = "mut"; line = 1; column = 1 }
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: but got: { ttype = Mut; lexeme = "mut"; line = 1; column = 4 } in test Volta Lexer Test Suite:0:Keyword Tests:9:test mut keyword.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:0:Keyword Tests:9:test mut keyword.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:0:Keyword Tests:11:test none keyword.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:0:Keyword Tests:11:test none keyword has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: { ttype = None; lexeme = "none"; line = 1; column = 1 }
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: but got: { ttype = None; lexeme = "none"; line = 1; column = 5 } in test Volta Lexer Test Suite:0:Keyword Tests:11:test none keyword.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:0:Keyword Tests:11:test none keyword.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:1:Operator Tests:1:test minus.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:1:Operator Tests:1:test minus has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: { ttype = Minus; lexeme = "-"; line = 1; column = 1 }
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: but got: { ttype = Minus; lexeme = "-"; line = 1; column = 2 } in test Volta Lexer Test Suite:1:Operator Tests:1:test minus.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:1:Operator Tests:1:test minus.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:1:Operator Tests:3:test div.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:1:Operator Tests:3:test div has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: { ttype = Div; lexeme = "/"; line = 1; column = 1 }
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: but got: { ttype = Div; lexeme = "/"; line = 1; column = 2 } in test Volta Lexer Test Suite:1:Operator Tests:3:test div.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:1:Operator Tests:3:test div.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:1:Operator Tests:5:test power.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:1:Operator Tests:5:test power has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: { ttype = Power; lexeme = "**"; line = 1; column = 1 }
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: but got: { ttype = Power; lexeme = "**"; line = 1; column = 3 } in test Volta Lexer Test Suite:1:Operator Tests:5:test power.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:1:Operator Tests:5:test power.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:1:Operator Tests:7:test not equals.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:1:Operator Tests:7:test not equals has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: { ttype = NotEquals; lexeme = "!="; line = 1; column = 1 }
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: but got: { ttype = NotEquals; lexeme = "!="; line = 1; column = 3 } in test Volta Lexer Test Suite:1:Operator Tests:7:test not equals.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:1:Operator Tests:7:test not equals.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:1:Operator Tests:9:test greater than.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:1:Operator Tests:9:test greater than has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: { ttype = GT; lexeme = ">"; line = 1; column = 1 }
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: but got: { ttype = GT; lexeme = ">"; line = 1; column = 2 } in test Volta Lexer Test Suite:1:Operator Tests:9:test greater than.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:1:Operator Tests:9:test greater than.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:1:Operator Tests:11:test greater equal.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:1:Operator Tests:11:test greater equal has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: { ttype = GEQ; lexeme = ">="; line = 1; column = 1 }
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: but got: { ttype = GEQ; lexeme = ">="; line = 1; column = 3 } in test Volta Lexer Test Suite:1:Operator Tests:11:test greater equal.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:1:Operator Tests:11:test greater equal.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:1:Operator Tests:13:test plus assign.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:1:Operator Tests:13:test plus assign has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: { ttype = PlusAssign; lexeme = "+="; line = 1; column = 1 }
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: but got: { ttype = PlusAssign; lexeme = "+="; line = 1; column = 3 } in test Volta Lexer Test Suite:1:Operator Tests:13:test plus assign.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:1:Operator Tests:13:test plus assign.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:1:Operator Tests:15:test mult assign.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:1:Operator Tests:15:test mult assign has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: { ttype = MultAssign; lexeme = "*="; line = 1; column = 1 }
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: but got: { ttype = MultAssign; lexeme = "*="; line = 1; column = 3 } in test Volta Lexer Test Suite:1:Operator Tests:15:test mult assign.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:1:Operator Tests:15:test mult assign.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:1:Operator Tests:17:test infer assign.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:1:Operator Tests:17:test infer assign has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: { ttype = InferAssign; lexeme = ":="; line = 1; column = 1 }
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: but got: { ttype = InferAssign; lexeme = ":="; line = 1; column = 3 } in test Volta Lexer Test Suite:1:Operator Tests:17:test infer assign.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:1:Operator Tests:17:test infer assign.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:2:Delimiter Tests:1:test right paren.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:2:Delimiter Tests:1:test right paren has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: { ttype = RParen; lexeme = ")"; line = 1; column = 1 }
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: but got: { ttype = RParen; lexeme = ")"; line = 1; column = 2 } in test Volta Lexer Test Suite:2:Delimiter Tests:1:test right paren.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:2:Delimiter Tests:1:test right paren.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:2:Delimiter Tests:3:test right brace.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:2:Delimiter Tests:3:test right brace has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: { ttype = RBrace; lexeme = "}"; line = 1; column = 1 }
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: but got: { ttype = RBrace; lexeme = "}"; line = 1; column = 2 } in test Volta Lexer Test Suite:2:Delimiter Tests:3:test right brace.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:2:Delimiter Tests:3:test right brace.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:2:Delimiter Tests:5:test right bracket.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:2:Delimiter Tests:5:test right bracket has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: { ttype = RSquare; lexeme = "]"; line = 1; column = 1 }
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: but got: { ttype = RSquare; lexeme = "]"; line = 1; column = 2 } in test Volta Lexer Test Suite:2:Delimiter Tests:5:test right bracket.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:2:Delimiter Tests:5:test right bracket.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:3:Literal Tests:0:test int 0.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:3:Literal Tests:0:test int 0 has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: { ttype = Integer; lexeme = "0"; line = 1; column = 1 }
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: but got: { ttype = Integer; lexeme = "0"; line = 1; column = 2 } in test Volta Lexer Test Suite:3:Literal Tests:0:test int 0.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:3:Literal Tests:0:test int 0.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:3:Literal Tests:2:test int 123.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:3:Literal Tests:2:test int 123 has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: { ttype = Integer; lexeme = "123"; line = 1; column = 1 }
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: but got: { ttype = Integer; lexeme = "123"; line = 1; column = 4 } in test Volta Lexer Test Suite:3:Literal Tests:2:test int 123.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:3:Literal Tests:2:test int 123.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:3:Literal Tests:4:test float 0.5.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:3:Literal Tests:4:test float 0.5 has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: { ttype = Real; lexeme = "0.5"; line = 1; column = 1 }
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: but got: { ttype = Real; lexeme = "0.5"; line = 1; column = 4 } in test Volta Lexer Test Suite:3:Literal Tests:4:test float 0.5.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:3:Literal Tests:4:test float 0.5.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:3:Literal Tests:6:test empty string.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:3:Literal Tests:6:test empty string has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: { ttype = StringLiteral; lexeme = ""; line = 1; column = 1 }
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: but got: { ttype = StringLiteral; lexeme = ""; line = 1; column = 3 } in test Volta Lexer Test Suite:3:Literal Tests:6:test empty string.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:3:Literal Tests:6:test empty string.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:3:Literal Tests:7:test simple string.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:3:Literal Tests:7:test simple string has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: { ttype = StringLiteral; lexeme = "hello"; line = 1; column = 1 }
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: but got: { ttype = StringLiteral; lexeme = "hello"; line = 1; column = 8 } in test Volta Lexer Test Suite:3:Literal Tests:7:test simple string.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:3:Literal Tests:7:test simple string.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:3:Literal Tests:9:test string with escape.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:3:Literal Tests:9:test string with escape has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: { ttype = StringLiteral; lexeme = "hello
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: world"; line = 1; column = 1 }
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: but got: { ttype = StringLiteral; lexeme = "hello
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: world"; line = 1; column = 15 } in test Volta Lexer Test Suite:3:Literal Tests:9:test string with escape.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:3:Literal Tests:9:test string with escape.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:4:Identifier Tests:1:test identifier with underscore.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:4:Identifier Tests:1:test identifier with underscore has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: { ttype = Identifier; lexeme = "my_var"; line = 1; column = 1 }
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: but got: { ttype = Identifier; lexeme = "my_var"; line = 1; column = 7 } in test Volta Lexer Test Suite:4:Identifier Tests:1:test identifier with underscore.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:4:Identifier Tests:1:test identifier with underscore.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:4:Identifier Tests:2:test identifier with numbers.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:4:Identifier Tests:2:test identifier with numbers has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: { ttype = Identifier; lexeme = "var123"; line = 1; column = 1 }
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: but got: { ttype = Identifier; lexeme = "var123"; line = 1; column = 7 } in test Volta Lexer Test Suite:4:Identifier Tests:2:test identifier with numbers.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:4:Identifier Tests:2:test identifier with numbers.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:4:Identifier Tests:3:test identifier starting with underscore.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:4:Identifier Tests:3:test identifier starting with underscore has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: { ttype = Identifier; lexeme = "_private"; line = 1; column = 1 }
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: but got: { ttype = Identifier; lexeme = "_private"; line = 1; column = 9 } in test Volta Lexer Test Suite:4:Identifier Tests:3:test identifier starting with underscore.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:4:Identifier Tests:3:test identifier starting with underscore.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:5:Integration Tests:1:test variable assignment.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:5:Integration Tests:1:test variable assignment has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: Identifier; Assign; Integer; Eof
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: but got: Identifier; Assign; Integer in test Volta Lexer Test Suite:5:Integration Tests:1:test variable assignment.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:5:Integration Tests:1:test variable assignment.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: Start test Volta Lexer Test Suite:6:Whitespace Tests:0:test spaces between tokens.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Test Volta Lexer Test Suite:6:Whitespace Tests:0:test spaces between tokens has failed.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: expected: Integer; Plus; Integer; Eof but got: Integer; Plus; Integer in test Volta Lexer Test Suite:6:Whitespace Tests:0:test spaces between tokens.
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Raised at OUnitAssert.assert_failure in file "src/lib/ounit2/advanced/oUnitAssert.ml", line 45, characters 2-27
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: Called from OUnitRunner.run_one_test.(fun) in file "src/lib/ounit2/advanced/oUnitRunner.ml", line 83, characters 13-26
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 E: 
+2025-09-30T09:18:58+00:00 Antonios-MacBook-Air.local#02 I: End test Volta Lexer Test Suite:6:Whitespace Tests:0:test spaces between tokens.
