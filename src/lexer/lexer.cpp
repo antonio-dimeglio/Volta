@@ -242,7 +242,17 @@ std::optional<Token> Lexer::scanSymbol() {
         case ']': return Token(TokenType::RSQUARE, oneChar, startLine, startCol);
         case '{': return Token(TokenType::LBRACE, oneChar, startLine, startCol);
         case '}': return Token(TokenType::RBRACE, oneChar, startLine, startCol);
-        case '.': return Token(TokenType::DOT, oneChar, startLine, startCol);
+        case '.':
+            if (c2Opt.has_value() && c2Opt.value() == '.') {
+                advance();  // consume second '.'
+                auto c3Opt = currentChar();
+                if (c3Opt.has_value() && c3Opt.value() == '=') {
+                    advance();  // consume '='
+                    return Token(TokenType::INCLUSIVE_RANGE, "..=", startLine, startCol);
+                }
+                return Token(TokenType::RANGE, "..", startLine, startCol);
+            }
+            return Token(TokenType::DOT, oneChar, startLine, startCol);
         case ',': return Token(TokenType::COMMA, oneChar, startLine, startCol);
         case ';': return Token(TokenType::SEMICOLON, oneChar, startLine, startCol);
         default:

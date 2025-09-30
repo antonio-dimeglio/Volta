@@ -85,7 +85,13 @@ const std::unordered_map<std::string, TokenType>& getKeywords() {
         {"struct", TokenType::STRUCT},
         {"mut", TokenType::MUT},
         {"some", TokenType::SOME_KEYWORD},
-        {"none", TokenType::NONE_KEYWORD}
+        {"none", TokenType::NONE_KEYWORD},
+        {"import", TokenType::IMPORT},
+        {"true", TokenType::BOOLEAN_LITERAL},
+        {"false", TokenType::BOOLEAN_LITERAL},
+        {"and", TokenType::AND},
+        {"or", TokenType::OR},
+        {"not", TokenType::NOT}
     };
     return keywords;
 }

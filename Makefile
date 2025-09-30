@@ -47,11 +47,12 @@ TEST_OBJECTS := $(patsubst $(TEST_DIR)/%.cpp,$(BUILD_DIR)/tests/%.o,$(TEST_SOURC
 all: $(TARGET)
 
 # Create directories
-$(BUILD_DIR) $(BIN_DIR) $(BUILD_DIR)/lexer $(BUILD_DIR)/parser $(BUILD_DIR)/interpreter $(BUILD_DIR)/utils $(BUILD_DIR)/error $(BUILD_DIR)/tests:
+$(BUILD_DIR) $(BIN_DIR) $(BUILD_DIR)/tests:
 	@mkdir -p $@
 
-# Compile source files
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp | $(BUILD_DIR) $(BUILD_DIR)/lexer $(BUILD_DIR)/parser $(BUILD_DIR)/interpreter $(BUILD_DIR)/utils $(BUILD_DIR)/error
+# Compile source files - automatically create subdirectories
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
+	@mkdir -p $(dir $@)
 	@echo "Compiling $<..."
 	@$(CXX) $(CXXFLAGS) -c $< -o $@
 

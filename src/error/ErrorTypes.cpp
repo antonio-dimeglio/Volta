@@ -28,4 +28,5 @@ SyntaxError::SyntaxError(std::string message, SourceLocation location)
 std::string SyntaxError::formatError() const {
     return CompilerError::formatError();
 }
+
 }

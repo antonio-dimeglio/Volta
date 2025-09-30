@@ -61,6 +61,8 @@ enum class TokenType {
     MUT,
     SOME_KEYWORD,
     NONE_KEYWORD,
+    IMPORT,
+    LET,
 
     // Delimiters
     LPAREN,
