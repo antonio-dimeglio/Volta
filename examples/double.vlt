@@ -1,0 +1,5 @@
+fn double(n: float) -> float {
+    return n * 2
+}
+
+x := double(5.0)

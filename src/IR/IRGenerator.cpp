@@ -118,14 +118,49 @@ void IRGenerator::generateStruct(const volta::ast::StructDeclaration& structDecl
 }
 
 void IRGenerator::generateGlobal(const volta::ast::VarDeclaration& varDecl) {
-    // Global variables are complex - they need special handling in IR
-    // For now, we'll skip global variable support
-    // In a full implementation, you would:
-    // 1. Create a GlobalVariable in the module
-    // 2. Store the initializer value
-    // 3. Register it so functions can reference it
+    // Resolve the variable's type
+    std::shared_ptr<semantic::Type> type;
+    if (varDecl.typeAnnotation) {
+        type = resolveType(varDecl.typeAnnotation->type.get());
+    } else {
+        // Type inference: get type from initializer
+        type = analyzer_->getExpressionType(varDecl.initializer.get());
+    }
 
-    error("Global variables not yet supported in IR generation", varDecl.location);
+    // For global variables with initializers, we need to evaluate them
+    // In a full implementation, initializers must be constant expressions
+    // For now, we'll create globals without initializers (they'll be initialized at runtime)
+
+    std::shared_ptr<Constant> initializer = nullptr;
+
+    // Try to evaluate constant initializers
+    if (varDecl.initializer) {
+        // Only handle literal initializers for now
+        if (auto* intLit = dynamic_cast<volta::ast::IntegerLiteral*>(varDecl.initializer.get())) {
+            auto intType = std::make_shared<semantic::PrimitiveType>(semantic::PrimitiveType::PrimitiveKind::Int);
+            initializer = std::make_shared<Constant>(intType, intLit->value);
+        } else if (auto* floatLit = dynamic_cast<volta::ast::FloatLiteral*>(varDecl.initializer.get())) {
+            auto floatType = std::make_shared<semantic::PrimitiveType>(semantic::PrimitiveType::PrimitiveKind::Float);
+            initializer = std::make_shared<Constant>(floatType, floatLit->value);
+        } else if (auto* boolLit = dynamic_cast<volta::ast::BooleanLiteral*>(varDecl.initializer.get())) {
+            auto boolType = std::make_shared<semantic::PrimitiveType>(semantic::PrimitiveType::PrimitiveKind::Bool);
+            initializer = std::make_shared<Constant>(boolType, boolLit->value);
+        } else if (auto* strLit = dynamic_cast<volta::ast::StringLiteral*>(varDecl.initializer.get())) {
+            auto strType = std::make_shared<semantic::PrimitiveType>(semantic::PrimitiveType::PrimitiveKind::String);
+            initializer = std::make_shared<Constant>(strType, strLit->value);
+        }
+        // For non-constant initializers, we'll need to initialize them in a special init function
+        // or at the start of main - this is left as future work
+    }
+
+    // Create global variable
+    auto global = std::make_unique<GlobalVariable>(type, varDecl.identifier, initializer);
+
+    // Add to module and get pointer
+    GlobalVariable* globalPtr = module_->addGlobal(std::move(global));
+
+    // Register in variable map so functions can access it
+    declareVariable(varDecl.identifier, globalPtr);
 }
 
 // ============================================================================
@@ -194,7 +229,8 @@ void IRGenerator::generateIfStatement(const volta::ast::IfStatement& stmt) {
     currentFunction_->addBasicBlock(std::move(thenBB));
     builder_.setInsertPoint(currentFunction_->basicBlocks().back().get());
     generateStatement(stmt.thenBlock.get());
-    if (!builder_.insertPoint()->hasTerminator()) {
+    bool thenHasTerminator = builder_.insertPoint()->hasTerminator();
+    if (!thenHasTerminator) {
         builder_.createBr(mergeBB.get());
     }
 
@@ -204,13 +240,18 @@ void IRGenerator::generateIfStatement(const volta::ast::IfStatement& stmt) {
     if (stmt.elseBlock != nullptr) {
         generateStatement(stmt.elseBlock.get());
     }
-    if (!builder_.insertPoint()->hasTerminator()) {
+    bool elseHasTerminator = builder_.insertPoint()->hasTerminator();
+    if (!elseHasTerminator) {
         builder_.createBr(mergeBB.get());
     }
-    
-    // Continue at merge block
-    currentFunction_->addBasicBlock(std::move(mergeBB));
-    builder_.setInsertPoint(currentFunction_->basicBlocks().back().get());
+
+    // Only add merge block if at least one branch doesn't have a terminator
+    if (!thenHasTerminator || !elseHasTerminator) {
+        currentFunction_->addBasicBlock(std::move(mergeBB));
+        builder_.setInsertPoint(currentFunction_->basicBlocks().back().get());
+    }
+    // If both branches have terminators, the merge block is unreachable
+    // Don't set insertion point - function ends here
 }
 
 void IRGenerator::generateWhileStatement(const volta::ast::WhileStatement& stmt) {

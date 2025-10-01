@@ -9,4 +9,3 @@ fn factorial(n: int) -> int {
 }
 
 result := factorial(5)
-print(result)

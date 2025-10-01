@@ -1,11 +1,21 @@
 #include "lexer/lexer.hpp"
 #include "lexer/token.hpp"
+#include "ast/ASTDumper.hpp"
+#include "parser/Parser.hpp"
+#include "error/ErrorReporter.hpp"
+#include "semantic/SemanticAnalyzer.hpp"
+#include "IR/IRGenerator.hpp"
+#include "IR/IRPrinter.hpp"
 #include <iostream>
 #include <fstream>
 #include <sstream>
 
 
 using namespace volta::lexer;
+using namespace volta::parser;
+using namespace volta::ast;
+using namespace volta::ir;
+using namespace volta::errors;
 
 void printUsage(const char* programName) {
     std::cout << "Volta Programming Language\n";
@@ -38,6 +48,45 @@ void runFile(const std::string& filename) {
                       << " '" << token.lexeme << "'"
                       << " (line " << token.line << ", col " << token.column << ")\n";
         }
+
+        Parser parser(tokens);
+        auto ast = parser.parseProgram();
+        ASTDumper astDumper;
+
+        std::cout << "\nAST:\n";
+        astDumper.dumpProgram(*ast);
+
+        // Semantic analysis
+        ErrorReporter semanticReporter;
+        volta::semantic::SemanticAnalyzer analyzer(semanticReporter);
+        analyzer.analyze(*ast);
+
+        if (semanticReporter.hasErrors()) {
+            std::cerr << "\nSemantic Analysis Errors:\n";
+            semanticReporter.printErrors(std::cerr);
+            return;
+        }
+
+        std::cout << "\nSemantic analysis passed!\n";
+
+        // IR generation
+        ErrorReporter irReporter;
+        IRGenerator irGenerator(irReporter);
+        auto irModule = irGenerator.generate(*ast, analyzer);
+
+        if (irReporter.hasErrors()) {
+            std::cerr << "\nIR Generation Errors:\n";
+            irReporter.printErrors(std::cerr);
+            return;
+        }
+
+        if (irModule) {
+            std::cout << "\n=== Generated IR ===\n";
+            IRPrinter printer(std::cout);
+            printer.print(*irModule);
+            std::cout << "\n";
+        }
+
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
     }
