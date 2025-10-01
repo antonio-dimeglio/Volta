@@ -1,0 +1,14 @@
+struct Point {
+    x: float,
+    y: float
+}
+
+# Struct instantiation
+p := Point { x: 3.0, y: 4.0 }
+
+# Method syntax
+fn Point.distance(self) -> float {
+    return math.sqrt(self.x * self.x + self.y * self.y)
+}
+
+dist := p.distance()
