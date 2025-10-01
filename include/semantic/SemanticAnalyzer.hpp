@@ -28,6 +28,7 @@ public:
 
     // Get the inferred/checked type of an expression (after analysis)
     std::shared_ptr<Type> getExpressionType(const volta::ast::Expression* expr) const;
+    std::shared_ptr<Type> resolveTypeAnnotation(const volta::ast::Type* typeAnnotation) const;
 
 private:
     // === Pass 1: Collect top-level declarations ===
@@ -37,7 +38,7 @@ private:
 
     // === Pass 2: Resolve types ===
     void resolveTypes(const volta::ast::Program& program);
-    std::shared_ptr<Type> resolveTypeAnnotation(const volta::ast::Type* typeAnnotation);
+    
 
     // === Pass 3: Type check and validate ===
     void analyzeProgram(const volta::ast::Program& program);

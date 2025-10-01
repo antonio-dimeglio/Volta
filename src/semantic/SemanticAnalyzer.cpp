@@ -109,7 +109,7 @@ void SemanticAnalyzer::typeError(const std::string& message, const Type* expecte
     );
 }
 
-std::shared_ptr<Type> SemanticAnalyzer::resolveTypeAnnotation(const volta::ast::Type* astType) {
+std::shared_ptr<Type> SemanticAnalyzer::resolveTypeAnnotation(const volta::ast::Type* astType) const {
     if (!astType) {
         return std::make_shared<UnknownType>();
     }
