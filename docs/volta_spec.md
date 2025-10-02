@@ -278,7 +278,7 @@ print("Std Dev: " + str(std))
 
 ## Implementation Notes
 
-- **Interpreter written in C**: Following Crafting Interpreters architecture
+- **Interpreter written in C++**: Loosely following Crafting Interpreters architecture
 - **Bytecode VM**: Compile to bytecode for better performance than tree-walk interpreter
 - **Static typing**: Type checking happens before bytecode generation
 - **Optimizations**: Constant folding, dead code elimination, tail call optimization
