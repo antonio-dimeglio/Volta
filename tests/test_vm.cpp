@@ -300,6 +300,9 @@ TEST(VMExecutionTest, ExecuteMulInt) {
 
     CompiledFunction func;
     func.name = "main";
+    func.index = 0;
+    func.parameterCount = 0;
+    func.localCount = 0;
     func.chunk.emitOpcode(Opcode::ConstInt);
     func.chunk.emitInt64(6);
     func.chunk.emitOpcode(Opcode::ConstInt);
@@ -320,6 +323,9 @@ TEST(VMExecutionTest, ExecuteFloatArithmetic) {
 
     CompiledFunction func;
     func.name = "main";
+    func.index = 0;
+    func.parameterCount = 0;
+    func.localCount = 0;
     func.chunk.emitOpcode(Opcode::ConstFloat);
     func.chunk.emitFloat64(3.0);
     func.chunk.emitOpcode(Opcode::ConstFloat);
@@ -341,6 +347,9 @@ TEST(VMExecutionTest, ExecuteComparison) {
 
     CompiledFunction func;
     func.name = "main";
+    func.index = 0;
+    func.parameterCount = 0;
+    func.localCount = 0;
     func.chunk.emitOpcode(Opcode::ConstInt);
     func.chunk.emitInt64(10);
     func.chunk.emitOpcode(Opcode::ConstInt);
@@ -362,6 +371,9 @@ TEST(VMExecutionTest, ExecuteLogicalAnd) {
 
     CompiledFunction func;
     func.name = "main";
+    func.index = 0;
+    func.parameterCount = 0;
+    func.localCount = 0;
     func.chunk.emitOpcode(Opcode::ConstBool);
     func.chunk.emitBool(true);
     func.chunk.emitOpcode(Opcode::ConstBool);
@@ -383,6 +395,8 @@ TEST(VMExecutionTest, ExecuteLocalVariables) {
 
     CompiledFunction func;
     func.name = "main";
+    func.index = 0;
+    func.parameterCount = 0;
     func.localCount = 2;
 
     // x = 42; y = x + 10; return y;
@@ -421,10 +435,10 @@ TEST(VMExecutionTest, ExecuteJump) {
     func.localCount = 0;
 
     // Jump over the 99
-    size_t jumpStart = func.chunk.currentOffset();
     func.chunk.emitOpcode(Opcode::Jump);
     size_t patchOffset = func.chunk.currentOffset();
     func.chunk.emitInt32(0);  // Placeholder
+    size_t afterJump = func.chunk.currentOffset();  // IP position after reading operand
 
     // This should be skipped
     func.chunk.emitOpcode(Opcode::ConstInt);
@@ -432,7 +446,8 @@ TEST(VMExecutionTest, ExecuteJump) {
 
     // Jump target
     size_t targetOffset = func.chunk.currentOffset();
-    func.chunk.patchInt32(patchOffset, targetOffset - jumpStart);
+    // Offset is relative to IP after reading the operand
+    func.chunk.patchInt32(patchOffset, static_cast<int32_t>(targetOffset - afterJump));
 
     func.chunk.emitOpcode(Opcode::ConstInt);
     func.chunk.emitInt64(42);
@@ -490,6 +505,9 @@ TEST(VMExecutionTest, ExecuteStringConstant) {
 
     CompiledFunction func;
     func.name = "main";
+    func.index = 0;
+    func.parameterCount = 0;
+    func.localCount = 0;
     func.chunk.emitOpcode(Opcode::ConstString);
     func.chunk.emitInt32(0);
     func.chunk.emitOpcode(Opcode::Return);
@@ -749,6 +767,9 @@ TEST(VMEdgeCaseTest, EmptyProgram) {
 
     CompiledFunction func;
     func.name = "main";
+    func.index = 0;
+    func.parameterCount = 0;
+    func.localCount = 0;
     func.chunk.emitOpcode(Opcode::ReturnVoid);
     module->functions().push_back(std::move(func));
 

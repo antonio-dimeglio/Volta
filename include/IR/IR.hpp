@@ -122,6 +122,9 @@ public:
         // Memory
         Alloc, Load, Store, GetField, SetField, GetElement, SetElement,
 
+        // Array operations
+        NewArray,
+
         // Control flow
         Br, BrIf, Ret, Call, CallForeign,
 
@@ -325,6 +328,26 @@ private:
     Value* array_;
     Value* index_;
     Value* value_;
+};
+
+/**
+ * Create new array: %result = new_array %length, [%elem0, %elem1, ...]
+ * Creates a new array with the specified elements
+ */
+class NewArrayInst : public Instruction {
+public:
+    NewArrayInst(std::shared_ptr<semantic::Type> arrayType, const std::string& name,
+                 std::vector<Value*> elements)
+        : Instruction(Opcode::NewArray, std::move(arrayType), name),
+          elements_(std::move(elements)) {}
+
+    const std::vector<Value*>& elements() const { return elements_; }
+    size_t elementCount() const { return elements_.size(); }
+
+    std::vector<Value*> operands() const override { return elements_; }
+
+private:
+    std::vector<Value*> elements_;
 };
 
 /**

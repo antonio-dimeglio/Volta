@@ -340,6 +340,11 @@ public:
     const CallFrame* getCallStack() const { return callStack_.data(); }
     size_t getCallStackTop() const { return callStackTop_; }
 
+    /**
+     * Get the compiled module (for accessing string pool and other metadata)
+     */
+    const bytecode::CompiledModule* module() const { return module_.get(); }
+
 private:
     // ========== Core Execution Loop ==========
 

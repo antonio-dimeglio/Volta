@@ -1,0 +1,9 @@
+fn testFunc(arr: mut Array[int]) -> void {
+    arr[0] = 99
+}
+
+fn main() -> int {
+    arr: mut Array[int] = [1, 2, 3]
+    testFunc(arr)
+    return arr[0]
+}

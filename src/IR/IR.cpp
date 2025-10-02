@@ -52,7 +52,7 @@ std::string Instruction::opcodeName(Opcode op) {
         case Opcode::Or: return "or";
         case Opcode::Not: return "not";
 
-        // Memory 
+        // Memory
         case Opcode::Alloc: return "alloc";
         case Opcode::Load: return "load";
         case Opcode::Store: return "store";
@@ -60,6 +60,9 @@ std::string Instruction::opcodeName(Opcode op) {
         case Opcode::SetField: return "set_field";
         case Opcode::GetElement: return "get_element";
         case Opcode::SetElement: return "set_element";
+
+        // Array operations
+        case Opcode::NewArray: return "new_array";
 
         // Control
         case Opcode::Br: return "br";

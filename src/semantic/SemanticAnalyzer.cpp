@@ -133,7 +133,7 @@ std::shared_ptr<Type> SemanticAnalyzer::resolveTypeAnnotation(const volta::ast::
         return std::make_shared<UnknownType>();
     }
 
-    // Handle PrimitiveType (int, float, bool, str)
+    // Handle PrimitiveType (int, float, bool, str, void)
     if (auto* prim = dynamic_cast<const volta::ast::PrimitiveType*>(astType)) {
         switch (prim->kind) {
             case volta::ast::PrimitiveType::Kind::Int:
@@ -144,6 +144,8 @@ std::shared_ptr<Type> SemanticAnalyzer::resolveTypeAnnotation(const volta::ast::
                 return std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Bool);
             case volta::ast::PrimitiveType::Kind::Str:
                 return std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::String);
+            case volta::ast::PrimitiveType::Kind::Void:
+                return std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Void);
         }
     }
 
@@ -584,6 +586,27 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeExpression(const volta::ast::Expr
             resultType = std::make_shared<ArrayType>(elemType);
         }
     }
+    else if (auto* indexExpr = dynamic_cast<const volta::ast::IndexExpression*>(expr)) {
+        // Analyze array indexing: array[index]
+        auto arrayType = analyzeExpression(indexExpr->object.get());
+        auto indexType = analyzeExpression(indexExpr->index.get());
+
+        // Index must be an integer
+        if (indexType->kind() != Type::Kind::Int) {
+            typeError("Array index must be an integer",
+                     std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Int).get(),
+                     indexType.get(), indexExpr->location);
+        }
+
+        // Object must be an array type
+        if (arrayType->kind() == Type::Kind::Array) {
+            auto* arrType = dynamic_cast<const ArrayType*>(arrayType.get());
+            resultType = arrType->elementType();
+        } else {
+            error("Index operator can only be used on arrays", indexExpr->location);
+            resultType = std::make_shared<UnknownType>();
+        }
+    }
     else if (auto* structLit = dynamic_cast<const volta::ast::StructLiteral*>(expr)) {
         // Look up the struct type by name
         const std::string& structName = structLit->structName->name;
@@ -657,14 +680,30 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeBinaryExpression(const volta::ast
         binExpr->op == Op::SubtractAssign || binExpr->op == Op::MultiplyAssign ||
         binExpr->op == Op::DivideAssign) {
 
-        auto* ident = dynamic_cast<const volta::ast::IdentifierExpression*>(binExpr->left.get());
-        if (!ident) {
-            error("Left side of assignment must be a variable", binExpr->location);
-            return leftType;
+        // Check if left side is a valid l-value
+        bool isValidLValue = false;
+
+        // 1. Simple identifier (variable)
+        if (auto* ident = dynamic_cast<const volta::ast::IdentifierExpression*>(binExpr->left.get())) {
+            if (!isVariableMutable(ident->name)) {
+                error("Cannot assign to immutable variable '" + ident->name + "'", binExpr->location);
+            }
+            isValidLValue = true;
+        }
+        // 2. Member access (struct.field)
+        else if (dynamic_cast<const volta::ast::MemberExpression*>(binExpr->left.get())) {
+            isValidLValue = true;
+            // TODO: Check if the base object is mutable
+        }
+        // 3. Array indexing (array[index])
+        else if (dynamic_cast<const volta::ast::IndexExpression*>(binExpr->left.get())) {
+            isValidLValue = true;
+            // TODO: Check if the array is mutable
         }
 
-        if (!isVariableMutable(ident->name)) {
-            error("Cannot assign to immutable variable '" + ident->name + "'", binExpr->location);
+        if (!isValidLValue) {
+            error("Left side of assignment must be a variable, struct field, or array element", binExpr->location);
+            return leftType;
         }
 
         if (!areTypesCompatible(leftType.get(), rightType.get())) {

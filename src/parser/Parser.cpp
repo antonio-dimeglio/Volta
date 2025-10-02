@@ -215,6 +215,10 @@ std::unique_ptr<volta::ast::FnDeclaration> Parser::parseFnDeclaration() {
     while (!check(TokenType::RPAREN)) {
         auto var = consume(TokenType::IDENTIFIER, "Expected identifier.").lexeme;
         consume(TokenType::COLON, "Expected ':' for parameter type.");
+
+        // Skip optional 'mut' keyword in parameter types (for now, treat all params as potentially mutable)
+        match(TokenType::MUT);
+
         auto type = parseType();
 
         // Wrap in unique_ptr
@@ -921,6 +925,8 @@ std::unique_ptr<volta::ast::Type> Parser::parseType() {
             return std::make_unique<PrimitiveType>(PrimitiveType::Kind::Bool);
         } else if (name == "str") {
             return std::make_unique<PrimitiveType>(PrimitiveType::Kind::Str);
+        } else if (name == "void") {
+            return std::make_unique<PrimitiveType>(PrimitiveType::Kind::Void);
         }
 
         // Named type (user-defined struct, etc.)

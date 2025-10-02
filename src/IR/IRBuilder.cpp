@@ -149,6 +149,13 @@ void IRBuilder::createSetElement(Value* array, Value* index, Value* value) {
     insert(std::move(inst));
 }
 
+Value* IRBuilder::createNewArray(std::shared_ptr<semantic::Type> arrayType,
+                                 const std::vector<Value*>& elements) {
+    std::string name = getUniqueTempName();
+    auto inst = std::make_unique<NewArrayInst>(arrayType, name, elements);
+    return insert(std::move(inst));
+}
+
 // ============================================================================
 // Control Flow Instructions
 // ============================================================================

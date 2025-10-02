@@ -38,6 +38,12 @@ const CompiledFunction* CompiledModule::getFunction(const std::string& name) con
 }
 
 const CompiledFunction* CompiledModule::getEntryPoint() const {
+    // For a scripting language, we look for __init__ first (top-level code)
+    // If that doesn't exist, we fall back to main (for compatibility)
+    const auto* initFunc = getFunction("__init__");
+    if (initFunc) {
+        return initFunc;
+    }
     return getFunction("main");
 }
 
@@ -196,6 +202,9 @@ void BytecodeCompiler::compileInstruction(const ir::Instruction* inst, Chunk& ch
             break;
 
         // Array operations
+        case ir::Instruction::Opcode::NewArray:
+            compileNewArrayInst(static_cast<const ir::NewArrayInst*>(inst), chunk);
+            break;
         case ir::Instruction::Opcode::GetElement:
             compileGetElementInst(static_cast<const ir::GetElementInst*>(inst), chunk);
             break;
@@ -318,34 +327,85 @@ void BytecodeCompiler::compileUnaryInst(const ir::UnaryInst* inst, Chunk& chunk)
 }
 
 void BytecodeCompiler::compileAllocInst(const ir::AllocInst* inst, Chunk& chunk) {
-    // Alloc creates an object/struct on the heap
-    // For now, we'll use a simple type ID of 0 and calculate size based on type
-    chunk.emitOpcode(Opcode::Alloc);
-    chunk.emitInt32(0); // type-id (TODO: implement proper type indexing)
-    chunk.emitInt32(8); // size in bytes (TODO: calculate from type)
+    // For primitive types (int, float, bool, string), we don't need heap allocation
+    // The local slot itself can hold the value directly
+    auto allocType = inst->allocatedType();
+    auto kind = allocType->kind();
 
-    // Store the allocated address to a local
-    chunk.emitOpcode(Opcode::StoreLocal);
-    chunk.emitInt32(getLocalIndex(inst));
+    bool isPrimitive = (kind == semantic::Type::Kind::Int ||
+                       kind == semantic::Type::Kind::Float ||
+                       kind == semantic::Type::Kind::Bool ||
+                       kind == semantic::Type::Kind::String ||
+                       kind == semantic::Type::Kind::Void);
+
+    if (isPrimitive) {
+        // Primitive types don't need heap allocation
+        // Just initialize the local slot to null/zero
+        chunk.emitOpcode(Opcode::ConstNull);
+        chunk.emitOpcode(Opcode::StoreLocal);
+        chunk.emitInt32(getLocalIndex(inst));
+    } else {
+        // For structs/arrays, allocate on the heap
+        chunk.emitOpcode(Opcode::Alloc);
+        chunk.emitInt32(0); // type-id (TODO: implement proper type indexing)
+        chunk.emitInt32(8); // size in bytes (TODO: calculate from type)
+
+        // Store the allocated address to a local
+        chunk.emitOpcode(Opcode::StoreLocal);
+        chunk.emitInt32(getLocalIndex(inst));
+    }
 }
 
 void BytecodeCompiler::compileLoadInst(const ir::LoadInst* inst, Chunk& chunk) {
-    // Load from memory: %result = load %address
+    // Check if we're loading from a primitive alloca
+    // If so, just load directly from the local slot
+    if (auto* allocInst = dynamic_cast<const ir::AllocInst*>(inst->address())) {
+        auto kind = allocInst->allocatedType()->kind();
+        bool isPrimitive = (kind == semantic::Type::Kind::Int ||
+                           kind == semantic::Type::Kind::Float ||
+                           kind == semantic::Type::Kind::Bool ||
+                           kind == semantic::Type::Kind::String ||
+                           kind == semantic::Type::Kind::Void);
+        if (isPrimitive) {
+            // Loading from a primitive local - just copy the local
+            chunk.emitOpcode(Opcode::LoadLocal);
+            chunk.emitInt32(getLocalIndex(allocInst));
+            chunk.emitOpcode(Opcode::StoreLocal);
+            chunk.emitInt32(getLocalIndex(inst));
+            return;
+        }
+    }
+
+    // Otherwise, load from heap memory
     emitLoadValue(inst->address(), chunk);  // Load address onto stack
     chunk.emitOpcode(Opcode::Load);         // Load from that address
-
-    // Store result
     chunk.emitOpcode(Opcode::StoreLocal);
     chunk.emitInt32(getLocalIndex(inst));
 }
 
 void BytecodeCompiler::compileStoreInst(const ir::StoreInst* inst, Chunk& chunk) {
-    // Store to memory: store %value, %address
+    // Check if we're storing to a primitive alloca
+    // If so, just store directly to the local slot
+    if (auto* allocInst = dynamic_cast<const ir::AllocInst*>(inst->address())) {
+        auto kind = allocInst->allocatedType()->kind();
+        bool isPrimitive = (kind == semantic::Type::Kind::Int ||
+                           kind == semantic::Type::Kind::Float ||
+                           kind == semantic::Type::Kind::Bool ||
+                           kind == semantic::Type::Kind::String ||
+                           kind == semantic::Type::Kind::Void);
+        if (isPrimitive) {
+            // Storing to a primitive local - just store directly
+            emitLoadValue(inst->value(), chunk);    // Load value onto stack
+            chunk.emitOpcode(Opcode::StoreLocal);
+            chunk.emitInt32(getLocalIndex(allocInst));
+            return;
+        }
+    }
+
+    // Otherwise, store to heap memory
     emitLoadValue(inst->value(), chunk);    // Load value onto stack
     emitLoadValue(inst->address(), chunk);  // Load address onto stack
     chunk.emitOpcode(Opcode::Store);        // Store value to address
-
-    // Store instruction doesn't produce a result
 }
 
 void BytecodeCompiler::compileGetFieldInst(const ir::GetFieldInst* inst, Chunk& chunk) {
@@ -361,12 +421,35 @@ void BytecodeCompiler::compileGetFieldInst(const ir::GetFieldInst* inst, Chunk& 
 
 void BytecodeCompiler::compileSetFieldInst(const ir::SetFieldInst* inst, Chunk& chunk) {
     // Set field in struct: set_field %object, field_index, %value
+    // Stack layout for VM: [... object value] -> SetField pops value then object
     emitLoadValue(inst->object(), chunk);       // Load object onto stack
+    emitLoadValue(inst->value(), chunk);        // Load value onto stack
     chunk.emitOpcode(Opcode::SetField);         // Set field
     chunk.emitInt32(inst->fieldIndex());        // Field index
-    emitLoadValue(inst->value(), chunk);        // Load value onto stack
 
     // SetField doesn't produce a result
+}
+
+void BytecodeCompiler::compileNewArrayInst(const ir::NewArrayInst* inst, Chunk& chunk) {
+    // Create new array: %result = new_array [%elem0, %elem1, ...]
+    // Strategy:
+    // 1. Push each element value onto the stack first
+    // 2. Emit NewArray instruction with element count
+    // 3. VM will pop elements and initialize the array
+    // 4. Store the resulting array reference
+
+    // Push each element onto the stack (VM will pop them in reverse order)
+    for (const auto* elem : inst->elements()) {
+        emitLoadValue(elem, chunk);
+    }
+
+    // Emit NewArray instruction with element count
+    chunk.emitOpcode(Opcode::NewArray);
+    chunk.emitInt32(static_cast<int32_t>(inst->elementCount()));
+
+    // Store the result (array reference) in a local
+    chunk.emitOpcode(Opcode::StoreLocal);
+    chunk.emitInt32(getLocalIndex(inst));
 }
 
 void BytecodeCompiler::compileGetElementInst(const ir::GetElementInst* inst, Chunk& chunk) {
@@ -489,6 +572,11 @@ void BytecodeCompiler::compileCallForeignInst(const ir::CallForeignInst* inst, C
 }
 
 void BytecodeCompiler::emitLoadValue(const ir::Value* value, Chunk& chunk) {
+    if (!value) {
+        // Null value - this might happen with unimplemented features
+        chunk.emitOpcode(Opcode::ConstNull);
+        return;
+    }
     if (value->kind() == ir::Value::Kind::Constant) {
         emitConstant(static_cast<const ir::Constant*>(value), chunk);
     } else if (value->kind() == ir::Value::Kind::Parameter) {

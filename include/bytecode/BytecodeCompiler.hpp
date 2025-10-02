@@ -16,11 +16,11 @@ namespace volta::bytecode {
  */
 struct CompiledFunction {
     std::string name;                     ///< Function name
-    uint32_t index;                       ///< Function index in module
-    uint32_t parameterCount;              ///< Number of parameters
-    uint32_t localCount;                  ///< Number of local variables (params + locals)
+    uint32_t index = 0;                   ///< Function index in module
+    uint32_t parameterCount = 0;          ///< Number of parameters
+    uint32_t localCount = 0;              ///< Number of local variables (params + locals)
     Chunk chunk;                          ///< Bytecode for this function
-    bool isForeign;                       ///< Is this a foreign function?
+    bool isForeign = false;               ///< Is this a foreign function?
 };
 
 /**
@@ -136,6 +136,9 @@ private:
 
     /// Compile set field instruction
     void compileSetFieldInst(const ir::SetFieldInst* inst, Chunk& chunk);
+
+    /// Compile new array instruction
+    void compileNewArrayInst(const ir::NewArrayInst* inst, Chunk& chunk);
 
     /// Compile get element instruction (array indexing)
     void compileGetElementInst(const ir::GetElementInst* inst, Chunk& chunk);

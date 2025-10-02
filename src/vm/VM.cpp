@@ -31,10 +31,11 @@ VM::~VM() {
 // ========== Execution ==========
 
 int VM::execute() {
-const auto* entryPoint = module_->getEntryPoint();
+    const auto* entryPoint = module_->getEntryPoint();
     if (!entryPoint) {
-        runtimeError("No entry point (main) found");
-        return 1;
+        // For a scripting language, it's okay to have no entry point
+        // (e.g., if there's only function/struct definitions and no top-level code)
+        return 0;
     }
     
     // Create initial call frame for main
@@ -93,6 +94,12 @@ Value VM::executeFunction(uint32_t functionIndex) {
             runtimeError("Not enough arguments for function call");
             return Value::makeNull();
         }
+    }
+
+    // Check if we have enough space in local stack
+    if (localStackTop_ + function->localCount > localStack_.size()) {
+        runtimeError("Local stack overflow");
+        return Value::makeNull();
     }
 
     // Pop arguments from eval stack and place in local stack (in reverse order)
@@ -334,7 +341,7 @@ bool VM::executeInstruction() {
         case bytecode::Opcode::CallForeign: execCallForeign(); break;
         case bytecode::Opcode::Return:
             execReturn();
-            return false;
+            return callStackTop_ > 0;  // Continue if there are still frames
         case bytecode::Opcode::ReturnVoid:
             execReturnVoid();
             return callStackTop_ > 0;
@@ -853,7 +860,20 @@ void VM::execNewArray() {
         return;
     }
 
+    // Allocate the array
     ArrayObject* arr = allocateArray(static_cast<uint32_t>(length));
+
+    // Pop elements from stack and initialize the array (in reverse order)
+    // Elements are pushed in order, so we pop them in reverse
+    for (int32_t i = length - 1; i >= 0; i--) {
+        Value val = pop();
+        arr->elements[i] = val;
+        if (debugTrace_) {
+            std::cout << "  NewArray[" << i << "] = " << val.asInt << std::endl;
+        }
+    }
+
+    // Push the array reference onto the stack
     push(Value::makeObject(arr));
 }
 
@@ -876,7 +896,11 @@ void VM::execGetElement() {
         return;
     }
 
-    push(arr->elements[idx]);
+    Value elem = arr->elements[idx];
+    if (debugTrace_) {
+        std::cout << "  GetElement[" << idx << "] = " << elem.asInt << " (type=" << static_cast<int>(elem.type) << ")" << std::endl;
+    }
+    push(elem);
 }
 
 void VM::execSetElement() {
@@ -921,61 +945,61 @@ void VM::execArrayLength() {
 }
 
 void VM::execJump() {
-    size_t jumpStart = ip_ - 1;    // Save position of Jump opcode (we already read it)
-    int32_t offset = readInt32();   // Relative offset from jump start
-    ip_ = jumpStart + offset;       // Jump to absolute position
+    int32_t offset = readInt32();   // Relative offset from current position
+    size_t currentPos = ip_;         // Position after reading operand
+    ip_ = currentPos + offset;       // Jump relative to current position
 }
 
 void VM::execJumpIfTrue() {
-    size_t jumpStart = ip_ - 1;     // Save position of JumpIfTrue opcode
-    int32_t offset = readInt32();
+    int32_t offset = readInt32();   // Relative offset from current position
+    size_t currentPos = ip_;         // Position after reading operand
     Value condition = pop();
 
     if (condition.isTruthy()) {
-        ip_ = jumpStart + offset;   // Jump to absolute position
+        ip_ = currentPos + offset;   // Jump relative to current position
     }
     // Otherwise, fall through (IP already past the offset operand)
 }
 
 void VM::execJumpIfFalse() {
-    size_t jumpStart = ip_ - 1;     // Save position of JumpIfFalse opcode
-    int32_t offset = readInt32();
+    int32_t offset = readInt32();   // Relative offset from current position
+    size_t currentPos = ip_;         // Position after reading operand
     Value condition = pop();
 
     if (!condition.isTruthy()) {
-        ip_ = jumpStart + offset;   // Jump to absolute position
+        ip_ = currentPos + offset;   // Jump relative to current position
     }
     // Otherwise, fall through (IP already past the offset operand)
 }
 
 void VM::execCall() {
- int32_t functionIndex = readInt32();
+    int32_t functionIndex = readInt32();
     int32_t argCount = readInt32();
-    
+
     const auto* function = module_->getFunction(functionIndex);
-    
+
     // Create new call frame
     CallFrame frame;
     frame.functionIndex = functionIndex;
     frame.returnAddress = ip_;  // Where to return to
     frame.framePointer = localStackTop_;  // Start of new frame's locals
     frame.localCount = function->localCount;
-    
+
     callStack_[callStackTop_++] = frame;
-    
+
     // Transfer arguments from eval stack to local stack
     // Arguments are the first N locals (parameters)
     for (int i = argCount - 1; i >= 0; i--) {
         localStack_[localStackTop_ + i] = pop();  // Pop in reverse order
     }
-    
+
     // Initialize remaining locals to null
     for (uint32_t i = argCount; i < function->localCount; i++) {
         localStack_[localStackTop_ + i] = Value::makeNull();
     }
-    
+
     localStackTop_ += function->localCount;
-    
+
     // Jump to function start
     ip_ = 0;  // Functions always start at offset 0
 }
@@ -991,6 +1015,10 @@ void VM::execCallForeign() {
 
 void VM::execReturn() {
     Value returnValue = pop();  // Get return value
+
+    if (debugTrace_) {
+        std::cout << "  Return value: " << returnValue.asInt << " (type=" << static_cast<int>(returnValue.type) << ")" << std::endl;
+    }
 
     // Get current frame before popping it
     CallFrame& currentFrame = callStack_[callStackTop_ - 1];

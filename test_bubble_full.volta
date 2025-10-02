@@ -1,0 +1,17 @@
+fn bubbleSort(arr: mut Array[int], n: int) -> void {
+    for i in 0..n {
+        for j in 0..(n - i - 1) {
+            if arr[j] > arr[j + 1] {
+                temp: int = arr[j]
+                arr[j] = arr[j + 1]
+                arr[j + 1] = temp
+            }
+        }
+    }
+}
+
+fn main() -> int {
+    arr: mut Array[int] = [5, 2, 8, 1, 9]
+    bubbleSort(arr, 5)
+    return arr[0]
+}

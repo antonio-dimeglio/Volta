@@ -101,11 +101,25 @@ void IRGenerator::generateFunction(const volta::ast::FnDeclaration& funcDecl) {
     builder_.setInsertPoint(currentFunction_->basicBlocks().back().get());
 
     // Create allocas for parameters and store parameter values
+    // For arrays and structs (object types), we pass by reference directly
+    // For scalars, we use alloca+store
     for (size_t i = 0; i < funcDecl.parameters.size(); i++) {
         auto* param = currentFunction_->parameters()[i].get();
-        auto* alloca = builder_.createAlloc(param->type());
-        builder_.createStore(param, alloca);
-        declareVariable(funcDecl.parameters[i]->identifier, alloca);
+        auto paramType = param->type();
+
+        // Check if this is an object type (array or struct)
+        bool isObjectType = paramType->kind() == semantic::Type::Kind::Array ||
+                           paramType->kind() == semantic::Type::Kind::Struct;
+
+        if (isObjectType) {
+            // For arrays/structs, register the parameter directly (pass by reference)
+            declareVariable(funcDecl.parameters[i]->identifier, param);
+        } else {
+            // For scalars, use alloca+store (pass by value)
+            auto* alloca = builder_.createAlloc(param->type());
+            builder_.createStore(param, alloca);
+            declareVariable(funcDecl.parameters[i]->identifier, alloca);
+        }
     }
 
     // Generate function body
@@ -267,17 +281,37 @@ void IRGenerator::generateVarDeclaration(const volta::ast::VarDeclaration& varDe
         type = analyzer_->getExpressionType(varDecl.initializer.get());
     }
 
-    // Create alloca for the variable
-    Value* alloca = builder_.createAlloc(type);
-
-    // If there's an initializer, generate it and store
+    // If there's an initializer, generate it first
+    Value* initValue = nullptr;
     if (varDecl.initializer) {
-        Value* initValue = generateExpression(varDecl.initializer.get());
-        builder_.createStore(initValue, alloca);
+        initValue = generateExpression(varDecl.initializer.get());
     }
 
-    // Register the variable
-    declareVariable(varDecl.identifier, alloca);
+    // For arrays and structs initialized from literals, the NewArray/StructLiteral
+    // instruction already returns an object reference, so we use it directly
+    // without an alloca+store
+    bool isArrayOrStructLiteral = false;
+    if (varDecl.initializer) {
+        isArrayOrStructLiteral =
+            dynamic_cast<const volta::ast::ArrayLiteral*>(varDecl.initializer.get()) != nullptr ||
+            dynamic_cast<const volta::ast::StructLiteral*>(varDecl.initializer.get()) != nullptr;
+    }
+
+    if (isArrayOrStructLiteral) {
+        // Register the variable directly with the object reference
+        declareVariable(varDecl.identifier, initValue);
+    } else {
+        // Standard path: create alloca for the variable
+        Value* alloca = builder_.createAlloc(type);
+
+        // If there's an initializer, store it
+        if (initValue) {
+            builder_.createStore(initValue, alloca);
+        }
+
+        // Register the variable
+        declareVariable(varDecl.identifier, alloca);
+    }
 }
 
 void IRGenerator::generateExpressionStatement(const volta::ast::ExpressionStatement& stmt) {
@@ -390,6 +424,9 @@ void IRGenerator::generateForStatement(const volta::ast::ForStatement& stmt) {
             // Generate condition block
             currentFunction_->addBasicBlock(std::move(condBB));
             builder_.setInsertPoint(currentFunction_->basicBlocks().back().get());
+            // Save pointer to condition block NOW, before adding more blocks
+            BasicBlock* condBlock = currentFunction_->basicBlocks().back().get();
+
             Value* currentValue = builder_.createLoad(intType, loopVar);
             Value* condValue;
             if (isInclusive) {
@@ -415,7 +452,6 @@ void IRGenerator::generateForStatement(const volta::ast::ForStatement& stmt) {
                 builder_.getInt(1)
             );
             builder_.createStore(nextValue, loopVar);
-            BasicBlock* condBlock = currentFunction_->basicBlocks()[currentFunction_->basicBlocks().size() - 4].get();
             builder_.createBr(condBlock);
 
             // Continue at end block
@@ -505,12 +541,87 @@ Value* IRGenerator::generateBinaryExpression(const volta::ast::BinaryExpression&
     if (expr.op == Op::Assign || expr.op == Op::AddAssign || expr.op == Op::SubtractAssign ||
         expr.op == Op::MultiplyAssign || expr.op == Op::DivideAssign) {
 
-        // Get the left-hand side address (must be a variable or index expression)
+        // Get the left-hand side address (must be a variable, member access, or array index)
         Value* leftAddr = nullptr;
+        std::shared_ptr<semantic::Type> leftType = nullptr;
+
+        // 1. Simple variable
         if (auto* ident = dynamic_cast<volta::ast::IdentifierExpression*>(expr.left.get())) {
             leftAddr = lookupVariable(ident->name);
-        } else {
-            error("Left side of assignment must be a variable", expr.location);
+            leftType = leftAddr->type();
+        }
+        // 2. Member access (struct.field) - returns address via GetField
+        else if (auto* member = dynamic_cast<volta::ast::MemberExpression*>(expr.left.get())) {
+            // For member access in assignment, we need the address, not the value
+            // We'll handle this specially by getting the struct address and field index
+
+            // Get the object (should be an alloca)
+            Value* object = nullptr;
+            if (auto* identExpr = dynamic_cast<const volta::ast::IdentifierExpression*>(member->object.get())) {
+                object = lookupVariable(identExpr->name);
+            } else {
+                error("Complex member expressions not yet supported in assignment", expr.location);
+                return nullptr;
+            }
+
+            // Get the struct type
+            auto objectType = analyzer_->getExpressionType(member->object.get());
+            auto* structType = dynamic_cast<const semantic::StructType*>(objectType.get());
+            if (!structType) {
+                error("Member access on non-struct type", expr.location);
+                return nullptr;
+            }
+
+            // Find the field index
+            const std::string& fieldName = member->member->name;
+            size_t fieldIndex = 0;
+            bool found = false;
+            const auto& fields = structType->fields();
+            for (size_t i = 0; i < fields.size(); ++i) {
+                if (fields[i].name == fieldName) {
+                    fieldIndex = i;
+                    leftType = fields[i].type;
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) {
+                error("Struct '" + structType->name() + "' has no field '" + fieldName + "'", expr.location);
+                return nullptr;
+            }
+
+            // Generate right-hand side value
+            Value* rightValue = generateExpression(expr.right.get());
+
+            // Use SetField to store the value
+            builder_.createSetField(object, fieldIndex, rightValue);
+            return rightValue;
+        }
+        // 3. Array indexing (array[index])
+        else if (auto* index = dynamic_cast<volta::ast::IndexExpression*>(expr.left.get())) {
+            // Generate array and index values
+            Value* arrayValue = generateExpression(index->object.get());
+            Value* indexValue = generateExpression(index->index.get());
+
+            if (!arrayValue || !indexValue) {
+                error("Failed to generate array or index in assignment", expr.location);
+                return nullptr;
+            }
+
+            // Generate right-hand side value
+            Value* rightValue = generateExpression(expr.right.get());
+            if (!rightValue) {
+                error("Failed to generate right-hand side in array assignment", expr.location);
+                return nullptr;
+            }
+
+            // Use SetElement to store the value
+            builder_.createSetElement(arrayValue, indexValue, rightValue);
+            return rightValue;
+        }
+        else {
+            error("Left side of assignment must be a variable, struct field, or array element", expr.location);
             return nullptr;
         }
 
@@ -519,7 +630,7 @@ Value* IRGenerator::generateBinaryExpression(const volta::ast::BinaryExpression&
 
         // For compound assignments, we need to load, operate, then store
         if (expr.op != Op::Assign) {
-            Value* currentValue = builder_.createLoad(leftAddr->type(), leftAddr);
+            Value* currentValue = builder_.createLoad(leftType, leftAddr);
             switch (expr.op) {
                 case Op::AddAssign:
                     rightValue = builder_.createAdd(currentValue, rightValue);
@@ -626,22 +737,41 @@ Value* IRGenerator::generateCallExpression(const volta::ast::CallExpression& exp
         args.push_back(generateExpression(arg.get()));
     }
 
-    // Emit call instruction
-    return builder_.createCall(function, args);
+    // Emit call instruction - use CallForeign for foreign functions
+    if (function->isForeign()) {
+        return builder_.createCallForeign(function->name(), function->type()->returnType(), args);
+    } else {
+        return builder_.createCall(function, args);
+    }
 }
 
 Value* IRGenerator::generateIndexExpression(const volta::ast::IndexExpression& expr) {
-    // TODO: Generate IR for array indexing: array[index]
-    //
-    // Steps:
-    // 1. Generate IR for array expression
-    // 2. Generate IR for index expression
-    // 3. Emit: builder_.createGetElement(array, index, elementType)
-    //
-    // Note: You'll need to get the element type from the array type.
+    // Generate IR for the array expression
+    Value* arrayValue = generateExpression(expr.object.get());
+    if (!arrayValue) {
+        error("Failed to generate array expression in indexing", expr.location);
+        return nullptr;
+    }
 
-    // YOUR CODE HERE
-    return nullptr;
+    // Generate IR for the index expression
+    Value* indexValue = generateExpression(expr.index.get());
+    if (!indexValue) {
+        error("Failed to generate index expression", expr.location);
+        return nullptr;
+    }
+
+    // Get the element type from the array type
+    auto arrayType = analyzer_->getExpressionType(expr.object.get());
+    auto* arrType = dynamic_cast<const semantic::ArrayType*>(arrayType.get());
+    if (!arrType) {
+        error("Index operator used on non-array type", expr.location);
+        return nullptr;
+    }
+
+    auto elementType = arrType->elementType();
+
+    // Emit GetElement instruction
+    return builder_.createGetElement(arrayValue, indexValue, elementType);
 }
 
 Value* IRGenerator::generateSliceExpression(const volta::ast::SliceExpression& expr) {
@@ -754,8 +884,12 @@ Value* IRGenerator::generateMethodCallExpression(const volta::ast::MethodCallExp
         args.push_back(argValue);
     }
 
-    // Emit call instruction
-    return builder_.createCall(method, args);
+    // Emit call instruction - use CallForeign for foreign methods
+    if (method->isForeign()) {
+        return builder_.createCallForeign(method->name(), method->type()->returnType(), args);
+    } else {
+        return builder_.createCall(method, args);
+    }
 }
 
 Value* IRGenerator::generateIfExpression(const volta::ast::IfExpression& expr) {
@@ -788,12 +922,26 @@ Value* IRGenerator::generateLambdaExpression(const volta::ast::LambdaExpression&
 }
 
 Value* IRGenerator::generateIdentifierExpression(const volta::ast::IdentifierExpression& expr) {
-    auto* addr = lookupVariable(expr.name);
+    auto* value = lookupVariable(expr.name);
 
-    if (addr == nullptr) {
+    if (value == nullptr) {
         error("could not find definition for " + expr.name, expr.location);
     }
-    return builder_.createLoad(addr->type(), addr);
+
+    // If the value is an Alloc instruction result, we need to load from it
+    // Otherwise (for object references like arrays/structs, or parameters), return it directly
+    if (auto* allocInst = dynamic_cast<AllocInst*>(value)) {
+        return builder_.createLoad(allocInst->allocatedType(), value);
+    } else if (auto* globalVar = dynamic_cast<GlobalVariable*>(value)) {
+        return builder_.createLoad(globalVar->type(), value);
+    } else if (auto* param = dynamic_cast<Parameter*>(value)) {
+        // Parameters: for scalars they're stored in allocas (handled above)
+        // For objects (arrays/structs), they're passed directly, so return as-is
+        return param;
+    } else {
+        // Direct value (e.g., array/struct object reference from NewArray/StructLiteral)
+        return value;
+    }
 }
 
 Value* IRGenerator::generateIntegerLiteral(const volta::ast::IntegerLiteral& lit) {
@@ -827,18 +975,29 @@ Value* IRGenerator::generateSomeLiteral(const volta::ast::SomeLiteral& lit) {
 }
 
 Value* IRGenerator::generateArrayLiteral(const volta::ast::ArrayLiteral& lit) {
-    // TODO: Generate IR for array literal: [1, 2, 3]
-    //
-    // Steps:
-    // 1. Determine array element type
-    // 2. Create array allocation
-    // 3. For each element:
-    //    a. Generate IR for element expression
-    //    b. Store into array at index i
-    // 4. Return the array
+    // Get the array type from semantic analysis
+    auto arrayType = std::dynamic_pointer_cast<semantic::ArrayType>(
+        analyzer_->getExpressionType(&lit)
+    );
 
-    // YOUR CODE HERE
-    return nullptr;
+    if (!arrayType) {
+        error("Expected array type for array literal", lit.location);
+        return nullptr;
+    }
+
+    // Generate IR for each element
+    std::vector<Value*> elements;
+    for (const auto& elem : lit.elements) {
+        Value* elemValue = generateExpression(elem.get());
+        if (!elemValue) {
+            error("Failed to generate array element", lit.location);
+            return nullptr;
+        }
+        elements.push_back(elemValue);
+    }
+
+    // Create the NewArray instruction
+    return builder_.createNewArray(arrayType, elements);
 }
 
 Value* IRGenerator::generateTupleLiteral(const volta::ast::TupleLiteral& lit) {

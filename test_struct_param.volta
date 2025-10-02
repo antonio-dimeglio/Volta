@@ -1,0 +1,15 @@
+struct Point {
+    x: int,
+    y: int
+}
+
+fn modifyPoint(p: mut Point) -> void {
+    p.x = 100
+    p.y = 200
+}
+
+fn main() -> int {
+    p: mut Point = Point { x: 10, y: 20 }
+    modifyPoint(p)
+    return p.x
+}

@@ -1,0 +1,5 @@
+fn main() -> int {
+    arr: mut Array[int] = [10, 20, 30]
+    arr[1] = 99
+    return arr[1]
+}

@@ -433,6 +433,7 @@ TEST(DisassemblerTest, DisassembleFunction) {
     func.name = "test_func";
     func.parameterCount = 2;
     func.localCount = 5;
+    func.isForeign = false;  // IMPORTANT: Initialize to false!
     func.chunk.emitOpcode(Opcode::ReturnVoid);
 
     Disassembler disasm;

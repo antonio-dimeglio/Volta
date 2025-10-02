@@ -130,6 +130,12 @@ public:
      */
     void createSetElement(Value* array, Value* index, Value* value);
 
+    /**
+     * Create new array with elements
+     */
+    Value* createNewArray(std::shared_ptr<semantic::Type> arrayType,
+                         const std::vector<Value*>& elements);
+
     // ========== Control Flow Instructions ==========
 
     /**

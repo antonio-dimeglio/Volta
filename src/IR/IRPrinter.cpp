@@ -98,6 +98,15 @@ void IRPrinter::printInstruction(const Instruction& inst) {
              << ", " << valueToString(setElemInst->index())
              << ", " << valueToString(setElemInst->value()) << "\n";
     }
+    else if (auto* newArrayInst = dynamic_cast<const NewArrayInst*>(&inst)) {
+        out_ << inst.name() << " = new_array [";
+        const auto& elems = newArrayInst->elements();
+        for (size_t i = 0; i < elems.size(); i++) {
+            if (i > 0) out_ << ", ";
+            out_ << valueToString(elems[i]);
+        }
+        out_ << "]\n";
+    }
     else if (auto* brInst = dynamic_cast<const BranchInst*>(&inst)) {
         out_ << "br " << brInst->target()->name() << "\n";
     }
