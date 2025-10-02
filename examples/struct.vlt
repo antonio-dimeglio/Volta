@@ -7,8 +7,8 @@ struct Point {
 p := Point { x: 3.0, y: 4.0 }
 
 # Method syntax
-fn Point.distance(self) -> float {
-    return math.sqrt(self.x * self.x + self.y * self.y)
+fn Point.distance(self: Point) -> float {
+   return self.x * self.x + self.y * self.y
 }
 
 dist := p.distance()

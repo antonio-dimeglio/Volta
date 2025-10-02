@@ -11,6 +11,10 @@ std::unique_ptr<IRModule> IRGenerator::generate(
     const volta::semantic::SemanticAnalyzer& analyzer) {
     analyzer_ = &analyzer;
     module_ = std::make_unique<IRModule>("main");
+
+    // Register built-in functions
+    registerBuiltinFunctions();
+
     generateProgram(program);
     if (reporter_.hasErrors()) return nullptr;
 
@@ -39,6 +43,22 @@ void IRGenerator::generateProgram(const volta::ast::Program& program) {
             generateGlobal(*varDecl);
         }
     }
+
+    // Third pass - collect top-level statements (that aren't function/struct/var declarations)
+    // These will be wrapped in a special __init__ function
+    std::vector<const volta::ast::Statement*> topLevelStmts;
+    for (const auto& stmt : program.statements) {
+        if (!dynamic_cast<volta::ast::FnDeclaration*>(stmt.get()) &&
+            !dynamic_cast<volta::ast::StructDeclaration*>(stmt.get()) &&
+            !dynamic_cast<volta::ast::VarDeclaration*>(stmt.get())) {
+            topLevelStmts.push_back(stmt.get());
+        }
+    }
+
+    // If there are top-level statements, create an __init__ function for them
+    if (!topLevelStmts.empty()) {
+        generateInitFunction(topLevelStmts);
+    }
 }
 
 void IRGenerator::generateFunction(const volta::ast::FnDeclaration& funcDecl) {
@@ -54,8 +74,14 @@ void IRGenerator::generateFunction(const volta::ast::FnDeclaration& funcDecl) {
     // Create function type
     auto funcType = std::make_shared<semantic::FunctionType>(paramTypes, returnType);
 
+    // Determine function name (qualified for methods)
+    std::string functionName = funcDecl.identifier;
+    if (funcDecl.isMethod) {
+        functionName = funcDecl.receiverType + "." + funcDecl.identifier;
+    }
+
     // Create IR function
-    auto function = builder_.createFunction(funcDecl.identifier, funcType);
+    auto function = builder_.createFunction(functionName, funcType);
 
     // Add function to module
     module_->addFunction(std::move(function));
@@ -63,8 +89,8 @@ void IRGenerator::generateFunction(const volta::ast::FnDeclaration& funcDecl) {
     // Get raw pointer to the function we just added
     Function* funcPtr = module_->functions().back().get();
 
-    // Register in function map
-    functionMap_[funcDecl.identifier] = funcPtr;
+    // Register in function map (use qualified name for methods)
+    functionMap_[functionName] = funcPtr;
 
     // Set as current function
     currentFunction_ = funcPtr;
@@ -115,6 +141,51 @@ void IRGenerator::generateStruct(const volta::ast::StructDeclaration& structDecl
     // Structs are just type information, no IR code needed
     // The semantic analyzer already has the struct type definitions
     // Nothing to generate here
+}
+
+void IRGenerator::generateInitFunction(const std::vector<const volta::ast::Statement*>& stmts) {
+    // Create a void type for the init function
+    auto voidType = std::make_shared<semantic::PrimitiveType>(semantic::PrimitiveType::PrimitiveKind::Void);
+
+    // Create function type with no parameters
+    std::vector<std::shared_ptr<semantic::Type>> paramTypes;
+    auto funcType = std::make_shared<semantic::FunctionType>(paramTypes, voidType);
+
+    // Create IR function for __init__
+    auto function = builder_.createFunction("__init__", funcType);
+
+    // Add function to module
+    module_->addFunction(std::move(function));
+
+    // Get raw pointer to the function we just added
+    Function* funcPtr = module_->functions().back().get();
+
+    // Register in function map
+    functionMap_["__init__"] = funcPtr;
+
+    // Set as current function
+    currentFunction_ = funcPtr;
+
+    // Create entry basic block
+    auto entryBB = builder_.createBasicBlock("entry", currentFunction_);
+    currentFunction_->addBasicBlock(std::move(entryBB));
+    builder_.setInsertPoint(currentFunction_->basicBlocks().back().get());
+
+    // Generate all top-level statements
+    for (const auto* stmt : stmts) {
+        generateStatement(stmt);
+    }
+
+    // Add return void at the end
+    if (!builder_.insertPoint()->hasTerminator()) {
+        builder_.createRetVoid();
+    }
+
+    // Clear variable map
+    variableMap_.clear();
+
+    // Reset current function
+    currentFunction_ = nullptr;
 }
 
 void IRGenerator::generateGlobal(const volta::ast::VarDeclaration& varDecl) {
@@ -580,26 +651,111 @@ Value* IRGenerator::generateSliceExpression(const volta::ast::SliceExpression& e
 }
 
 Value* IRGenerator::generateMemberExpression(const volta::ast::MemberExpression& expr) {
-    // TODO: Generate IR for struct field access: object.field
-    //
-    // Steps:
-    // 1. Generate IR for object expression
-    // 2. Look up field index in struct type
-    // 3. Emit: builder_.createGetField(object, fieldIndex, fieldType)
+    // For member access, we need the address (alloca) not the loaded value
+    // Special case: if object is an identifier, get its alloca directly
+    Value* object = nullptr;
+    if (auto* identExpr = dynamic_cast<const volta::ast::IdentifierExpression*>(expr.object.get())) {
+        object = lookupVariable(identExpr->name);
+        if (!object) {
+            error("Failed to look up variable '" + identExpr->name + "'", expr.location);
+            return nullptr;
+        }
+    } else {
+        // For other expressions, generate normally
+        object = generateExpression(expr.object.get());
+        if (!object) {
+            error("Failed to generate object expression", expr.location);
+            return nullptr;
+        }
+    }
 
-    // YOUR CODE HERE
-    return nullptr;
+    // Get the type of the object
+    auto objectType = analyzer_->getExpressionType(expr.object.get());
+    if (!objectType) {
+        error("Could not determine object type", expr.location);
+        return nullptr;
+    }
+
+    // Object must be a struct type
+    auto* structType = dynamic_cast<const semantic::StructType*>(objectType.get());
+    if (!structType) {
+        error("Member access on non-struct type", expr.location);
+        return nullptr;
+    }
+
+    // Find the field index
+    const std::string& fieldName = expr.member->name;
+    size_t fieldIndex = 0;
+    bool found = false;
+    const auto& fields = structType->fields();
+    for (size_t i = 0; i < fields.size(); ++i) {
+        if (fields[i].name == fieldName) {
+            fieldIndex = i;
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        error("Struct '" + structType->name() + "' has no field '" + fieldName + "'", expr.location);
+        return nullptr;
+    }
+
+    // Get the field type
+    auto fieldType = fields[fieldIndex].type;
+
+    // Emit get field instruction
+    return builder_.createGetField(object, fieldIndex, fieldType);
 }
 
 Value* IRGenerator::generateMethodCallExpression(const volta::ast::MethodCallExpression& expr) {
-    // TODO: Generate IR for method call: object.method(args)
-    //
-    // For now, methods can be treated as regular functions with the object
-    // as the first argument. This is a simplification - real method dispatch
-    // would involve vtables for dynamic dispatch.
+    // Get the type of the object
+    auto objectType = analyzer_->getExpressionType(expr.object.get());
+    if (!objectType) {
+        error("Could not determine object type for method call", expr.location);
+        return nullptr;
+    }
 
-    // YOUR CODE HERE
-    return nullptr;
+    // Object must be a struct type
+    auto* structType = dynamic_cast<const semantic::StructType*>(objectType.get());
+    if (!structType) {
+        error("Method call on non-struct type", expr.location);
+        return nullptr;
+    }
+
+    // Build qualified method name: "StructName.methodName"
+    const std::string& methodName = expr.method->name;
+    const std::string qualifiedName = structType->name() + "." + methodName;
+
+    // Look up the method in the function map
+    auto it = functionMap_.find(qualifiedName);
+    if (it == functionMap_.end()) {
+        error("Undefined method '" + qualifiedName + "'", expr.location);
+        return nullptr;
+    }
+    Function* method = it->second;
+
+    // Generate IR for the object (receiver) - this will be the first argument
+    Value* receiver = generateExpression(expr.object.get());
+    if (!receiver) {
+        error("Failed to generate receiver for method call", expr.location);
+        return nullptr;
+    }
+
+    // Generate IR for each argument
+    std::vector<Value*> args;
+    args.push_back(receiver);  // First argument is always 'self'
+    for (const auto& arg : expr.arguments) {
+        Value* argValue = generateExpression(arg.get());
+        if (!argValue) {
+            error("Failed to generate argument for method call", expr.location);
+            return nullptr;
+        }
+        args.push_back(argValue);
+    }
+
+    // Emit call instruction
+    return builder_.createCall(method, args);
 }
 
 Value* IRGenerator::generateIfExpression(const volta::ast::IfExpression& expr) {
@@ -696,18 +852,52 @@ Value* IRGenerator::generateTupleLiteral(const volta::ast::TupleLiteral& lit) {
 }
 
 Value* IRGenerator::generateStructLiteral(const volta::ast::StructLiteral& lit) {
-    // TODO: Generate IR for struct literal: Point { x: 1, y: 2 }
-    //
-    // Steps:
-    // 1. Look up struct type
-    // 2. Create struct allocation
-    // 3. For each field:
-    //    a. Generate IR for field value
-    //    b. Set field in struct
-    // 4. Return the struct
+    // Get the struct type from semantic analysis
+    auto structType = std::dynamic_pointer_cast<semantic::StructType>(
+        analyzer_->getExpressionType(&lit)
+    );
 
-    // YOUR CODE HERE
-    return nullptr;
+    if (!structType) {
+        error("Expected struct type for struct literal", lit.location);
+        return nullptr;
+    }
+
+    // Allocate memory for the struct
+    Value* structAlloc = builder_.createAlloc(structType);
+
+    // For each field in the literal, set the corresponding field in the struct
+    for (const auto& fieldInit : lit.fields) {
+        const std::string& fieldName = fieldInit->identifier->name;
+
+        // Look up the field index in the struct type
+        size_t fieldIndex = 0;
+        bool found = false;
+        const auto& structFields = structType->fields();
+        for (size_t i = 0; i < structFields.size(); ++i) {
+            if (structFields[i].name == fieldName) {
+                fieldIndex = i;
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            error("Unknown field '" + fieldName + "' in struct " + structType->name(),
+                  lit.location);
+            continue;
+        }
+
+        // Generate IR for the field value
+        Value* fieldValue = generateExpression(fieldInit->value.get());
+        if (!fieldValue) {
+            continue;
+        }
+
+        // Set the field in the struct
+        builder_.createSetField(structAlloc, fieldIndex, fieldValue);
+    }
+
+    return structAlloc;
 }
 
 // ============================================================================
@@ -737,6 +927,73 @@ void IRGenerator::error(const std::string& message, const volta::errors::SourceL
         message,
         loc
     ));
+}
+
+void IRGenerator::registerBuiltinFunctions() {
+    auto voidType = std::make_shared<semantic::PrimitiveType>(semantic::PrimitiveType::PrimitiveKind::Void);
+    auto intType = std::make_shared<semantic::PrimitiveType>(semantic::PrimitiveType::PrimitiveKind::Int);
+    auto boolType = std::make_shared<semantic::PrimitiveType>(semantic::PrimitiveType::PrimitiveKind::Bool);
+    auto strType = std::make_shared<semantic::PrimitiveType>(semantic::PrimitiveType::PrimitiveKind::String);
+
+    // Register print function: print(string) -> void
+    {
+        std::vector<std::shared_ptr<semantic::Type>> params = {strType};
+        auto funcType = std::make_shared<semantic::FunctionType>(params, voidType);
+        auto func = builder_.createFunction("print", funcType);
+        func->setForeign(true);
+        module_->addFunction(std::move(func));
+        functionMap_["print"] = module_->functions().back().get();
+    }
+
+    // Register println function: println(string) -> void
+    {
+        std::vector<std::shared_ptr<semantic::Type>> params = {strType};
+        auto funcType = std::make_shared<semantic::FunctionType>(params, voidType);
+        auto func = builder_.createFunction("println", funcType);
+        func->setForeign(true);
+        module_->addFunction(std::move(func));
+        functionMap_["println"] = module_->functions().back().get();
+    }
+
+    // Register len function: len(string) -> int
+    {
+        std::vector<std::shared_ptr<semantic::Type>> params = {strType};
+        auto funcType = std::make_shared<semantic::FunctionType>(params, intType);
+        auto func = builder_.createFunction("len", funcType);
+        func->setForeign(true);
+        module_->addFunction(std::move(func));
+        functionMap_["len"] = module_->functions().back().get();
+    }
+
+    // Register assert function: assert(bool) -> void
+    {
+        std::vector<std::shared_ptr<semantic::Type>> params = {boolType};
+        auto funcType = std::make_shared<semantic::FunctionType>(params, voidType);
+        auto func = builder_.createFunction("assert", funcType);
+        func->setForeign(true);
+        module_->addFunction(std::move(func));
+        functionMap_["assert"] = module_->functions().back().get();
+    }
+
+    // Register type_of function: type_of(string) -> string
+    {
+        std::vector<std::shared_ptr<semantic::Type>> params = {strType};
+        auto funcType = std::make_shared<semantic::FunctionType>(params, strType);
+        auto func = builder_.createFunction("type_of", funcType);
+        func->setForeign(true);
+        module_->addFunction(std::move(func));
+        functionMap_["type_of"] = module_->functions().back().get();
+    }
+
+    // Register to_string function: to_string(string) -> string
+    {
+        std::vector<std::shared_ptr<semantic::Type>> params = {strType};
+        auto funcType = std::make_shared<semantic::FunctionType>(params, strType);
+        auto func = builder_.createFunction("to_string", funcType);
+        func->setForeign(true);
+        module_->addFunction(std::move(func));
+        functionMap_["to_string"] = module_->functions().back().get();
+    }
 }
 
 } // namespace volta::ir

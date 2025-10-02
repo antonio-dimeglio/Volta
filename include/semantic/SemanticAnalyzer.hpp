@@ -30,6 +30,9 @@ public:
     std::shared_ptr<Type> getExpressionType(const volta::ast::Expression* expr) const;
     std::shared_ptr<Type> resolveTypeAnnotation(const volta::ast::Type* typeAnnotation) const;
 
+    // Register builtin functions (should be called before analysis)
+    void registerBuiltins();
+
 private:
     // === Pass 1: Collect top-level declarations ===
     void collectDeclarations(const volta::ast::Program& program);

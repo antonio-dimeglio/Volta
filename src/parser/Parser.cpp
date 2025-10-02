@@ -196,9 +196,19 @@ std::unique_ptr<volta::ast::VarDeclaration> Parser::parseVarDeclaration() {
 std::unique_ptr<volta::ast::FnDeclaration> Parser::parseFnDeclaration() {
     auto startLoc = currentLocation();
     auto funcName = consume(TokenType::IDENTIFIER, "Expected identifier for function declaration").lexeme;
-    
+
+    // Check for method syntax: fn StructName.methodName
+    std::string receiverType;
+    bool isMethod = false;
+    if (match(TokenType::DOT)) {
+        // This is a method definition: fn Point.distance
+        receiverType = funcName;
+        funcName = consume(TokenType::IDENTIFIER, "Expected method name after '.'").lexeme;
+        isMethod = true;
+    }
+
     std::vector<std::string> typeParams;
-    
+
     std::vector<std::unique_ptr<Parameter>> params;
     consume(TokenType::LPAREN, "Expected '(' for function definition.");
 
@@ -206,10 +216,10 @@ std::unique_ptr<volta::ast::FnDeclaration> Parser::parseFnDeclaration() {
         auto var = consume(TokenType::IDENTIFIER, "Expected identifier.").lexeme;
         consume(TokenType::COLON, "Expected ':' for parameter type.");
         auto type = parseType();
-        
+
         // Wrap in unique_ptr
         params.push_back(std::make_unique<Parameter>(var, std::move(type)));
-        
+
         if (!check(TokenType::RPAREN)) {
             consume(TokenType::COMMA, "Expected ',' separator in parameter list.");
         }
@@ -237,7 +247,9 @@ std::unique_ptr<volta::ast::FnDeclaration> Parser::parseFnDeclaration() {
         std::move(returnType),
         std::move(body),
         std::move(expressionBody),
-        startLoc
+        startLoc,
+        receiverType,
+        isMethod
     );
 }
 

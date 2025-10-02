@@ -2,9 +2,9 @@
 # C++ Implementation
 
 CXX := g++
-CXXFLAGS := -std=c++17 -Wall -Wextra -Wpedantic -O2 -Iinclude
+CXXFLAGS := -std=c++17 -Wall -Wextra -O2 -Iinclude -Wno-unused-parameter -Wno-unused-variable
 DEBUG_FLAGS := -fsanitize=address -fsanitize=undefined -g -O0 -DDEBUG
-LDFLAGS :=
+LDFLAGS := -lffi -ldl
 
 # Debug build
 ifdef DEBUG

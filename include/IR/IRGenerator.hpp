@@ -65,6 +65,12 @@ private:
      */
     void generateGlobal(const volta::ast::VarDeclaration& varDecl);
 
+    /**
+     * Generate IR for top-level initialization function
+     * Wraps top-level statements in a special __init__ function
+     */
+    void generateInitFunction(const std::vector<const volta::ast::Statement*>& stmts);
+
     // ========== Statement Generation ==========
 
     /**
@@ -134,6 +140,13 @@ private:
     // ========== Error Reporting ==========
 
     void error(const std::string& message, const volta::errors::SourceLocation& loc);
+
+    // ========== Built-in Functions ==========
+
+    /**
+     * Register built-in/foreign functions like print
+     */
+    void registerBuiltinFunctions();
 
     // ========== State ==========
 

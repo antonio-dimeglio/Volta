@@ -205,7 +205,11 @@ void ASTDumper::dumpVarDeclaration(const VarDeclaration& decl) {
 
 void ASTDumper::dumpFnDeclaration(const FnDeclaration& decl) {
     indent();
-    ss << "FnDeclaration: " << decl.identifier << "\n";
+    if (decl.isMethod) {
+        ss << "MethodDeclaration: " << decl.receiverType << "." << decl.identifier << "\n";
+    } else {
+        ss << "FnDeclaration: " << decl.identifier << "\n";
+    }
     increaseIndent();
 
     if (!decl.typeParams.empty()) {

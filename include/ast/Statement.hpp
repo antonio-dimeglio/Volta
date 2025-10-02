@@ -148,11 +148,15 @@ struct Parameter {
 
 struct FnDeclaration : Statement {
     std::string identifier;
-    std::vector<std::string> typeParams; 
+    std::vector<std::string> typeParams;
     std::vector<std::unique_ptr<Parameter>> parameters;
     std::unique_ptr<Type> returnType;
     std::unique_ptr<Block> body;
     std::unique_ptr<Expression> expressionBody;
+
+    // Method information (empty if regular function)
+    std::string receiverType;  // e.g., "Point" for fn Point.distance()
+    bool isMethod = false;
 
     FnDeclaration(
         std::string identifier,
@@ -161,14 +165,18 @@ struct FnDeclaration : Statement {
         std::unique_ptr<Type> returnType,
         std::unique_ptr<Block> body,
         std::unique_ptr<Expression> expressionBody,
-        volta::errors::SourceLocation location
+        volta::errors::SourceLocation location,
+        std::string receiverType = "",
+        bool isMethod = false
     ) : Statement(location),
         identifier(std::move(identifier)),
         typeParams(std::move(typeParams)),
         parameters(std::move(parameters)),
         returnType(std::move(returnType)),
         body(std::move(body)),
-        expressionBody(std::move(expressionBody)) {}
+        expressionBody(std::move(expressionBody)),
+        receiverType(std::move(receiverType)),
+        isMethod(isMethod) {}
 };
 
 struct StructField {
