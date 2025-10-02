@@ -1,9 +1,0 @@
-fn main() -> int {
-    sum: mut int = 0
-    for i in 0..3 {
-        for j in 0..2 {
-            sum = sum + 1
-        }
-    }
-    return sum
-}
