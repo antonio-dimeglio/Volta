@@ -6,6 +6,9 @@
 #include "semantic/SemanticAnalyzer.hpp"
 #include "IR/IRGenerator.hpp"
 #include "IR/IRPrinter.hpp"
+#include "bytecode/BytecodeCompiler.hpp"
+#include "bytecode/Disassembler.hpp"
+#include "vm/VM.hpp"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -16,6 +19,8 @@ using namespace volta::parser;
 using namespace volta::ast;
 using namespace volta::ir;
 using namespace volta::errors;
+using namespace volta::bytecode;
+using namespace volta::vm;
 
 void printUsage(const char* programName) {
     std::cout << "Volta Programming Language\n";
@@ -87,6 +92,18 @@ void runFile(const std::string& filename) {
             std::cout << "\n";
         }
 
+        BytecodeCompiler compiler;
+        auto res = compiler.compile(*irModule);
+
+        if (res) {
+            Disassembler ds;
+            auto asmbl = ds.disassembleModule(*res);
+            std::cout << asmbl << "\n";
+        }
+
+        VM vm(std::move(res));
+        int execRes = vm.execute();
+        std::cout << "Exec res: " <<  execRes << "\n";
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
     }

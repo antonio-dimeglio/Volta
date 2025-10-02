@@ -150,6 +150,7 @@ TEST(BytecodeCompilerTest, CompileSimpleConstant) {
     auto constant = builder.getInt(42);
     builder.createRet(constant);
 
+    func->addBasicBlock(std::move(entry));
     module.addFunction(std::move(func));
 
     BytecodeCompiler compiler;
@@ -184,6 +185,7 @@ TEST(BytecodeCompilerTest, CompileArithmetic) {
     auto sum = builder.createAdd(paramA.get(), paramB.get());
     builder.createRet(sum);
 
+    func->addBasicBlock(std::move(entry));
     module.addFunction(std::move(func));
 
     BytecodeCompiler compiler;
@@ -233,6 +235,9 @@ TEST(BytecodeCompilerTest, CompileConditionalBranch) {
     builder.setInsertPoint(elseBlock.get());
     builder.createRet(paramX.get());
 
+    func->addBasicBlock(std::move(entry));
+    func->addBasicBlock(std::move(thenBlock));
+    func->addBasicBlock(std::move(elseBlock));
     module.addFunction(std::move(func));
 
     BytecodeCompiler compiler;
@@ -262,6 +267,7 @@ TEST(BytecodeCompilerTest, CompileFunctionCall) {
     builder.createRet(one);
 
     Function* helperPtr = helper.get();
+    helper->addBasicBlock(std::move(helperEntry));
     module.addFunction(std::move(helper));
 
     // Main function
@@ -271,6 +277,7 @@ TEST(BytecodeCompilerTest, CompileFunctionCall) {
     auto result = builder.createCall(helperPtr, {});
     builder.createRet(result);
 
+    main->addBasicBlock(std::move(mainEntry));
     module.addFunction(std::move(main));
 
     BytecodeCompiler compiler;
@@ -298,6 +305,7 @@ TEST(BytecodeCompilerTest, CompileStringLiterals) {
     auto str = builder.getString("hello");
     builder.createRet(str);
 
+    func->addBasicBlock(std::move(entry));
     module.addFunction(std::move(func));
 
     BytecodeCompiler compiler;
@@ -635,6 +643,7 @@ TEST(BytecodeEdgeCaseTest, EmptyFunction) {
     builder.setInsertPoint(entry.get());
     builder.createRetVoid();
 
+    func->addBasicBlock(std::move(entry));
     module.addFunction(std::move(func));
 
     BytecodeCompiler compiler;

@@ -416,6 +416,9 @@ TEST(VMExecutionTest, ExecuteJump) {
 
     CompiledFunction func;
     func.name = "main";
+    func.index = 0;
+    func.parameterCount = 0;
+    func.localCount = 0;
 
     // Jump over the 99
     size_t jumpStart = func.chunk.currentOffset();
@@ -448,6 +451,9 @@ TEST(VMExecutionTest, ExecuteConditionalJump) {
 
     CompiledFunction func;
     func.name = "main";
+    func.index = 0;
+    func.parameterCount = 0;
+    func.localCount = 0;
 
     // if (true) return 1; else return 2;
     func.chunk.emitOpcode(Opcode::ConstBool);

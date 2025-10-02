@@ -14,176 +14,104 @@ namespace volta::bytecode {
  * - Control flow (branches, calls)
  * - Type-specific operations
  */
+
+ 
+// ===================== X-Macro Table =====================
+#define OPCODE_LIST(X) \
+    /* ========== Stack Operations ========== */ \
+    X(Pop, 0) /* Pop value from stack (discard top value) */ \
+    X(Dup, 0) /* Duplicate top stack value */ \
+    X(Swap, 0) /* Swap top two stack values */ \
+    /* ========== Constants ========== */ \
+    X(ConstInt, 8) /* Push constant: ConstInt <8-byte int> */ \
+    X(ConstFloat, 8) /* Push constant: ConstFloat <8-byte float> */ \
+    X(ConstBool, 1) /* Push constant: ConstBool <1-byte bool> */ \
+    X(ConstString, 4) /* Push constant: ConstString <4-byte string-pool-index> */ \
+    X(ConstNull, 0) /* Push null/void value */ \
+    /* ========== Arithmetic Operations (binary) ========== */ \
+    X(AddInt, 0) /* Integer addition */ \
+    X(AddFloat, 0) /* Float addition */ \
+    X(SubInt, 0) /* Integer subtraction */ \
+    X(SubFloat, 0) /* Float subtraction */ \
+    X(MulInt, 0) /* Integer multiplication */ \
+    X(MulFloat, 0) /* Float multiplication */ \
+    X(DivInt, 0) /* Integer division */ \
+    X(DivFloat, 0) /* Float division */ \
+    X(ModInt, 0) /* Integer modulo */ \
+    /* ========== Unary Operations ========== */ \
+    X(NegInt, 0) /* Integer negation */ \
+    X(NegFloat, 0) /* Float negation */ \
+    /* ========== Comparison Operations ========== */ \
+    X(EqInt, 0) /* Integer equality */ \
+    X(EqFloat, 0) /* Float equality */ \
+    X(EqBool, 0) /* Bool equality */ \
+    X(NeInt, 0) /* Integer inequality */ \
+    X(NeFloat, 0) /* Float inequality */ \
+    X(NeBool, 0) /* Bool inequality */ \
+    X(LtInt, 0) /* Integer less than */ \
+    X(LtFloat, 0) /* Float less than */ \
+    X(LeInt, 0) /* Integer less than or equal */ \
+    X(LeFloat, 0) /* Float less than or equal */ \
+    X(GtInt, 0) /* Integer greater than */ \
+    X(GtFloat, 0) /* Float greater than */ \
+    X(GeInt, 0) /* Integer greater than or equal */ \
+    X(GeFloat, 0) /* Float greater than or equal */ \
+    /* ========== Logical Operations ========== */ \
+    X(And, 0) /* Logical AND (pop 2 bools, push bool) */ \
+    X(Or, 0) /* Logical OR (pop 2 bools, push bool) */ \
+    X(Not, 0) /* Logical NOT (pop 1 bool, push bool) */ \
+    /* ========== Local Variable Operations ========== */ \
+    X(LoadLocal, 4) /* Load local variable: <4-byte local-index> */ \
+    X(StoreLocal, 4) /* Store to local variable: <4-byte local-index> */ \
+    /* ========== Global Variable Operations ========== */ \
+    X(LoadGlobal, 4) /* Load global variable: <4-byte global-index> */ \
+    X(StoreGlobal, 4) /* Store to global variable: <4-byte global-index> */ \
+    /* ========== Memory Operations ========== */ \
+    X(Alloc, 8) /* Allocate object: <4-byte type-id> <4-byte size-in-bytes> */ \
+    X(Load, 0) /* Load from heap */ \
+    X(Store, 0) /* Store to heap */ \
+    /* ========== Struct/Object Operations ========== */ \
+    X(GetField, 4) /* Get struct field: <4-byte field-index> */ \
+    X(SetField, 4) /* Set struct field: <4-byte field-index> */ \
+    /* ========== Array Operations ========== */ \
+    X(NewArray, 4) /* Create array: <4-byte element-count> */ \
+    X(GetElement, 0) /* Get array element */ \
+    X(SetElement, 0) /* Set array element */ \
+    X(ArrayLength, 0) /* Get array length */ \
+    /* ========== Control Flow ========== */ \
+    X(Jump, 4) /* Unconditional jump: <4-byte offset> */ \
+    X(JumpIfTrue, 4) /* Conditional jump if true: <4-byte offset> */ \
+    X(JumpIfFalse, 4) /* Conditional jump if false: <4-byte offset> */ \
+    /* ========== Function Calls ========== */ \
+    X(Call, 8) /* Call function: <4-byte function-index> <4-byte arg-count> */ \
+    X(CallForeign, 8) /* Call foreign function: <4-byte foreign-index> <4-byte arg-count> */ \
+    X(Return, 0) /* Return from function */ \
+    X(ReturnVoid, 0) /* Return void from function */ \
+    /* ========== Type Conversion ========== */ \
+    X(IntToFloat, 0) /* Convert int to float */ \
+    X(FloatToInt, 0) /* Convert float to int */ \
+    X(IntToBool, 0) /* Convert int to bool */ \
+    /* ========== Debug/Special ========== */ \
+    X(Print, 0) /* Print top stack value */ \
+    X(Halt, 0) /* Halt execution */
+
+// ===================== Enum Definition =====================
 enum class Opcode : uint8_t {
-    // ========== Stack Operations ==========
+#define X(name, size) name,
+    OPCODE_LIST(X)
+#undef X
+};
 
-    /// Pop value from stack (discard top value)
-    Pop,
+inline const char* opcodeNames[] = {
+#define X(name, size) #name,
+    OPCODE_LIST(X)
+#undef X
+};
 
-    /// Duplicate top stack value
-    Dup,
-
-    /// Swap top two stack values
-    Swap,
-
-    // ========== Constants ==========
-
-    /// Push constant: ConstInt <8-byte int>
-    ConstInt,
-
-    /// Push constant: ConstFloat <8-byte float>
-    ConstFloat,
-
-    /// Push constant: ConstBool <1-byte bool>
-    ConstBool,
-
-    /// Push constant: ConstString <4-byte string-pool-index>
-    ConstString,
-
-    /// Push null/void value
-    ConstNull,
-
-    // ========== Arithmetic Operations (binary) ==========
-    // All pop two values, push result
-
-    AddInt,     ///< Integer addition
-    AddFloat,   ///< Float addition
-    SubInt,     ///< Integer subtraction
-    SubFloat,   ///< Float subtraction
-    MulInt,     ///< Integer multiplication
-    MulFloat,   ///< Float multiplication
-    DivInt,     ///< Integer division
-    DivFloat,   ///< Float division
-    ModInt,     ///< Integer modulo
-
-    // ========== Unary Operations ==========
-
-    NegInt,     ///< Integer negation
-    NegFloat,   ///< Float negation
-
-    // ========== Comparison Operations ==========
-    // All pop two values, push bool result
-
-    EqInt,      ///< Integer equality
-    EqFloat,    ///< Float equality
-    EqBool,     ///< Bool equality
-    NeInt,      ///< Integer inequality
-    NeFloat,    ///< Float inequality
-    NeBool,     ///< Bool inequality
-    LtInt,      ///< Integer less than
-    LtFloat,    ///< Float less than
-    LeInt,      ///< Integer less than or equal
-    LeFloat,    ///< Float less than or equal
-    GtInt,      ///< Integer greater than
-    GtFloat,    ///< Float greater than
-    GeInt,      ///< Integer greater than or equal
-    GeFloat,    ///< Float greater than or equal
-
-    // ========== Logical Operations ==========
-
-    And,        ///< Logical AND (pop 2 bools, push bool)
-    Or,         ///< Logical OR (pop 2 bools, push bool)
-    Not,        ///< Logical NOT (pop 1 bool, push bool)
-
-    // ========== Local Variable Operations ==========
-
-    /// Load local variable: LoadLocal <4-byte local-index>
-    LoadLocal,
-
-    /// Store to local variable: StoreLocal <4-byte local-index>
-    StoreLocal,
-
-    // ========== Global Variable Operations ==========
-
-    /// Load global variable: LoadGlobal <4-byte global-index>
-    LoadGlobal,
-
-    /// Store to global variable: StoreGlobal <4-byte global-index>
-    StoreGlobal,
-
-    // ========== Memory Operations ==========
-
-    /// Allocate object on heap: Alloc <4-byte type-id> <4-byte size-in-bytes>
-    Alloc,
-
-    /// Load from heap: Load (pops address, pushes value)
-    Load,
-
-    /// Store to heap: Store (pops value, pops address)
-    Store,
-
-    // ========== Struct/Object Operations ==========
-
-    /// Get struct field: GetField <4-byte field-index>
-    /// Pops object reference, pushes field value
-    GetField,
-
-    /// Set struct field: SetField <4-byte field-index>
-    /// Pops value, pops object reference
-    SetField,
-
-    // ========== Array Operations ==========
-
-    /// Create array: NewArray <4-byte element-count>
-    /// Pops N elements from stack, pushes array reference
-    NewArray,
-
-    /// Get array element: GetElement
-    /// Pops index, pops array reference, pushes element
-    GetElement,
-
-    /// Set array element: SetElement
-    /// Pops value, pops index, pops array reference
-    SetElement,
-
-    /// Get array length: ArrayLength
-    /// Pops array reference, pushes length as int
-    ArrayLength,
-
-    // ========== Control Flow ==========
-
-    /// Unconditional jump: Jump <4-byte offset>
-    Jump,
-
-    /// Conditional jump if true: JumpIfTrue <4-byte offset>
-    /// Pops bool value, jumps if true
-    JumpIfTrue,
-
-    /// Conditional jump if false: JumpIfFalse <4-byte offset>
-    /// Pops bool value, jumps if false
-    JumpIfFalse,
-
-    // ========== Function Calls ==========
-
-    /// Call function: Call <4-byte function-index> <4-byte arg-count>
-    /// Pops N arguments in reverse order, pushes return value
-    Call,
-
-    /// Call foreign (C) function: CallForeign <4-byte foreign-index> <4-byte arg-count>
-    /// Pops N arguments, calls C function, pushes return value
-    CallForeign,
-
-    /// Return from function: Return
-    /// Pops return value (if any), returns to caller
-    Return,
-
-    /// Return void from function: ReturnVoid
-    /// Returns to caller without popping a value
-    ReturnVoid,
-
-    // ========== Type Conversion ==========
-
-    IntToFloat,   ///< Convert int to float
-    FloatToInt,   ///< Convert float to int (truncate)
-    IntToBool,    ///< Convert int to bool (0 = false, else true)
-
-    // ========== Debug/Special ==========
-
-    /// Print top stack value for debugging (does not pop)
-    Print,
-
-    /// Halt execution (error/panic)
-    Halt,
+inline const int opcodeOperandSizes[] = {
+#define X(name, size) size,
+    OPCODE_LIST(X)
+#undef X
 };
 
 /**
@@ -232,18 +160,37 @@ public:
 private:
     /// Debug info: bytecode offset -> source line number
     std::vector<std::pair<size_t, uint32_t>> lineNumbers_;
+
+    // Utility function to emit bytes
+    template<typename T>
+    inline void emitBytes(T value) {
+        for (size_t i = 0; i < sizeof(T); i++) {
+            code_.push_back(static_cast<uint8_t>((value >> (8 * i)) & 0xFF));
+        }
+    }
+
+    // Utility function to patch bytes at a memory location
+    template<typename T>
+    inline void patchBytes(size_t offset, T value) {
+        for (size_t i = 0; i < sizeof(T); i++) {
+            code_[offset + i] = static_cast<uint8_t>((value >> (8 * i)) & 0xFF);
+        }
+    }
 };
 
 /**
  * Get human-readable name for an opcode (for disassembly)
  */
-std::string getOpcodeName(Opcode opcode);
-
+inline std::string getOpcodeName(Opcode opcode) {
+    return opcodeNames[static_cast<uint8_t>(opcode)];
+}
 /**
  * Get the size (in bytes) of an opcode's operands
  * Returns 0 for opcodes with no operands
  * Returns -1 for variable-length opcodes
  */
-int getOpcodeOperandSize(Opcode opcode);
+inline int getOpcodeOperandSize(Opcode opcode) {
+    return opcodeOperandSizes[static_cast<uint8_t>(opcode)];
+}
 
 } // namespace volta::bytecode

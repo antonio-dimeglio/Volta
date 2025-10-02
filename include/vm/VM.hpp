@@ -11,6 +11,10 @@
 
 namespace volta::vm {
 
+// Forward declaration
+class GarbageCollector;
+struct GCConfig;
+
 // ============================================================================
 // Value Representation
 // ============================================================================
@@ -310,6 +314,32 @@ public:
      */
     const std::string& getErrorMessage() const { return errorMessage_; }
 
+    // ========== GC Root Access (for garbage collector) ==========
+
+    /**
+     * Get evaluation stack for GC root scanning
+     */
+    const Value* getStack() const { return stack_.data(); }
+    size_t getStackTop() const { return stackTop_; }
+
+    /**
+     * Get local stack for GC root scanning
+     */
+    const Value* getLocalStack() const { return localStack_.data(); }
+    size_t getLocalStackTop() const { return localStackTop_; }
+
+    /**
+     * Get globals for GC root scanning
+     */
+    const Value* getGlobals() const { return globals_.data(); }
+    size_t getGlobalsSize() const { return globals_.size(); }
+
+    /**
+     * Get call stack for debugging GC
+     */
+    const CallFrame* getCallStack() const { return callStack_.data(); }
+    size_t getCallStackTop() const { return callStackTop_; }
+
 private:
     // ========== Core Execution Loop ==========
 
@@ -418,10 +448,10 @@ private:
     ArrayObject* allocateArray(uint32_t length);
 
     /**
-     * Free all heap objects (called in destructor)
-     * Temporary until GC is implemented
+     * Get the garbage collector (for testing/debugging)
      */
-    void freeHeap();
+    GarbageCollector* gc() { return gc_.get(); }
+    const GarbageCollector* gc() const { return gc_.get(); }
 
     // ========== Helper Functions ==========
 
@@ -487,9 +517,8 @@ private:
     /// Global variables
     std::vector<Value> globals_;
 
-    /// Heap objects (for cleanup on destruction)
-    /// Note: This is temporary until GC is implemented
-    std::vector<void*> heapObjects_;
+    /// Garbage collector for automatic memory management
+    std::unique_ptr<GarbageCollector> gc_;
 
     /// Instruction pointer (offset into current chunk)
     size_t ip_ = 0;
