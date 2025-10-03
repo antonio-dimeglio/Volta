@@ -1,10 +1,10 @@
 #pragma once
 
-#include <memory>
 #include <string>
 #include <vector>
-#include <variant>
-#include "../semantic/Type.hpp"
+#include <memory>
+#include <cstdint>
+#include "semantic/Type.hpp"
 
 namespace volta::ir {
 
@@ -12,166 +12,345 @@ namespace volta::ir {
 class Instruction;
 class BasicBlock;
 class Function;
-
-// ============================================================================
-// IR Value System - SSA Values
-// ============================================================================
+class Use;
 
 /**
- * Base class for all values in IR (SSA form).
+ * Value - The base class for all values in the IR
  *
- * In SSA, every "value" is:
- * - Produced by exactly one instruction (or is a parameter/constant)
- * - Can be used by multiple instructions
+ * Design Philosophy:
+ * - SSA Form: Each Value represents a single definition
+ * - Use-Def Chains: Track all uses of this value
+ * - Type Safety: Every value has a type
+ * - Naming: Values can have optional names for debugging
  *
- * Examples:
- *   %0 = add i64 %a, %b    <- %0 is a Value (result of add)
- *   %1 = mul i64 %0, 2     <- %0 is used here
- *
- * Values have:
- * - A unique name (for SSA: %0, %1, %result, etc.)
- * - A type (int, float, bool, etc.)
- * - A kind (what produced this value)
+ * Value Hierarchy:
+ *   Value (abstract)
+ *   ├── Constant (compile-time constants)
+ *   │   ├── ConstantInt
+ *   │   ├── ConstantFloat
+ *   │   ├── ConstantBool
+ *   │   ├── ConstantString
+ *   │   ├── ConstantNone
+ *   │   └── UndefValue (undefined/uninitialized)
+ *   ├── Instruction (runtime computed values)
+ *   ├── Argument (function parameters)
+ *   └── GlobalValue (global variables, functions)
  */
 class Value {
 public:
-    enum class Kind {
-        Instruction,    // Result of an instruction (%0, %1, etc.)
-        Parameter,      // Function parameter (%arg0, %arg1, etc.)
-        Constant,       // Literal constant (42, 3.14, true, etc.)
-        GlobalVariable, // Global variable (@global_name)
-        Argument,       // Actual argument value passed to instruction
+    enum class ValueKind {
+        // Constants
+        ConstantInt,
+        ConstantFloat,
+        ConstantBool,
+        ConstantString,
+        ConstantNone,
+        UndefValue,
+
+        // Runtime values
+        Argument,
+        Instruction,
+
+        // Global entities
+        GlobalVariable,
+        Function
     };
 
-    Value(Kind kind, std::shared_ptr<semantic::Type> type, const std::string& name);
     virtual ~Value() = default;
 
-    // Getters
-    Kind getKind() const { return kind_; }
-    const std::shared_ptr<semantic::Type>& getType() const { return type_; }
+    // Core properties
+    ValueKind getKind() const { return kind_; }
+    std::shared_ptr<semantic::Type> getType() const { return type_; }
+
+    // Naming (for debugging and readability)
     const std::string& getName() const { return name_; }
+    void setName(const std::string& name) { name_ = name; }
+    bool hasName() const { return !name_.empty(); }
 
-    // Use tracking (for SSA def-use chains)
-    void addUse(Instruction* user);
-    void removeUse(Instruction* user);
-    const std::vector<Instruction*>& getUses() const { return uses_; }
+    // Use-def chain management
+    const std::vector<Use*>& getUses() const { return uses_; }
     bool hasUses() const { return !uses_.empty(); }
+    size_t getNumUses() const { return uses_.size(); }
 
-    // For debugging/printing
-    virtual std::string toString() const;
+    // Replace all uses of this value with another value
+    void replaceAllUsesWith(Value* newValue);
+
+    // Add/remove a use
+    void addUse(Use* use);
+    void removeUse(Use* use);
+
+    // Type checking helpers
+    bool isConstant() const;
+    bool isInstruction() const;
+    bool isArgument() const;
+    bool isGlobalValue() const;
+
+    // Pretty printing for debugging
+    virtual std::string toString() const = 0;
+
+    // Get a unique identifier for this value (for SSA naming)
+    uint64_t getID() const { return id_; }
 
 protected:
-    Kind kind_;
+    Value(ValueKind kind, std::shared_ptr<semantic::Type> type, const std::string& name = "");
+
+private:
+    ValueKind kind_;
     std::shared_ptr<semantic::Type> type_;
     std::string name_;
+    std::vector<Use*> uses_;  // All uses of this value
+    uint64_t id_;             // Unique ID for SSA naming
 
-    // Def-use chain: all instructions that use this value
-    std::vector<Instruction*> uses_;
+    static uint64_t nextID_;
+};
+
+/**
+ * Use - Represents a use of a Value
+ *
+ * Design: Each use tracks both the value being used and the user (instruction)
+ * This enables efficient def-use and use-def chain traversal
+ */
+class Use {
+public:
+    Use(Value* value, Instruction* user);
+    ~Use();
+
+    Value* getValue() const { return value_; }
+    void setValue(Value* newValue);
+
+    Instruction* getUser() const { return user_; }
+
+private:
+    Value* value_;           // The value being used
+    Instruction* user_;      // The instruction using this value
 };
 
 // ============================================================================
-// Constants - Compile-time known values
+// Constants
 // ============================================================================
 
 /**
- * Represents a compile-time constant value.
- *
- * Examples in IR:
- *   %0 = add i64 42, %x        <- 42 is a Constant
- *   %1 = fadd float 3.14, %y   <- 3.14 is a Constant
- *   %2 = and bool true, %z     <- true is a Constant
+ * Constant - Base class for compile-time constant values
+ * Constants are immutable and unique (interned)
  */
 class Constant : public Value {
 public:
-    // Variant holds the actual constant value
-    using ConstantValue = std::variant<
-        int64_t,           // Integer constants
-        double,            // Float constants
-        bool,              // Boolean constants
-        std::string,       // String constants
-        std::monostate     // Null/None
-    >;
+    virtual ~Constant() = default;
 
-    Constant(std::shared_ptr<semantic::Type> type, ConstantValue value, const std::string& name = "");
+    static bool classof(const Value* V) {
+        return V->getKind() >= ValueKind::ConstantInt &&
+               V->getKind() <= ValueKind::UndefValue;
+    }
 
-    const ConstantValue& getValue() const { return value_; }
-
-    // Factory methods - you'll implement these to create constants
-    static std::shared_ptr<Constant> getInt(int64_t value);
-    static std::shared_ptr<Constant> getFloat(double value);
-    static std::shared_ptr<Constant> getBool(bool value);
-    static std::shared_ptr<Constant> getString(const std::string& value);
-    static std::shared_ptr<Constant> getNone();
-
-    std::string toString() const override;
-
-private:
-    ConstantValue value_;
+protected:
+    Constant(ValueKind kind, std::shared_ptr<semantic::Type> type, const std::string& name = "");
 };
 
-// ============================================================================
-// Parameters - Function parameters in SSA form
-// ============================================================================
-
 /**
- * Represents a function parameter.
- *
- * Example:
- *   fn add(a: int, b: int) -> int {
- *       return a + b
- *   }
- *
- * In IR:
- *   define i64 @add(i64 %a, i64 %b) {
- *     entry:
- *       %0 = add i64 %a, %b    <- %a and %b are Parameters
- *       ret i64 %0
- *   }
+ * ConstantInt - Integer constant (64-bit signed)
  */
-class Parameter : public Value {
+class ConstantInt : public Constant {
 public:
-    Parameter(std::shared_ptr<semantic::Type> type, const std::string& name, size_t index);
+    static ConstantInt* get(int64_t value, std::shared_ptr<semantic::Type> type);
 
-    size_t getIndex() const { return index_; }
+    int64_t getValue() const { return value_; }
 
     std::string toString() const override;
 
+    static bool classof(const Value* V) {
+        return V->getKind() == ValueKind::ConstantInt;
+    }
+
 private:
-    size_t index_;  // Position in function signature (0, 1, 2, ...)
+    ConstantInt(int64_t value, std::shared_ptr<semantic::Type> type);
+    int64_t value_;
+};
+
+/**
+ * ConstantFloat - Floating-point constant (64-bit double)
+ */
+class ConstantFloat : public Constant {
+public:
+    static ConstantFloat* get(double value, std::shared_ptr<semantic::Type> type);
+
+    double getValue() const { return value_; }
+
+    std::string toString() const override;
+
+    static bool classof(const Value* V) {
+        return V->getKind() == ValueKind::ConstantFloat;
+    }
+
+private:
+    ConstantFloat(double value, std::shared_ptr<semantic::Type> type);
+    double value_;
+};
+
+/**
+ * ConstantBool - Boolean constant
+ */
+class ConstantBool : public Constant {
+public:
+    static ConstantBool* get(bool value, std::shared_ptr<semantic::Type> type);
+    static ConstantBool* getTrue(std::shared_ptr<semantic::Type> type);
+    static ConstantBool* getFalse(std::shared_ptr<semantic::Type> type);
+
+    bool getValue() const { return value_; }
+
+    std::string toString() const override;
+
+    static bool classof(const Value* V) {
+        return V->getKind() == ValueKind::ConstantBool;
+    }
+
+private:
+    ConstantBool(bool value, std::shared_ptr<semantic::Type> type);
+    bool value_;
+};
+
+/**
+ * ConstantString - String constant
+ * Note: String constants are interned for memory efficiency
+ */
+class ConstantString : public Constant {
+public:
+    static ConstantString* get(const std::string& value, std::shared_ptr<semantic::Type> type);
+
+    const std::string& getValue() const { return value_; }
+
+    std::string toString() const override;
+
+    static bool classof(const Value* V) {
+        return V->getKind() == ValueKind::ConstantString;
+    }
+
+private:
+    ConstantString(const std::string& value, std::shared_ptr<semantic::Type> type);
+    std::string value_;
+};
+
+/**
+ * ConstantNone - Represents None value for Option types
+ */
+class ConstantNone : public Constant {
+public:
+    static ConstantNone* get(std::shared_ptr<semantic::Type> optionType);
+
+    std::string toString() const override;
+
+    static bool classof(const Value* V) {
+        return V->getKind() == ValueKind::ConstantNone;
+    }
+
+private:
+    ConstantNone(std::shared_ptr<semantic::Type> optionType);
+};
+
+/**
+ * UndefValue - Represents an undefined/uninitialized value
+ * Used for uninitialized variables before first assignment
+ */
+class UndefValue : public Constant {
+public:
+    static UndefValue* get(std::shared_ptr<semantic::Type> type);
+
+    std::string toString() const override;
+
+    static bool classof(const Value* V) {
+        return V->getKind() == ValueKind::UndefValue;
+    }
+
+private:
+    UndefValue(std::shared_ptr<semantic::Type> type);
 };
 
 // ============================================================================
-// Global Variables - Module-level storage
+// Argument
 // ============================================================================
 
 /**
- * Represents a global variable (mutable or immutable).
- *
- * Example:
- *   counter: mut int = 0
- *
- * In IR:
- *   @counter = global i64 0
- *
- * Used with alloca/load/store in LLVM style.
+ * Argument - Represents a function parameter
+ * Arguments are special values that represent incoming function parameters
+ */
+class Argument : public Value {
+public:
+    Argument(std::shared_ptr<semantic::Type> type,
+             unsigned argNo,
+             const std::string& name = "");
+
+    unsigned getArgNo() const { return argNo_; }
+    Function* getParent() const { return parent_; }
+    void setParent(Function* parent) { parent_ = parent; }
+
+    std::string toString() const override;
+
+    static bool classof(const Value* V) {
+        return V->getKind() == ValueKind::Argument;
+    }
+
+private:
+    unsigned argNo_;      // Argument index (0-based)
+    Function* parent_;    // Parent function
+};
+
+// ============================================================================
+// Global Value
+// ============================================================================
+
+/**
+ * GlobalVariable - Represents a global variable
+ * Global variables live for the entire program execution
  */
 class GlobalVariable : public Value {
 public:
-    GlobalVariable(
-        std::shared_ptr<semantic::Type> type,
-        const std::string& name,
-        std::shared_ptr<Constant> initializer = nullptr,
-        bool isMutable = false
-    );
+    GlobalVariable(std::shared_ptr<semantic::Type> type,
+                   const std::string& name,
+                   Constant* initializer = nullptr,
+                   bool isConstant = false);
 
-    const std::shared_ptr<Constant>& getInitializer() const { return initializer_; }
-    bool isMutable() const { return isMutable_; }
+    bool isConstant() const { return isConstant_; }
+
+    Constant* getInitializer() const { return initializer_; }
+    void setInitializer(Constant* init) { initializer_ = init; }
 
     std::string toString() const override;
 
+    static bool classof(const Value* V) {
+        return V->getKind() == ValueKind::GlobalVariable;
+    }
+
 private:
-    std::shared_ptr<Constant> initializer_;
-    bool isMutable_;
+    bool isConstant_;
+    Constant* initializer_;
 };
+
+// ============================================================================
+// Utility Functions
+// ============================================================================
+
+/**
+ * Typed value casting with LLVM-style RTTI
+ * Usage: if (auto* ci = dyn_cast<ConstantInt>(value)) { ... }
+ */
+template<typename To, typename From>
+inline To* dyn_cast(From* value) {
+    if (value && To::classof(value)) {
+        return static_cast<To*>(value);
+    }
+    return nullptr;
+}
+
+template<typename To, typename From>
+inline const To* dyn_cast(const From* value) {
+    if (value && To::classof(value)) {
+        return static_cast<const To*>(value);
+    }
+    return nullptr;
+}
+
+template<typename To, typename From>
+inline bool isa(const From* value) {
+    return value && To::classof(value);
+}
 
 } // namespace volta::ir
