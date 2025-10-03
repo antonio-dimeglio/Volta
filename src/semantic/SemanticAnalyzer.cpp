@@ -506,137 +506,19 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeExpression(const volta::ast::Expr
         resultType = analyzeMatchExpression(matchExpr);
     }
     else if (auto* memberExpr = dynamic_cast<const volta::ast::MemberExpression*>(expr)) {
-        // Analyze member access: object.field
-        auto objectType = analyzeExpression(memberExpr->object.get());
-
-        // Object must be a struct type
-        auto* structType = dynamic_cast<const StructType*>(objectType.get());
-        if (!structType) {
-            error("Member access on non-struct type", memberExpr->location);
-            resultType = std::make_shared<UnknownType>();
-        } else {
-            const std::string& fieldName = memberExpr->member->name;
-            const auto* field = structType->getField(fieldName);
-
-            if (!field) {
-                error("Struct '" + structType->name() + "' has no field '" + fieldName + "'",
-                      memberExpr->location);
-                resultType = std::make_shared<UnknownType>();
-            } else {
-                resultType = field->type;
-            }
-        }
+        resultType = analyzeMemberExpression(memberExpr);
     }
     else if (auto* methodCall = dynamic_cast<const volta::ast::MethodCallExpression*>(expr)) {
-        // Analyze method call: object.method(args)
-        auto objectType = analyzeExpression(methodCall->object.get());
-
-        // Object must be a struct type
-        auto* structType = dynamic_cast<const StructType*>(objectType.get());
-        if (!structType) {
-            error("Method call on non-struct type", methodCall->location);
-            resultType = std::make_shared<UnknownType>();
-        } else {
-            // Look up method by qualified name: "StructName.methodName"
-            const std::string& methodName = methodCall->method->name;
-            const std::string qualifiedName = structType->name() + "." + methodName;
-
-            auto* methodSymbol = symbolTable_->lookup(qualifiedName);
-            if (!methodSymbol) {
-                error("Struct '" + structType->name() + "' has no method '" + methodName + "'",
-                      methodCall->location);
-                resultType = std::make_shared<UnknownType>();
-            } else {
-                // Check if it's actually a function type
-                auto* fnType = dynamic_cast<const FunctionType*>(methodSymbol->type.get());
-                if (!fnType) {
-                    error("'" + qualifiedName + "' is not a method", methodCall->location);
-                    resultType = std::make_shared<UnknownType>();
-                } else {
-                    // Type check arguments
-                    // Note: First parameter is self, so we check args against parameters[1...]
-                    size_t expectedArgCount = fnType->paramTypes().size() - 1;
-                    if (methodCall->arguments.size() != expectedArgCount) {
-                        error("Wrong number of arguments to method '" + methodName + "'",
-                              methodCall->location);
-                    } else {
-                        for (size_t i = 0; i < methodCall->arguments.size(); ++i) {
-                            auto argType = analyzeExpression(methodCall->arguments[i].get());
-                            auto expectedType = fnType->paramTypes()[i + 1]; // Skip self parameter
-                            if (!areTypesCompatible(expectedType.get(), argType.get())) {
-                                typeError("Argument type mismatch in method call",
-                                         expectedType.get(), argType.get(), methodCall->location);
-                            }
-                        }
-                    }
-                    resultType = fnType->returnType();
-                }
-            }
-        }
+        resultType = analyzeMethodCallExpression(methodCall);
     }
     else if (auto* arrayLit = dynamic_cast<const volta::ast::ArrayLiteral*>(expr)) {
-        if (arrayLit->elements.empty()) {
-            resultType = std::make_shared<ArrayType>(std::make_shared<UnknownType>());
-        } else {
-            auto elemType = analyzeExpression(arrayLit->elements[0].get());
-            resultType = std::make_shared<ArrayType>(elemType);
-        }
+        resultType = analyzeArrayLiteral(arrayLit);
     }
     else if (auto* indexExpr = dynamic_cast<const volta::ast::IndexExpression*>(expr)) {
-        // Analyze array indexing: array[index]
-        auto arrayType = analyzeExpression(indexExpr->object.get());
-        auto indexType = analyzeExpression(indexExpr->index.get());
-
-        // Index must be an integer
-        if (indexType->kind() != Type::Kind::Int) {
-            typeError("Array index must be an integer",
-                     std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Int).get(),
-                     indexType.get(), indexExpr->location);
-        }
-
-        // Object must be an array type
-        if (arrayType->kind() == Type::Kind::Array) {
-            auto* arrType = dynamic_cast<const ArrayType*>(arrayType.get());
-            resultType = arrType->elementType();
-        } else {
-            error("Index operator can only be used on arrays", indexExpr->location);
-            resultType = std::make_shared<UnknownType>();
-        }
+        resultType = analyzeIndexExpression(indexExpr);
     }
     else if (auto* structLit = dynamic_cast<const volta::ast::StructLiteral*>(expr)) {
-        // Look up the struct type by name
-        const std::string& structName = structLit->structName->name;
-        auto* symbol = symbolTable_->lookup(structName);
-
-        if (!symbol) {
-            error("Unknown struct type '" + structName + "'", structLit->location);
-            resultType = std::make_shared<UnknownType>();
-        } else if (symbol->type->kind() != Type::Kind::Struct) {
-            error("'" + structName + "' is not a struct type", structLit->location);
-            resultType = std::make_shared<UnknownType>();
-        } else {
-            resultType = symbol->type;
-
-            // Type check each field initializer
-            auto structType = std::dynamic_pointer_cast<StructType>(symbol->type);
-            for (const auto& fieldInit : structLit->fields) {
-                const std::string& fieldName = fieldInit->identifier->name;
-                const auto* field = structType->getField(fieldName);
-
-                if (!field) {
-                    error("Struct '" + structName + "' has no field '" + fieldName + "'",
-                          structLit->location);
-                    continue;
-                }
-
-                // Analyze field value and check type compatibility
-                auto valueType = analyzeExpression(fieldInit->value.get());
-                if (!areTypesCompatible(field->type.get(), valueType.get())) {
-                    typeError("Field '" + fieldName + "' type mismatch",
-                             field->type.get(), valueType.get(), structLit->location);
-                }
-            }
-        }
+        resultType = analyzeStructLiteral(structLit);
     }
     else {
         resultType = std::make_shared<UnknownType>();
@@ -758,6 +640,133 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeMatchExpression(const volta::ast:
     }
 
     return resultType ? resultType : std::make_shared<UnknownType>();
+}
+
+std::shared_ptr<Type> SemanticAnalyzer::analyzeMemberExpression(const volta::ast::MemberExpression* memberExpr) {
+    auto objectType = analyzeExpression(memberExpr->object.get());
+
+    auto* structType = dynamic_cast<const StructType*>(objectType.get());
+    if (!structType) {
+        error("Member access on non-struct type", memberExpr->location);
+        return std::make_shared<UnknownType>();
+    }
+
+    const std::string& fieldName = memberExpr->member->name;
+    const auto* field = structType->getField(fieldName);
+
+    if (!field) {
+        error("Struct '" + structType->name() + "' has no field '" + fieldName + "'",
+              memberExpr->location);
+        return std::make_shared<UnknownType>();
+    }
+
+    return field->type;
+}
+
+std::shared_ptr<Type> SemanticAnalyzer::analyzeMethodCallExpression(const volta::ast::MethodCallExpression* methodCall) {
+    auto objectType = analyzeExpression(methodCall->object.get());
+
+    auto* structType = dynamic_cast<const StructType*>(objectType.get());
+    if (!structType) {
+        error("Method call on non-struct type", methodCall->location);
+        return std::make_shared<UnknownType>();
+    }
+
+    const std::string& methodName = methodCall->method->name;
+    const std::string qualifiedName = structType->name() + "." + methodName;
+
+    auto* methodSymbol = symbolTable_->lookup(qualifiedName);
+    if (!methodSymbol) {
+        error("Struct '" + structType->name() + "' has no method '" + methodName + "'",
+              methodCall->location);
+        return std::make_shared<UnknownType>();
+    }
+
+    auto* fnType = dynamic_cast<const FunctionType*>(methodSymbol->type.get());
+    if (!fnType) {
+        error("'" + qualifiedName + "' is not a method", methodCall->location);
+        return std::make_shared<UnknownType>();
+    }
+
+    size_t expectedArgCount = fnType->paramTypes().size() - 1;
+    if (methodCall->arguments.size() != expectedArgCount) {
+        error("Wrong number of arguments to method '" + methodName + "'",
+              methodCall->location);
+    } else {
+        for (size_t i = 0; i < methodCall->arguments.size(); ++i) {
+            auto argType = analyzeExpression(methodCall->arguments[i].get());
+            auto expectedType = fnType->paramTypes()[i + 1];
+            if (!areTypesCompatible(expectedType.get(), argType.get())) {
+                typeError("Argument type mismatch in method call",
+                         expectedType.get(), argType.get(), methodCall->location);
+            }
+        }
+    }
+
+    return fnType->returnType();
+}
+
+std::shared_ptr<Type> SemanticAnalyzer::analyzeArrayLiteral(const volta::ast::ArrayLiteral* arrayLit) {
+    if (arrayLit->elements.empty()) {
+        return std::make_shared<ArrayType>(std::make_shared<UnknownType>());
+    }
+
+    auto elemType = analyzeExpression(arrayLit->elements[0].get());
+    return std::make_shared<ArrayType>(elemType);
+}
+
+std::shared_ptr<Type> SemanticAnalyzer::analyzeIndexExpression(const volta::ast::IndexExpression* indexExpr) {
+    auto arrayType = analyzeExpression(indexExpr->object.get());
+    auto indexType = analyzeExpression(indexExpr->index.get());
+
+    if (indexType->kind() != Type::Kind::Int) {
+        typeError("Array index must be an integer",
+                 std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Int).get(),
+                 indexType.get(), indexExpr->location);
+    }
+
+    if (arrayType->kind() == Type::Kind::Array) {
+        auto* arrType = dynamic_cast<const ArrayType*>(arrayType.get());
+        return arrType->elementType();
+    }
+
+    error("Index operator can only be used on arrays", indexExpr->location);
+    return std::make_shared<UnknownType>();
+}
+
+std::shared_ptr<Type> SemanticAnalyzer::analyzeStructLiteral(const volta::ast::StructLiteral* structLit) {
+    const std::string& structName = structLit->structName->name;
+    auto* symbol = symbolTable_->lookup(structName);
+
+    if (!symbol) {
+        error("Unknown struct type '" + structName + "'", structLit->location);
+        return std::make_shared<UnknownType>();
+    }
+
+    if (symbol->type->kind() != Type::Kind::Struct) {
+        error("'" + structName + "' is not a struct type", structLit->location);
+        return std::make_shared<UnknownType>();
+    }
+
+    auto structType = std::dynamic_pointer_cast<StructType>(symbol->type);
+    for (const auto& fieldInit : structLit->fields) {
+        const std::string& fieldName = fieldInit->identifier->name;
+        const auto* field = structType->getField(fieldName);
+
+        if (!field) {
+            error("Struct '" + structName + "' has no field '" + fieldName + "'",
+                  structLit->location);
+            continue;
+        }
+
+        auto valueType = analyzeExpression(fieldInit->value.get());
+        if (!areTypesCompatible(field->type.get(), valueType.get())) {
+            typeError("Field '" + fieldName + "' type mismatch",
+                     field->type.get(), valueType.get(), structLit->location);
+        }
+    }
+
+    return symbol->type;
 }
 
 bool SemanticAnalyzer::areTypesCompatible(const Type* expected, const Type* actual) {

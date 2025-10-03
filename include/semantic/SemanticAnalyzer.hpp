@@ -61,6 +61,11 @@ private:
     std::shared_ptr<Type> analyzeCallExpression(const volta::ast::CallExpression* callExpr);
     std::shared_ptr<Type> analyzeIdentifier(const volta::ast::IdentifierExpression* identifier);
     std::shared_ptr<Type> analyzeLiteral(const volta::ast::Expression* literal);
+    std::shared_ptr<Type> analyzeMemberExpression(const volta::ast::MemberExpression* memberExpr);
+    std::shared_ptr<Type> analyzeMethodCallExpression(const volta::ast::MethodCallExpression* methodCall);
+    std::shared_ptr<Type> analyzeArrayLiteral(const volta::ast::ArrayLiteral* arrayLit);
+    std::shared_ptr<Type> analyzeIndexExpression(const volta::ast::IndexExpression* indexExpr);
+    std::shared_ptr<Type> analyzeStructLiteral(const volta::ast::StructLiteral* structLit);
 
     // Type operations
     bool areTypesCompatible(const Type* expected, const Type* actual);
