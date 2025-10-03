@@ -82,6 +82,7 @@ private:
     std::shared_ptr<Type> lookupVariable(const std::string& name, volta::errors::SourceLocation loc);
     std::shared_ptr<Type> lookupFunction(const std::string& name, volta::errors::SourceLocation loc);
     bool isVariableMutable(const std::string& name);
+    bool isExpressionMutable(const volta::ast::Expression* expr);
 
     // Control flow state
     void enterLoop();

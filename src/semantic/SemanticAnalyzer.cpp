@@ -572,14 +572,18 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeBinaryExpression(const volta::ast
             isValidLValue = true;
         }
         // 2. Member access (struct.field)
-        else if (dynamic_cast<const volta::ast::MemberExpression*>(binExpr->left.get())) {
+        else if (auto* memberExpr = dynamic_cast<const volta::ast::MemberExpression*>(binExpr->left.get())) {
+            if (!isExpressionMutable(memberExpr->object.get())) {
+                error("Cannot assign to field of immutable object", binExpr->location);
+            }
             isValidLValue = true;
-            // TODO: Check if the base object is mutable
         }
         // 3. Array indexing (array[index])
-        else if (dynamic_cast<const volta::ast::IndexExpression*>(binExpr->left.get())) {
+        else if (auto* indexExpr = dynamic_cast<const volta::ast::IndexExpression*>(binExpr->left.get())) {
+            if (!isExpressionMutable(indexExpr->object.get())) {
+                error("Cannot assign to element of immutable array", binExpr->location);
+            }
             isValidLValue = true;
-            // TODO: Check if the array is mutable
         }
 
         if (!isValidLValue) {
@@ -860,6 +864,26 @@ std::shared_ptr<Type> SemanticAnalyzer::inferUnaryOpType(
     }
 
     return typeCache_.getUnknown();
+}
+
+bool SemanticAnalyzer::isExpressionMutable(const volta::ast::Expression* expr) {
+    // 1. Simple identifier - check symbol table
+    if (auto* ident = dynamic_cast<const volta::ast::IdentifierExpression*>(expr)) {
+        return isVariableMutable(ident->name);
+    }
+
+    // 2. Member expression - check base object mutability
+    if (auto* member = dynamic_cast<const volta::ast::MemberExpression*>(expr)) {
+        return isExpressionMutable(member->object.get());
+    }
+
+    // 3. Index expression - check base array mutability
+    if (auto* index = dynamic_cast<const volta::ast::IndexExpression*>(expr)) {
+        return isExpressionMutable(index->object.get());
+    }
+
+    // All other expressions (literals, calls, etc.) are not mutable
+    return false;
 }
 
 }
