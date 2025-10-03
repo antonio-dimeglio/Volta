@@ -1,5 +1,6 @@
 #include "IR/IRModule.hpp"
 #include <iostream>
+#include <unordered_set>
 
 namespace volta::ir {
 
@@ -172,8 +173,6 @@ Function* IRModule::declareForeignFunction(
 // ============================================================================
 
 bool IRModule::verify(std::ostream& errors) const {
-    //TODO: Implement more advanced checks (type consistency, value defined before use).
-
     bool isValid = true;
 
     for (const auto& func : functions_) {
@@ -182,19 +181,297 @@ bool IRModule::verify(std::ostream& errors) const {
             continue;
         }
 
-        if (func->basicBlocks().empty()) {
-            errors << "Function " << func->name() << " has no basic blocks\n";
+        if (!verifyFunction(func.get(), errors)) {
+            isValid = false;
+        }
+    }
+
+    return isValid;
+}
+
+// ============================================================================
+// Verification Helpers
+// ============================================================================
+
+std::unordered_set<const Value*> IRModule::buildDefinedValuesSet(const Function* func) const {
+    std::unordered_set<const Value*> definedValues;
+
+    // Parameters are defined at function entry
+    for (const auto& param : func->parameters()) {
+        definedValues.insert(param);
+    }
+
+    // Globals are always defined
+    for (const auto& global : globals_) {
+        definedValues.insert(global.get());
+    }
+
+    // All constants are always defined
+    for (const auto& constant : constants_) {
+        definedValues.insert(constant.get());
+    }
+
+    return definedValues;
+}
+
+bool IRModule::verifyFunction(const Function* func, std::ostream& errors) const {
+    bool isValid = true;
+
+    // Check function has at least one basic block
+    if (func->basicBlocks().empty()) {
+        errors << "ERROR: Function '" << func->name() << "' has no basic blocks\n";
+        return false;
+    }
+
+    // Build set of all valid blocks in this function for branch validation
+    std::unordered_set<const BasicBlock*> validBlocks;
+    for (const auto& block : func->basicBlocks()) {
+        validBlocks.insert(block);
+    }
+
+    // Build set of all defined values
+    auto definedValues = buildDefinedValuesSet(func);
+
+    // Check each basic block
+    for (const auto& block : func->basicBlocks()) {
+        // Check block has terminator
+        if (!block->hasTerminator()) {
+            errors << "ERROR: Block '" << block->name() << "' in function '"
+                   << func->name() << "' has no terminator\n";
             isValid = false;
         }
 
-        for (const auto& block : func->basicBlocks()) {
-            if (!block->hasTerminator()) {
-                errors << "Block " << block->name() << " in function " << func->name()
-                       << " has no terminator\n";
+        // Check block has at least one instruction
+        if (block->instructions().empty()) {
+            errors << "ERROR: Block '" << block->name() << "' in function '"
+                   << func->name() << "' has no instructions\n";
+            isValid = false;
+            continue;
+        }
+
+        // Check each instruction
+        for (const auto* inst : block->instructions()) {
+            // Add this instruction to defined values (for subsequent uses)
+            definedValues.insert(inst);
+
+            // Check operands are defined before use
+            for (const auto* operand : inst->operands()) {
+                if (definedValues.find(operand) == definedValues.end()) {
+                    errors << "ERROR: Instruction '" << inst->name()
+                           << "' uses undefined value '" << operand->name()
+                           << "' in block '" << block->name()
+                           << "' of function '" << func->name() << "'\n";
+                    isValid = false;
+                }
+            }
+
+            // Verify specific instruction types
+            if (!verifyBranchTargets(inst, block, func, validBlocks, errors)) {
+                isValid = false;
+            }
+
+            if (auto* callInst = dynamic_cast<const CallInst*>(inst)) {
+                if (!verifyCall(callInst, block, func, errors)) {
+                    isValid = false;
+                }
+            }
+
+            if (auto* retInst = dynamic_cast<const ReturnInst*>(inst)) {
+                if (!verifyReturn(retInst, block, func, errors)) {
+                    isValid = false;
+                }
+            }
+
+            if (!verifyArrayOperation(inst, block, func, errors)) {
+                isValid = false;
+            }
+
+            if (!verifyStructOperation(inst, block, func, errors)) {
+                isValid = false;
+            }
+        }
+
+        // Check that terminators are only at the end
+        for (size_t i = 0; i < block->instructions().size() - 1; ++i) {
+            const auto* inst = block->instructions()[i];
+            if (inst->opcode() == Instruction::Opcode::Br ||
+                inst->opcode() == Instruction::Opcode::BrIf ||
+                inst->opcode() == Instruction::Opcode::Ret) {
+                errors << "ERROR: Terminator instruction in middle of block '"
+                       << block->name() << "' in function '" << func->name()
+                       << "' at position " << i << "\n";
                 isValid = false;
             }
         }
     }
+
+    return isValid;
+}
+
+bool IRModule::verifyBranchTargets(const Instruction* inst, const BasicBlock* block,
+                                   const Function* func,
+                                   const std::unordered_set<const BasicBlock*>& validBlocks,
+                                   std::ostream& errors) const {
+    bool isValid = true;
+
+    if (auto* brInst = dynamic_cast<const BranchInst*>(inst)) {
+        if (validBlocks.find(brInst->target()) == validBlocks.end()) {
+            errors << "ERROR: Branch instruction in block '" << block->name()
+                   << "' of function '" << func->name()
+                   << "' targets invalid block\n";
+            isValid = false;
+        }
+    }
+    else if (auto* brIfInst = dynamic_cast<const BranchIfInst*>(inst)) {
+        if (validBlocks.find(brIfInst->thenBlock()) == validBlocks.end()) {
+            errors << "ERROR: Conditional branch in block '" << block->name()
+                   << "' of function '" << func->name()
+                   << "' has invalid 'then' target\n";
+            isValid = false;
+        }
+        if (validBlocks.find(brIfInst->elseBlock()) == validBlocks.end()) {
+            errors << "ERROR: Conditional branch in block '" << block->name()
+                   << "' of function '" << func->name()
+                   << "' has invalid 'else' target\n";
+            isValid = false;
+        }
+
+        // Check condition is boolean
+        if (brIfInst->condition() && brIfInst->condition()->type()) {
+            auto* primType = dynamic_cast<const semantic::PrimitiveType*>(
+                brIfInst->condition()->type().get());
+            if (!primType || primType->primitiveKind() !=
+                semantic::PrimitiveType::PrimitiveKind::Bool) {
+                errors << "ERROR: Conditional branch condition in block '"
+                       << block->name() << "' of function '" << func->name()
+                       << "' must be boolean type\n";
+                isValid = false;
+            }
+        }
+    }
+
+    return isValid;
+}
+
+bool IRModule::verifyCall(const CallInst* callInst, const BasicBlock* block,
+                         const Function* func, std::ostream& errors) const {
+    bool isValid = true;
+
+    if (getFunction(callInst->callee()->name()) == nullptr) {
+        errors << "ERROR: Call instruction in block '" << block->name()
+               << "' of function '" << func->name()
+               << "' calls undefined function '"
+               << callInst->callee()->name() << "'\n";
+        isValid = false;
+    }
+
+    // Check argument count matches
+    const auto& funcType = callInst->callee()->type();
+    if (funcType->paramTypes().size() != callInst->arguments().size()) {
+        errors << "ERROR: Call to '" << callInst->callee()->name()
+               << "' in block '" << block->name()
+               << "' has " << callInst->arguments().size()
+               << " arguments but function expects "
+               << funcType->paramTypes().size() << "\n";
+        isValid = false;
+    }
+
+    return isValid;
+}
+
+bool IRModule::verifyReturn(const ReturnInst* retInst, const BasicBlock* block,
+                           const Function* func, std::ostream& errors) const {
+    bool isValid = true;
+    const auto& funcRetType = func->type()->returnType();
+
+    if (retInst->hasReturnValue()) {
+        // Function must not be void
+        auto* voidType = dynamic_cast<const semantic::PrimitiveType*>(funcRetType.get());
+        if (voidType && voidType->primitiveKind() ==
+            semantic::PrimitiveType::PrimitiveKind::Void) {
+            errors << "ERROR: Return with value in void function '"
+                   << func->name() << "' in block '" << block->name() << "'\n";
+            isValid = false;
+        }
+    } else {
+        // Function must be void
+        auto* voidType = dynamic_cast<const semantic::PrimitiveType*>(funcRetType.get());
+        if (!voidType || voidType->primitiveKind() !=
+            semantic::PrimitiveType::PrimitiveKind::Void) {
+            errors << "ERROR: Return without value in non-void function '"
+                   << func->name() << "' in block '" << block->name() << "'\n";
+            isValid = false;
+        }
+    }
+
+    return isValid;
+}
+
+bool IRModule::verifyArrayOperation(const Instruction* inst, const BasicBlock* block,
+                                   const Function* func, std::ostream& errors) const {
+    bool isValid = true;
+
+    if (auto* getElemInst = dynamic_cast<const GetElementInst*>(inst)) {
+        auto* arrayType = dynamic_cast<const semantic::ArrayType*>(
+            getElemInst->array()->type().get());
+        if (!arrayType) {
+            errors << "ERROR: GetElement in block '" << block->name()
+                   << "' of function '" << func->name()
+                   << "' operates on non-array type\n";
+            isValid = false;
+        }
+    }
+    else if (auto* setElemInst = dynamic_cast<const SetElementInst*>(inst)) {
+        auto* arrayType = dynamic_cast<const semantic::ArrayType*>(
+            setElemInst->array()->type().get());
+        if (!arrayType) {
+            errors << "ERROR: SetElement in block '" << block->name()
+                   << "' of function '" << func->name()
+                   << "' operates on non-array type\n";
+            isValid = false;
+        }
+    }
+
+    return isValid;
+}
+
+bool IRModule::verifyStructOperation(const Instruction* inst, const BasicBlock* block,
+                                    const Function* func, std::ostream& errors) const {
+    bool isValid = true;
+
+    if (auto* getFieldInst = dynamic_cast<const GetFieldInst*>(inst)) {
+        auto* structType = dynamic_cast<const semantic::StructType*>(
+            getFieldInst->object()->type().get());
+        if (!structType) {
+            errors << "ERROR: GetField in block '" << block->name()
+                   << "' of function '" << func->name()
+                   << "' operates on non-struct type\n";
+            isValid = false;
+        } else if (getFieldInst->fieldIndex() >= structType->fields().size()) {
+            errors << "ERROR: GetField in block '" << block->name()
+                   << "' of function '" << func->name()
+                   << "' accesses out-of-bounds field index "
+                   << getFieldInst->fieldIndex() << "\n";
+            isValid = false;
+        }
+    }
+    else if (auto* setFieldInst = dynamic_cast<const SetFieldInst*>(inst)) {
+        auto* structType = dynamic_cast<const semantic::StructType*>(
+            setFieldInst->object()->type().get());
+        if (!structType) {
+            errors << "ERROR: SetField in block '" << block->name()
+                   << "' of function '" << func->name()
+                   << "' operates on non-struct type\n";
+            isValid = false;
+        } else if (setFieldInst->fieldIndex() >= structType->fields().size()) {
+            errors << "ERROR: SetField in block '" << block->name()
+                   << "' of function '" << func->name()
+                   << "' accesses out-of-bounds field index "
+                   << setFieldInst->fieldIndex() << "\n";
+            isValid = false;
+        }
+    }
+
     return isValid;
 }
 

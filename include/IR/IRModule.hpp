@@ -5,6 +5,7 @@
 #include <vector>
 #include <deque>
 #include <unordered_map>
+#include <unordered_set>
 #include <string>
 
 namespace volta::ir {
@@ -139,6 +140,51 @@ public:
      * Returns true if valid, false otherwise
      */
     bool verify(std::ostream& errors) const;
+
+private:
+    // ========== Verification Helpers ==========
+
+    /**
+     * Verify a single function is well-formed
+     */
+    bool verifyFunction(const Function* func, std::ostream& errors) const;
+
+    /**
+     * Verify branch targets are valid
+     */
+    bool verifyBranchTargets(const Instruction* inst, const BasicBlock* block,
+                            const Function* func,
+                            const std::unordered_set<const BasicBlock*>& validBlocks,
+                            std::ostream& errors) const;
+
+    /**
+     * Verify call instruction is valid
+     */
+    bool verifyCall(const CallInst* callInst, const BasicBlock* block,
+                   const Function* func, std::ostream& errors) const;
+
+    /**
+     * Verify return instruction matches function signature
+     */
+    bool verifyReturn(const ReturnInst* retInst, const BasicBlock* block,
+                     const Function* func, std::ostream& errors) const;
+
+    /**
+     * Verify array operations have correct types
+     */
+    bool verifyArrayOperation(const Instruction* inst, const BasicBlock* block,
+                             const Function* func, std::ostream& errors) const;
+
+    /**
+     * Verify struct operations have correct types
+     */
+    bool verifyStructOperation(const Instruction* inst, const BasicBlock* block,
+                              const Function* func, std::ostream& errors) const;
+
+    /**
+     * Build set of all defined values in a function
+     */
+    std::unordered_set<const Value*> buildDefinedValuesSet(const Function* func) const;
 
 private:
     std::string name_;
