@@ -12,6 +12,9 @@ std::unique_ptr<IRModule> IRGenerator::generate(
     analyzer_ = &analyzer;
     module_ = std::make_unique<IRModule>("main");
 
+    // Initialize builder with module (builder needs module for arena allocation)
+    builder_ = IRBuilder(module_.get());
+
     // Register built-in functions
     registerBuiltinFunctions();
 
@@ -96,15 +99,15 @@ void IRGenerator::generateFunction(const volta::ast::FnDeclaration& funcDecl) {
     currentFunction_ = funcPtr;
 
     // Create entry basic block
-    auto entryBB = builder_.createBasicBlock("entry", currentFunction_);
-    currentFunction_->addBasicBlock(std::move(entryBB));
-    builder_.setInsertPoint(currentFunction_->basicBlocks().back().get());
+    auto* entryBB = builder_.createBasicBlock("entry", currentFunction_);
+    currentFunction_->addBasicBlock(entryBB);
+    builder_.setInsertPoint(currentFunction_->basicBlocks().back());
 
     // Create allocas for parameters and store parameter values
     // For arrays and structs (object types), we pass by reference directly
     // For scalars, we use alloca+store
     for (size_t i = 0; i < funcDecl.parameters.size(); i++) {
-        auto* param = currentFunction_->parameters()[i].get();
+        auto* param = currentFunction_->parameters()[i];
         auto paramType = param->type();
 
         // Check if this is an object type (array or struct)
@@ -181,9 +184,9 @@ void IRGenerator::generateInitFunction(const std::vector<const volta::ast::State
     currentFunction_ = funcPtr;
 
     // Create entry basic block
-    auto entryBB = builder_.createBasicBlock("entry", currentFunction_);
-    currentFunction_->addBasicBlock(std::move(entryBB));
-    builder_.setInsertPoint(currentFunction_->basicBlocks().back().get());
+    auto* entryBB = builder_.createBasicBlock("entry", currentFunction_);
+    currentFunction_->addBasicBlock(entryBB);
+    builder_.setInsertPoint(currentFunction_->basicBlocks().back());
 
     // Generate all top-level statements
     for (const auto* stmt : stmts) {
@@ -323,37 +326,37 @@ void IRGenerator::generateIfStatement(const volta::ast::IfStatement& stmt) {
     Value* condValue = generateExpression(stmt.condition.get());
 
     // Create basic blocks
-    auto thenBB = builder_.createBasicBlock("then", currentFunction_);
-    auto elseBB = builder_.createBasicBlock("else", currentFunction_);
-    auto mergeBB = builder_.createBasicBlock("merge", currentFunction_);
+    auto* thenBB = builder_.createBasicBlock("then", currentFunction_);
+    auto* elseBB = builder_.createBasicBlock("else", currentFunction_);
+    auto* mergeBB = builder_.createBasicBlock("merge", currentFunction_);
 
     // Emit conditional branch
-    builder_.createBrIf(condValue, thenBB.get(), elseBB.get());
+    builder_.createBrIf(condValue, thenBB, elseBB);
 
     // Generate then block
-    currentFunction_->addBasicBlock(std::move(thenBB));
-    builder_.setInsertPoint(currentFunction_->basicBlocks().back().get());
+    currentFunction_->addBasicBlock(thenBB);
+    builder_.setInsertPoint(currentFunction_->basicBlocks().back());
     generateStatement(stmt.thenBlock.get());
     bool thenHasTerminator = builder_.insertPoint()->hasTerminator();
     if (!thenHasTerminator) {
-        builder_.createBr(mergeBB.get());
+        builder_.createBr(mergeBB);
     }
 
     // Generate else block
-    currentFunction_->addBasicBlock(std::move(elseBB));
-    builder_.setInsertPoint(currentFunction_->basicBlocks().back().get());
+    currentFunction_->addBasicBlock(elseBB);
+    builder_.setInsertPoint(currentFunction_->basicBlocks().back());
     if (stmt.elseBlock != nullptr) {
         generateStatement(stmt.elseBlock.get());
     }
     bool elseHasTerminator = builder_.insertPoint()->hasTerminator();
     if (!elseHasTerminator) {
-        builder_.createBr(mergeBB.get());
+        builder_.createBr(mergeBB);
     }
 
     // Only add merge block if at least one branch doesn't have a terminator
     if (!thenHasTerminator || !elseHasTerminator) {
-        currentFunction_->addBasicBlock(std::move(mergeBB));
-        builder_.setInsertPoint(currentFunction_->basicBlocks().back().get());
+        currentFunction_->addBasicBlock(mergeBB);
+        builder_.setInsertPoint(currentFunction_->basicBlocks().back());
     }
     // If both branches have terminators, the merge block is unreachable
     // Don't set insertion point - function ends here
@@ -361,31 +364,31 @@ void IRGenerator::generateIfStatement(const volta::ast::IfStatement& stmt) {
 
 void IRGenerator::generateWhileStatement(const volta::ast::WhileStatement& stmt) {
     // Create basic blocks
-    auto condBB = builder_.createBasicBlock("cond", currentFunction_);
-    auto bodyBB = builder_.createBasicBlock("body", currentFunction_);
-    auto endBB = builder_.createBasicBlock("end", currentFunction_);
+    auto* condBB = builder_.createBasicBlock("cond", currentFunction_);
+    auto* bodyBB = builder_.createBasicBlock("body", currentFunction_);
+    auto* endBB = builder_.createBasicBlock("end", currentFunction_);
 
     // Emit branch to condition block
-    builder_.createBr(condBB.get());
+    builder_.createBr(condBB);
 
     // Generate condition block
-    currentFunction_->addBasicBlock(std::move(condBB));
-    builder_.setInsertPoint(currentFunction_->basicBlocks().back().get());
+    currentFunction_->addBasicBlock(condBB);
+    builder_.setInsertPoint(currentFunction_->basicBlocks().back());
     Value* condValue = generateExpression(stmt.condition.get());
-    builder_.createBrIf(condValue, bodyBB.get(), endBB.get());
+    builder_.createBrIf(condValue, bodyBB, endBB);
 
     // Generate body block
-    currentFunction_->addBasicBlock(std::move(bodyBB));
-    builder_.setInsertPoint(currentFunction_->basicBlocks().back().get());
-    BasicBlock* condBlock = currentFunction_->basicBlocks()[currentFunction_->basicBlocks().size() - 2].get();
+    currentFunction_->addBasicBlock(bodyBB);
+    builder_.setInsertPoint(currentFunction_->basicBlocks().back());
+    BasicBlock* condBlock = currentFunction_->basicBlocks()[currentFunction_->basicBlocks().size() - 2];
     generateStatement(stmt.thenBlock.get());
     if (!builder_.insertPoint()->hasTerminator()) {
         builder_.createBr(condBlock);
     }
 
     // Continue at end block
-    currentFunction_->addBasicBlock(std::move(endBB));
-    builder_.setInsertPoint(currentFunction_->basicBlocks().back().get());
+    currentFunction_->addBasicBlock(endBB);
+    builder_.setInsertPoint(currentFunction_->basicBlocks().back());
 }
 
 void IRGenerator::generateForStatement(const volta::ast::ForStatement& stmt) {
@@ -413,19 +416,19 @@ void IRGenerator::generateForStatement(const volta::ast::ForStatement& stmt) {
             declareVariable(stmt.identifier, loopVar);
 
             // Create basic blocks
-            auto condBB = builder_.createBasicBlock("for.cond", currentFunction_);
-            auto bodyBB = builder_.createBasicBlock("for.body", currentFunction_);
-            auto incBB = builder_.createBasicBlock("for.inc", currentFunction_);
-            auto endBB = builder_.createBasicBlock("for.end", currentFunction_);
+            auto* condBB = builder_.createBasicBlock("for.cond", currentFunction_);
+            auto* bodyBB = builder_.createBasicBlock("for.body", currentFunction_);
+            auto* incBB = builder_.createBasicBlock("for.inc", currentFunction_);
+            auto* endBB = builder_.createBasicBlock("for.end", currentFunction_);
 
             // Branch to condition
-            builder_.createBr(condBB.get());
+            builder_.createBr(condBB);
 
             // Generate condition block
-            currentFunction_->addBasicBlock(std::move(condBB));
-            builder_.setInsertPoint(currentFunction_->basicBlocks().back().get());
+            currentFunction_->addBasicBlock(condBB);
+            builder_.setInsertPoint(currentFunction_->basicBlocks().back());
             // Save pointer to condition block NOW, before adding more blocks
-            BasicBlock* condBlock = currentFunction_->basicBlocks().back().get();
+            BasicBlock* condBlock = currentFunction_->basicBlocks().back();
 
             Value* currentValue = builder_.createLoad(intType, loopVar);
             Value* condValue;
@@ -434,19 +437,19 @@ void IRGenerator::generateForStatement(const volta::ast::ForStatement& stmt) {
             } else {
                 condValue = builder_.createLt(currentValue, endValue);  // i < end
             }
-            builder_.createBrIf(condValue, bodyBB.get(), endBB.get());
+            builder_.createBrIf(condValue, bodyBB, endBB);
 
             // Generate body block
-            currentFunction_->addBasicBlock(std::move(bodyBB));
-            builder_.setInsertPoint(currentFunction_->basicBlocks().back().get());
+            currentFunction_->addBasicBlock(bodyBB);
+            builder_.setInsertPoint(currentFunction_->basicBlocks().back());
             generateStatement(stmt.thenBlock.get());
             if (!builder_.insertPoint()->hasTerminator()) {
-                builder_.createBr(incBB.get());
+                builder_.createBr(incBB);
             }
 
             // Generate increment block
-            currentFunction_->addBasicBlock(std::move(incBB));
-            builder_.setInsertPoint(currentFunction_->basicBlocks().back().get());
+            currentFunction_->addBasicBlock(incBB);
+            builder_.setInsertPoint(currentFunction_->basicBlocks().back());
             Value* nextValue = builder_.createAdd(
                 builder_.createLoad(intType, loopVar),
                 builder_.getInt(1)
@@ -455,8 +458,8 @@ void IRGenerator::generateForStatement(const volta::ast::ForStatement& stmt) {
             builder_.createBr(condBlock);
 
             // Continue at end block
-            currentFunction_->addBasicBlock(std::move(endBB));
-            builder_.setInsertPoint(currentFunction_->basicBlocks().back().get());
+            currentFunction_->addBasicBlock(endBB);
+            builder_.setInsertPoint(currentFunction_->basicBlocks().back());
 
             return;
         }

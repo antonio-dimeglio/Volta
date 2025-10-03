@@ -112,12 +112,12 @@ CompiledFunction BytecodeCompiler::compileFunction(const ir::Function* function)
     uint32_t localIndex = function->parameters().size();
 
     // Assign indices to all SSA values (instructions that produce values)
-    for (const auto& block : function->basicBlocks()) {
-        for (const auto& inst : block->instructions()) {
+    for (const auto* block : function->basicBlocks()) {
+        for (const auto* inst : block->instructions()) {
             // Only instructions that produce values need local slots
             // (not Store, SetField, SetElement, Branch, Return, etc.)
             if (inst->type()->kind() != semantic::Type::Kind::Void) {
-                localIndexMap_[inst.get()] = localIndex++;
+                localIndexMap_[inst] = localIndex++;
             }
         }
     }
@@ -126,8 +126,8 @@ CompiledFunction BytecodeCompiler::compileFunction(const ir::Function* function)
     Chunk chunk;
 
     // Compile all basic blocks
-    for (const auto& block : function->basicBlocks()) {
-        compileBasicBlock(block.get(), chunk);
+    for (const auto* block : function->basicBlocks()) {
+        compileBasicBlock(block, chunk);
     }
 
     // Check for unpatched forward jumps (shouldn't happen in valid IR)
@@ -152,8 +152,8 @@ void BytecodeCompiler::compileBasicBlock(const ir::BasicBlock* block, Chunk& chu
     defineBlockLabel(block, chunk);
 
     // Compile each instruction in the block
-    for (const auto& inst : block->instructions()) {
-        compileInstruction(inst.get(), chunk);
+    for (const auto* inst : block->instructions()) {
+        compileInstruction(inst, chunk);
     }
 }
 

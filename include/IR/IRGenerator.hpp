@@ -32,7 +32,7 @@ namespace volta::ir {
 class IRGenerator {
 public:
     explicit IRGenerator(volta::errors::ErrorReporter& reporter)
-        : reporter_(reporter), currentFunction_(nullptr) {}
+        : reporter_(reporter), module_(nullptr), builder_(nullptr), currentFunction_(nullptr) {}
 
     /**
      * Generate IR from AST
@@ -151,8 +151,8 @@ private:
     // ========== State ==========
 
     volta::errors::ErrorReporter& reporter_;
-    IRBuilder builder_;
     std::unique_ptr<IRModule> module_;
+    IRBuilder builder_;  // Must be initialized after module_
 
     // Current context
     Function* currentFunction_;

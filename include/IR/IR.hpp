@@ -498,11 +498,11 @@ public:
                name),
           parent_(parent) {}
 
-    // Add instruction to end of block
-    void addInstruction(std::unique_ptr<Instruction> inst);
+    // Add instruction to end of block (arena-allocated, passed as raw pointer)
+    void addInstruction(Instruction* inst);
 
     // Get instructions
-    const std::vector<std::unique_ptr<Instruction>>& instructions() const { return instructions_; }
+    const std::vector<Instruction*>& instructions() const { return instructions_; }
 
     // Check if block has terminator (branch/return)
     bool hasTerminator() const;
@@ -517,7 +517,7 @@ public:
 
 private:
     Function* parent_;
-    std::vector<std::unique_ptr<Instruction>> instructions_;
+    std::vector<Instruction*> instructions_;  // Raw pointers - IRModule owns via arena
 };
 
 // ============================================================================
@@ -526,24 +526,25 @@ private:
 
 /**
  * IR function - contains basic blocks
+ * Parameters are owned by IRModule, stored here as raw pointers
  */
 class Function {
 public:
     Function(const std::string& name,
              std::shared_ptr<semantic::FunctionType> type,
-             std::vector<std::unique_ptr<Parameter>> parameters)
+             std::vector<Parameter*> parameters)
         : name_(name), type_(std::move(type)), parameters_(std::move(parameters)) {}
 
     const std::string& name() const { return name_; }
     const std::shared_ptr<semantic::FunctionType>& type() const { return type_; }
-    const std::vector<std::unique_ptr<Parameter>>& parameters() const { return parameters_; }
-    const std::vector<std::unique_ptr<BasicBlock>>& basicBlocks() const { return basicBlocks_; }
+    const std::vector<Parameter*>& parameters() const { return parameters_; }
+    const std::vector<BasicBlock*>& basicBlocks() const { return basicBlocks_; }
 
-    // Add basic block
-    BasicBlock* addBasicBlock(std::unique_ptr<BasicBlock> block);
+    // Add basic block (arena-allocated, passed as raw pointer)
+    BasicBlock* addBasicBlock(BasicBlock* block);
 
     // Get entry block (first block)
-    BasicBlock* entryBlock() const { return basicBlocks_.empty() ? nullptr : basicBlocks_[0].get(); }
+    BasicBlock* entryBlock() const { return basicBlocks_.empty() ? nullptr : basicBlocks_[0]; }
 
     // Check if this is a foreign function declaration
     bool isForeign() const { return isForeign_; }
@@ -552,8 +553,8 @@ public:
 private:
     std::string name_;
     std::shared_ptr<semantic::FunctionType> type_;
-    std::vector<std::unique_ptr<Parameter>> parameters_;
-    std::vector<std::unique_ptr<BasicBlock>> basicBlocks_;
+    std::vector<Parameter*> parameters_;
+    std::vector<BasicBlock*> basicBlocks_;  // Raw pointers - IRModule owns via arena
     bool isForeign_ = false;
 };
 

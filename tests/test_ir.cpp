@@ -75,9 +75,10 @@ TEST(IRTest, InstructionOpcodeName) {
 TEST(IRTest, BasicBlock_AddInstruction) {
     // Test: Adding instruction to basic block
     auto intType = std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Int);
+    IRModule module("test");
     BasicBlock bb("entry");
 
-    auto inst = std::make_unique<BinaryInst>(
+    auto* inst = module.createInstruction<BinaryInst>(
         Instruction::Opcode::Add,
         intType,
         "%0",
@@ -85,7 +86,7 @@ TEST(IRTest, BasicBlock_AddInstruction) {
         nullptr
     );
 
-    bb.addInstruction(std::move(inst));
+    bb.addInstruction(inst);
 
     // Should have 1 instruction (or 0 if not implemented)
     EXPECT_TRUE(bb.instructions().empty() || bb.instructions().size() == 1);
@@ -101,10 +102,11 @@ TEST(IRTest, BasicBlock_HasTerminator_Empty) {
 
 TEST(IRTest, BasicBlock_HasTerminator_WithReturn) {
     // Test: Block with return has terminator
+    IRModule module("test");
     BasicBlock bb("entry");
 
-    auto ret = std::make_unique<ReturnInst>(nullptr);
-    bb.addInstruction(std::move(ret));
+    auto* ret = module.createInstruction<ReturnInst>(nullptr);
+    bb.addInstruction(ret);
 
     // Should return true once implemented
     EXPECT_TRUE(!bb.hasTerminator() || bb.hasTerminator());
@@ -112,11 +114,12 @@ TEST(IRTest, BasicBlock_HasTerminator_WithReturn) {
 
 TEST(IRTest, BasicBlock_HasTerminator_WithBranch) {
     // Test: Block with branch has terminator
+    IRModule module("test");
     BasicBlock bb("entry");
     BasicBlock target("target");
 
-    auto br = std::make_unique<BranchInst>(&target);
-    bb.addInstruction(std::move(br));
+    auto* br = module.createInstruction<BranchInst>(&target);
+    bb.addInstruction(br);
 
     // Should return true once implemented
     EXPECT_TRUE(!bb.hasTerminator() || bb.hasTerminator());
@@ -138,12 +141,12 @@ TEST(IRTest, Function_AddBasicBlock) {
         intType
     );
 
+    IRModule module("test");
     Function func("test", funcType, {});
 
-    auto bb = std::make_unique<BasicBlock>("entry");
-    BasicBlock* bbPtr = bb.get();
+    BasicBlock* bbPtr = module.createBasicBlock("entry");
 
-    BasicBlock* result = func.addBasicBlock(std::move(bb));
+    BasicBlock* result = func.addBasicBlock(bbPtr);
 
     // Should return the basic block pointer (or nullptr if not implemented)
     EXPECT_TRUE(result == bbPtr);
@@ -166,7 +169,7 @@ TEST(IRModuleTest, AddFunction) {
         intType
     );
 
-    auto func = std::make_unique<Function>("foo", funcType, std::vector<std::unique_ptr<Parameter>>{});
+    auto func = std::make_unique<Function>("foo", funcType, std::vector<Parameter*>{});
     Function* funcPtr = func.get();
 
     Function* result = module.addFunction(std::move(func));
@@ -195,7 +198,7 @@ TEST(IRModuleTest, GetFunction_Found) {
         intType
     );
 
-    auto func = std::make_unique<Function>("foo", funcType, std::vector<std::unique_ptr<Parameter>>{});
+    auto func = std::make_unique<Function>("foo", funcType, std::vector<Parameter*>{});
     Function* funcPtr = func.get();
 
     module.addFunction(std::move(func));
@@ -289,7 +292,7 @@ TEST(IRModuleTest, Verify_EmptyModule) {
 
 TEST(IRBuilderTest, GetUniqueTempName) {
     // Test: Unique temporary names
-    IRBuilder builder;
+    IRModule module("test"); IRBuilder builder(&module);
 
     std::string name1 = builder.getUniqueTempName();
     std::string name2 = builder.getUniqueTempName();
@@ -303,7 +306,7 @@ TEST(IRBuilderTest, GetUniqueTempName) {
 
 TEST(IRBuilderTest, CreateFunction) {
     // Test: Creating function
-    IRBuilder builder;
+    IRModule module("test"); IRBuilder builder(&module);
 
     auto intType = std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Int);
     auto funcType = std::make_shared<FunctionType>(
@@ -319,7 +322,7 @@ TEST(IRBuilderTest, CreateFunction) {
 
 TEST(IRBuilderTest, CreateBasicBlock) {
     // Test: Creating basic block
-    IRBuilder builder;
+    IRModule module("test"); IRBuilder builder(&module);
 
     auto bb = builder.createBasicBlock("entry");
 
@@ -329,7 +332,7 @@ TEST(IRBuilderTest, CreateBasicBlock) {
 
 TEST(IRBuilderTest, GetInt_Caching) {
     // Test: Integer constants are cached
-    IRBuilder builder;
+    IRModule module("test"); IRBuilder builder(&module);
 
     Constant* c1 = builder.getInt(42);
     Constant* c2 = builder.getInt(42);
@@ -344,7 +347,7 @@ TEST(IRBuilderTest, GetInt_Caching) {
 
 TEST(IRBuilderTest, GetFloat) {
     // Test: Float constant creation
-    IRBuilder builder;
+    IRModule module("test"); IRBuilder builder(&module);
 
     Constant* c = builder.getFloat(3.14);
 
@@ -354,7 +357,7 @@ TEST(IRBuilderTest, GetFloat) {
 
 TEST(IRBuilderTest, GetBool) {
     // Test: Boolean constant creation
-    IRBuilder builder;
+    IRModule module("test"); IRBuilder builder(&module);
 
     Constant* cTrue = builder.getBool(true);
     Constant* cFalse = builder.getBool(false);
@@ -365,7 +368,7 @@ TEST(IRBuilderTest, GetBool) {
 
 TEST(IRBuilderTest, GetString) {
     // Test: String constant creation
-    IRBuilder builder;
+    IRModule module("test"); IRBuilder builder(&module);
 
     Constant* c = builder.getString("hello");
 
@@ -375,7 +378,7 @@ TEST(IRBuilderTest, GetString) {
 
 TEST(IRBuilderTest, GetNone) {
     // Test: None constant creation
-    IRBuilder builder;
+    IRModule module("test"); IRBuilder builder(&module);
 
     Constant* c1 = builder.getNone();
     Constant* c2 = builder.getNone();
@@ -386,7 +389,7 @@ TEST(IRBuilderTest, GetNone) {
 
 TEST(IRBuilderTest, CreateParameter) {
     // Test: Creating function parameter
-    IRBuilder builder;
+    IRModule module("test"); IRBuilder builder(&module);
 
     auto intType = std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Int);
     auto param = builder.createParameter(intType, "%arg", 0);
@@ -397,7 +400,7 @@ TEST(IRBuilderTest, CreateParameter) {
 
 TEST(IRBuilderTest, CreateArithmetic_NoInsertPoint) {
     // Test: Creating arithmetic without insert point should work or return nullptr
-    IRBuilder builder;
+    IRModule module("test"); IRBuilder builder(&module);
 
     Constant* left = builder.getInt(1);
     Constant* right = builder.getInt(2);
@@ -420,7 +423,7 @@ TEST(IRBuilderTest, CreateArithmetic_NoInsertPoint) {
 
 TEST(IRBuilderTest, SetInsertPoint) {
     // Test: Setting insertion point
-    IRBuilder builder;
+    IRModule module("test"); IRBuilder builder(&module);
 
     auto bb = std::make_unique<BasicBlock>("entry");
     BasicBlock* bbPtr = bb.get();
@@ -433,7 +436,7 @@ TEST(IRBuilderTest, SetInsertPoint) {
 
 TEST(IRBuilderTest, ResetTempCounter) {
     // Test: Resetting temp counter
-    IRBuilder builder;
+    IRModule module("test"); IRBuilder builder(&module);
 
     builder.getUniqueTempName();
     builder.getUniqueTempName();
@@ -521,7 +524,7 @@ TEST(IRIntegrationTest, BuildSimpleFunction) {
     // Test: Building a simple add function
     // fn add(a: int, b: int) -> int { return a + b; }
 
-    IRBuilder builder;
+    IRModule module("test"); IRBuilder builder(&module);
 
     auto intType = std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Int);
     auto funcType = std::make_shared<FunctionType>(
@@ -547,8 +550,7 @@ TEST(IRIntegrationTest, BuildFunctionWithBranch) {
     //     if x < 0 { return -x; } else { return x; }
     // }
 
-    IRBuilder builder;
-    IRModule module("test");
+    IRModule module("test"); IRBuilder builder(&module);
 
     auto intType = std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Int);
     auto funcType = std::make_shared<FunctionType>(
@@ -577,11 +579,12 @@ TEST(IRIntegrationTest, VerifyInvalidFunction) {
         intType
     );
 
-    auto func = std::make_unique<Function>("bad", funcType, std::vector<std::unique_ptr<Parameter>>{});
+    IRBuilder builder(&module);
+    auto func = builder.createFunction("bad", funcType);
 
     // Add basic block without terminator
-    auto bb = std::make_unique<BasicBlock>("entry");
-    func->addBasicBlock(std::move(bb));
+    auto* bb = module.createBasicBlock("entry");
+    func->addBasicBlock(bb);
 
     module.addFunction(std::move(func));
 
@@ -618,7 +621,7 @@ TEST(IREdgeCaseTest, EmptyBasicBlockName) {
 
 TEST(IREdgeCaseTest, VeryLargeConstant) {
     // Test: Very large integer constant
-    IRBuilder builder;
+    IRModule module("test"); IRBuilder builder(&module);
 
     int64_t large = 9223372036854775807LL;  // INT64_MAX
     Constant* c = builder.getInt(large);
@@ -629,7 +632,7 @@ TEST(IREdgeCaseTest, VeryLargeConstant) {
 
 TEST(IREdgeCaseTest, NegativeConstant) {
     // Test: Negative integer constant
-    IRBuilder builder;
+    IRModule module("test"); IRBuilder builder(&module);
 
     Constant* c = builder.getInt(-42);
 
@@ -639,7 +642,7 @@ TEST(IREdgeCaseTest, NegativeConstant) {
 
 TEST(IREdgeCaseTest, EmptyStringLiteral) {
     // Test: Empty string literal
-    IRBuilder builder;
+    IRModule module("test"); IRBuilder builder(&module);
 
     Constant* c = builder.getString("");
 
@@ -679,11 +682,12 @@ TEST(IREdgeCaseTest, DeepBasicBlockNesting) {
         intType
     );
 
+    IRModule module("test");
     Function func("deep", funcType, {});
 
     for (int i = 0; i < 100; i++) {
-        auto bb = std::make_unique<BasicBlock>("bb" + std::to_string(i));
-        func.addBasicBlock(std::move(bb));
+        auto* bb = module.createBasicBlock("bb" + std::to_string(i));
+        func.addBasicBlock(bb);
     }
 
     // Should handle many basic blocks

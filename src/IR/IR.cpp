@@ -80,9 +80,9 @@ std::string Instruction::opcodeName(Opcode op) {
 // BasicBlock Implementation
 // ============================================================================
 
-void BasicBlock::addInstruction(std::unique_ptr<Instruction> inst) {
+void BasicBlock::addInstruction(Instruction* inst) {
     inst->setParent(this);
-    instructions_.push_back(std::move(inst));
+    instructions_.push_back(inst);
 }
 
 bool BasicBlock::hasTerminator() const {    
@@ -94,9 +94,9 @@ bool BasicBlock::hasTerminator() const {
 
 Instruction* BasicBlock::terminator() const {
     if (!hasTerminator()) {
-        return nullptr; 
+        return nullptr;
     } else {
-        return instructions_.back().get();
+        return instructions_.back();
     }
 }
 
@@ -104,11 +104,10 @@ Instruction* BasicBlock::terminator() const {
 // Function Implementation
 // ============================================================================
 
-BasicBlock* Function::addBasicBlock(std::unique_ptr<BasicBlock> block) {
+BasicBlock* Function::addBasicBlock(BasicBlock* block) {
     block->setParent(this);
-    BasicBlock* ptr = block.get();
-    basicBlocks_.push_back(std::move(block));
-    return ptr;
+    basicBlocks_.push_back(block);
+    return block;
 }
 
 } // namespace volta::ir

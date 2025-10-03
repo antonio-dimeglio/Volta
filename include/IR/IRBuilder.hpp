@@ -28,7 +28,7 @@ namespace volta::ir {
  */
 class IRBuilder {
 public:
-    IRBuilder() : currentBlock_(nullptr), nextTempId_(0) {}
+    IRBuilder(IRModule* module) : module_(module), currentBlock_(nullptr), nextTempId_(0) {}
 
     // ========== Context Management ==========
 
@@ -59,10 +59,10 @@ public:
         std::shared_ptr<semantic::FunctionType> type);
 
     /**
-     * Create a new basic block
+     * Create a new basic block in module arena
      * If parent is provided, adds block to parent function
      */
-    std::unique_ptr<BasicBlock> createBasicBlock(
+    BasicBlock* createBasicBlock(
         const std::string& name,
         Function* parent = nullptr);
 
@@ -200,9 +200,9 @@ public:
     // ========== Parameter Creation ==========
 
     /**
-     * Create function parameter
+     * Create function parameter (delegates to module)
      */
-    std::unique_ptr<Parameter> createParameter(
+    Parameter* createParameter(
         std::shared_ptr<semantic::Type> type,
         const std::string& name,
         size_t index);
@@ -220,25 +220,18 @@ public:
     void resetTempCounter() { nextTempId_ = 0; }
 
 private:
+    IRModule* module_;  // Not owned - module outlives builder
     BasicBlock* currentBlock_;
     size_t nextTempId_;
 
-    // Cache for constants (avoid duplicates)
-    std::unordered_map<int64_t, std::unique_ptr<Constant>> intConstants_;
-    std::unordered_map<double, std::unique_ptr<Constant>> floatConstants_;
-    std::unordered_map<bool, std::unique_ptr<Constant>> boolConstants_;
-    std::unordered_map<std::string, std::unique_ptr<Constant>> stringConstants_;
-    std::unique_ptr<Constant> noneConstant_;
-
-    // Helper to insert instruction
+    // Helper to insert instruction (takes raw pointer from arena)
     template<typename T>
-    T* insert(std::unique_ptr<T> inst) {
+    T* insert(T* inst) {
         if (!currentBlock_) {
             throw std::runtime_error("No insertion point set");
         }
-        T* ptr = inst.get();
-        currentBlock_->addInstruction(std::move(inst));
-        return ptr;
+        currentBlock_->addInstruction(inst);
+        return inst;
     }
 
     // Helper for binary operations

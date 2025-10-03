@@ -135,7 +135,7 @@ TEST(BytecodeCompilerTest, CompileEmptyModule) {
 TEST(BytecodeCompilerTest, CompileSimpleConstant) {
     // fn main() -> int { return 42; }
     IRModule module("test");
-    IRBuilder builder;
+    IRBuilder builder(&module);
 
     auto intType = std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Int);
     auto funcType = std::make_shared<FunctionType>(
@@ -145,12 +145,12 @@ TEST(BytecodeCompilerTest, CompileSimpleConstant) {
 
     auto func = builder.createFunction("main", funcType);
     auto entry = builder.createBasicBlock("entry", func.get());
-    builder.setInsertPoint(entry.get());
+    builder.setInsertPoint(entry);
 
     auto constant = builder.getInt(42);
     builder.createRet(constant);
 
-    func->addBasicBlock(std::move(entry));
+    func->addBasicBlock(entry);
     module.addFunction(std::move(func));
 
     BytecodeCompiler compiler;
@@ -167,7 +167,7 @@ TEST(BytecodeCompilerTest, CompileSimpleConstant) {
 TEST(BytecodeCompilerTest, CompileArithmetic) {
     // fn add(a: int, b: int) -> int { return a + b; }
     IRModule module("test");
-    IRBuilder builder;
+    IRBuilder builder(&module);
 
     auto intType = std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Int);
     auto funcType = std::make_shared<FunctionType>(
@@ -180,12 +180,12 @@ TEST(BytecodeCompilerTest, CompileArithmetic) {
     auto paramB = builder.createParameter(intType, "b", 1);
 
     auto entry = builder.createBasicBlock("entry", func.get());
-    builder.setInsertPoint(entry.get());
+    builder.setInsertPoint(entry);
 
-    auto sum = builder.createAdd(paramA.get(), paramB.get());
+    auto sum = builder.createAdd(paramA, paramB);
     builder.createRet(sum);
 
-    func->addBasicBlock(std::move(entry));
+    func->addBasicBlock(entry);
     module.addFunction(std::move(func));
 
     BytecodeCompiler compiler;
@@ -204,7 +204,7 @@ TEST(BytecodeCompilerTest, CompileConditionalBranch) {
     //     if x < 0 { return -x; } else { return x; }
     // }
     IRModule module("test");
-    IRBuilder builder;
+    IRBuilder builder(&module);
 
     auto intType = std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Int);
     auto boolType = std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Bool);
@@ -221,23 +221,23 @@ TEST(BytecodeCompilerTest, CompileConditionalBranch) {
     auto elseBlock = builder.createBasicBlock("else", func.get());
 
     // Entry: if x < 0
-    builder.setInsertPoint(entry.get());
+    builder.setInsertPoint(entry);
     auto zero = builder.getInt(0);
-    auto cond = builder.createLt(paramX.get(), zero);
-    builder.createBrIf(cond, thenBlock.get(), elseBlock.get());
+    auto cond = builder.createLt(paramX, zero);
+    builder.createBrIf(cond, thenBlock, elseBlock);
 
     // Then: return -x
-    builder.setInsertPoint(thenBlock.get());
-    auto negX = builder.createNeg(paramX.get());
+    builder.setInsertPoint(thenBlock);
+    auto negX = builder.createNeg(paramX);
     builder.createRet(negX);
 
     // Else: return x
-    builder.setInsertPoint(elseBlock.get());
-    builder.createRet(paramX.get());
+    builder.setInsertPoint(elseBlock);
+    builder.createRet(paramX);
 
-    func->addBasicBlock(std::move(entry));
-    func->addBasicBlock(std::move(thenBlock));
-    func->addBasicBlock(std::move(elseBlock));
+    func->addBasicBlock(entry);
+    func->addBasicBlock(thenBlock);
+    func->addBasicBlock(elseBlock);
     module.addFunction(std::move(func));
 
     BytecodeCompiler compiler;
@@ -251,7 +251,7 @@ TEST(BytecodeCompilerTest, CompileFunctionCall) {
     // fn helper() -> int { return 1; }
     // fn main() -> int { return helper(); }
     IRModule module("test");
-    IRBuilder builder;
+    IRBuilder builder(&module);
 
     auto intType = std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Int);
     auto funcType = std::make_shared<FunctionType>(
@@ -262,22 +262,22 @@ TEST(BytecodeCompilerTest, CompileFunctionCall) {
     // Helper function
     auto helper = builder.createFunction("helper", funcType);
     auto helperEntry = builder.createBasicBlock("entry", helper.get());
-    builder.setInsertPoint(helperEntry.get());
+    builder.setInsertPoint(helperEntry);
     auto one = builder.getInt(1);
     builder.createRet(one);
 
     Function* helperPtr = helper.get();
-    helper->addBasicBlock(std::move(helperEntry));
+    helper->addBasicBlock(helperEntry);
     module.addFunction(std::move(helper));
 
     // Main function
     auto main = builder.createFunction("main", funcType);
     auto mainEntry = builder.createBasicBlock("entry", main.get());
-    builder.setInsertPoint(mainEntry.get());
+    builder.setInsertPoint(mainEntry);
     auto result = builder.createCall(helperPtr, {});
     builder.createRet(result);
 
-    main->addBasicBlock(std::move(mainEntry));
+    main->addBasicBlock(mainEntry);
     module.addFunction(std::move(main));
 
     BytecodeCompiler compiler;
@@ -290,7 +290,7 @@ TEST(BytecodeCompilerTest, CompileFunctionCall) {
 TEST(BytecodeCompilerTest, CompileStringLiterals) {
     // fn main() -> str { return "hello"; }
     IRModule module("test");
-    IRBuilder builder;
+    IRBuilder builder(&module);
 
     auto strType = std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::String);
     auto funcType = std::make_shared<FunctionType>(
@@ -300,12 +300,12 @@ TEST(BytecodeCompilerTest, CompileStringLiterals) {
 
     auto func = builder.createFunction("main", funcType);
     auto entry = builder.createBasicBlock("entry", func.get());
-    builder.setInsertPoint(entry.get());
+    builder.setInsertPoint(entry);
 
     auto str = builder.getString("hello");
     builder.createRet(str);
 
-    func->addBasicBlock(std::move(entry));
+    func->addBasicBlock(entry);
     module.addFunction(std::move(func));
 
     BytecodeCompiler compiler;
@@ -631,7 +631,7 @@ TEST(CompiledModuleTest, GetEntryPoint_NotFound) {
 
 TEST(BytecodeEdgeCaseTest, EmptyFunction) {
     IRModule module("test");
-    IRBuilder builder;
+    IRBuilder builder(&module);
 
     auto voidType = std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Void);
     auto funcType = std::make_shared<FunctionType>(
@@ -641,10 +641,10 @@ TEST(BytecodeEdgeCaseTest, EmptyFunction) {
 
     auto func = builder.createFunction("empty", funcType);
     auto entry = builder.createBasicBlock("entry", func.get());
-    builder.setInsertPoint(entry.get());
+    builder.setInsertPoint(entry);
     builder.createRetVoid();
 
-    func->addBasicBlock(std::move(entry));
+    func->addBasicBlock(entry);
     module.addFunction(std::move(func));
 
     BytecodeCompiler compiler;

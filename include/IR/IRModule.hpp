@@ -3,6 +3,7 @@
 #include "IR.hpp"
 #include <memory>
 #include <vector>
+#include <deque>
 #include <unordered_map>
 #include <string>
 
@@ -58,6 +59,44 @@ public:
      * Get all globals
      */
     const std::vector<std::unique_ptr<GlobalVariable>>& globals() const { return globals_; }
+
+    // ========== Value Arena Management (Memory Safety) ==========
+
+    /**
+     * Create a constant value in the module's arena
+     * Constants are deduplicated - same value returns same pointer
+     * Memory is owned by the module and lives until module destruction
+     */
+    Constant* createConstant(std::shared_ptr<semantic::Type> type,
+                            const Constant::ConstantValue& value);
+
+    /**
+     * Create a parameter in the module's arena
+     * Memory is owned by the module
+     */
+    Parameter* createParameter(std::shared_ptr<semantic::Type> type,
+                              const std::string& name,
+                              size_t index);
+
+    /**
+     * Create an instruction in the module's arena
+     * Memory is owned by the module
+     * Returns raw pointer - valid until module destruction
+     */
+    template<typename T, typename... Args>
+    T* createInstruction(Args&&... args) {
+        auto inst = std::make_unique<T>(std::forward<Args>(args)...);
+        T* ptr = inst.get();
+        instructionArena_.push_back(std::move(inst));
+        return ptr;
+    }
+
+    /**
+     * Create a basic block in the module's arena
+     * Memory is owned by the module
+     * Returns raw pointer - valid until module destruction
+     */
+    BasicBlock* createBasicBlock(const std::string& name, Function* parent = nullptr);
 
     // ========== String Literal Management ==========
 
@@ -115,6 +154,27 @@ private:
     // String literals (for constant pool)
     std::vector<std::string> stringLiterals_;
     std::unordered_map<std::string, size_t> stringLiteralMap_;
+
+    // ========== Memory Arenas (owns all Values) ==========
+
+    // Arena for constants (with deduplication)
+    std::vector<std::unique_ptr<Constant>> constants_;
+
+    // Deduplication maps for constants
+    std::unordered_map<int64_t, Constant*> intConstantMap_;
+    std::unordered_map<double, Constant*> floatConstantMap_;
+    std::unordered_map<bool, Constant*> boolConstantMap_;
+    std::unordered_map<std::string, Constant*> stringConstantMap_;
+    Constant* noneConstant_ = nullptr;
+
+    // Arena for parameters
+    std::vector<std::unique_ptr<Parameter>> parameters_;
+
+    // Arena for all instructions (bulk allocation)
+    std::deque<std::unique_ptr<Instruction>> instructionArena_;
+
+    // Arena for all basic blocks
+    std::deque<std::unique_ptr<BasicBlock>> basicBlockArena_;
 };
 
 } // namespace volta::ir
