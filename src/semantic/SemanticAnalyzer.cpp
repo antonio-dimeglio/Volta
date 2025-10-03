@@ -314,11 +314,6 @@ void SemanticAnalyzer::analyzeStatement(const volta::ast::Statement* stmt) {
 void SemanticAnalyzer::analyzeVarDeclaration(const volta::ast::VarDeclaration* varDecl) {
     // PURPOSE: Type check variable declaration and add to symbol table
     // BEHAVIOR: Handle both explicit types (x: int = 5) and inference (x := 5)
-    
-    // TODO Step 1: Analyze the initializer expression
-    //   - Call analyzeExpression(varDecl->initializer.get())
-    //   - Store the result in initType
-    //   - This gives us the type of the right-hand side
     auto initType = analyzeExpression(varDecl->initializer.get());
     std::shared_ptr<volta::semantic::Type> finalType;
     if (varDecl->typeAnnotation) {
@@ -353,7 +348,8 @@ void SemanticAnalyzer::analyzeFnDeclaration(const volta::ast::FnDeclaration* fnD
     //   - This allows return statements to check against expected type
     auto retType = resolveTypeAnnotation(fnDecl->returnType.get());
     enterFunction(retType);
-    // TODO Step 4: Analyze function body
+
+    
     //   - If fnDecl->body exists (block body):
     //     * Loop through body->statements
     //     * Call analyzeStatement for each

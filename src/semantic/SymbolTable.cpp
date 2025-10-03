@@ -17,7 +17,7 @@ void SymbolTable::exitScope() {
 }
 
 bool SymbolTable::declare(const std::string& name, Symbol symbol) {
-    auto& currScope = scopes_.back();  // Must be reference!
+    auto& currScope = scopes_.back();  
     auto it = currScope.symbols.find(name);
 
     if (it != currScope.symbols.end()) {
@@ -31,7 +31,7 @@ bool SymbolTable::declare(const std::string& name, Symbol symbol) {
 
 Symbol* SymbolTable::lookup(const std::string& name) {
     for (auto it = scopes_.rbegin(); it != scopes_.rend(); ++it) {
-        auto& currScope = it->symbols;  // Reference!
+        auto& currScope = it->symbols;  
         auto jt = currScope.find(name);
         if (jt != currScope.end()) {
             return &(jt->second);
@@ -42,7 +42,7 @@ Symbol* SymbolTable::lookup(const std::string& name) {
 }
 
 Symbol* SymbolTable::lookupInCurrentScope(const std::string& name) {
-    auto& currScope = scopes_.back().symbols;  // Reference!
+    auto& currScope = scopes_.back().symbols; 
     auto it = currScope.find(name);
     if (it != currScope.end()) {
         return &(it->second);
@@ -52,8 +52,6 @@ Symbol* SymbolTable::lookupInCurrentScope(const std::string& name) {
 }
 
 bool SymbolTable::isMutable(const std::string& name) {
-    // TODO: Lookup the symbol and return its isMutable flag
-    // Return false if not found
     auto symbol = lookup(name);
 
     if (symbol) {
