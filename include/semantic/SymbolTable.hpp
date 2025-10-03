@@ -42,8 +42,8 @@ public:
 
     // Symbol operations
     bool declare(const std::string& name, Symbol symbol);
-    Symbol* lookup(const std::string& name);
-    Symbol* lookupInCurrentScope(const std::string& name);
+    std::optional<Symbol> lookup(const std::string& name);
+    std::optional<Symbol> lookupInCurrentScope(const std::string& name);
 
     // Check if variable is mutable (for assignment checking)
     bool isMutable(const std::string& name);

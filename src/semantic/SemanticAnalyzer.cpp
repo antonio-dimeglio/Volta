@@ -70,8 +70,8 @@ void SemanticAnalyzer::declareFunction(const std::string& name, std::shared_ptr<
 }
 
 std::shared_ptr<Type> SemanticAnalyzer::lookupVariable(const std::string& name, volta::errors::SourceLocation loc) {
-    auto* symbol = symbolTable_->lookup(name);
-    if (symbol == nullptr) {
+    auto symbol = symbolTable_->lookup(name);
+    if (!symbol) {
         error("Undefined variable '" + name + "'", loc);
         return typeCache_.getUnknown();
     }
@@ -80,8 +80,8 @@ std::shared_ptr<Type> SemanticAnalyzer::lookupVariable(const std::string& name, 
 }
 
 std::shared_ptr<Type> SemanticAnalyzer::lookupFunction(const std::string& name, volta::errors::SourceLocation loc) {
-    auto* symbol = symbolTable_->lookup(name);
-    if (symbol == nullptr) {
+    auto symbol = symbolTable_->lookup(name);
+    if (!symbol) {
         error("Undefined function '" + name + "'", loc);
         return typeCache_.getUnknown();
     }
@@ -200,7 +200,7 @@ std::shared_ptr<Type> SemanticAnalyzer::resolveTypeAnnotation(const volta::ast::
     if (auto* named = dynamic_cast<const volta::ast::NamedType*>(astType)) {
         // Look up the type name in the symbol table
         const std::string& typeName = named->identifier->name;
-        auto* symbol = symbolTable_->lookup(typeName);
+        auto symbol = symbolTable_->lookup(typeName);
 
         if (!symbol) {
             // Type not found
@@ -566,8 +566,11 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeBinaryExpression(const volta::ast
 
         // 1. Simple identifier (variable)
         if (auto* ident = dynamic_cast<const volta::ast::IdentifierExpression*>(binExpr->left.get())) {
-            if (!isVariableMutable(ident->name)) {
-                error("Cannot assign to immutable variable '" + ident->name + "'", binExpr->location);
+            // Only check mutability if the variable exists (undefined variables already reported by analyzeExpression above)
+            if (symbolTable_->lookup(ident->name)) {
+                if (!isVariableMutable(ident->name)) {
+                    error("Cannot assign to immutable variable '" + ident->name + "'", binExpr->location);
+                }
             }
             isValidLValue = true;
         }
@@ -682,7 +685,7 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeMethodCallExpression(const volta:
     const std::string& methodName = methodCall->method->name;
     const std::string qualifiedName = structType->name() + "." + methodName;
 
-    auto* methodSymbol = symbolTable_->lookup(qualifiedName);
+    auto methodSymbol = symbolTable_->lookup(qualifiedName);
     if (!methodSymbol) {
         error("Struct '" + structType->name() + "' has no method '" + methodName + "'",
               methodCall->location);
@@ -750,7 +753,7 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeIndexExpression(const volta::ast:
 
 std::shared_ptr<Type> SemanticAnalyzer::analyzeStructLiteral(const volta::ast::StructLiteral* structLit) {
     const std::string& structName = structLit->structName->name;
-    auto* symbol = symbolTable_->lookup(structName);
+    auto symbol = symbolTable_->lookup(structName);
 
     if (!symbol) {
         error("Unknown struct type '" + structName + "'", structLit->location);
@@ -853,7 +856,7 @@ std::shared_ptr<Type> SemanticAnalyzer::inferUnaryOpType(
 
     if (op == Op::Negate) {
         if (operand->isNumeric()) {
-            return std::shared_ptr<Type>(const_cast<Type*>(operand), [](Type*){});
+            return operand->kind() == Type::Kind::Int ? typeCache_.getInt() : typeCache_.getFloat();
         }
     }
 

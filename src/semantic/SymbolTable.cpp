@@ -1,4 +1,5 @@
 #include "semantic/SymbolTable.hpp"
+#include <cassert>
 
 namespace volta::semantic {
 
@@ -29,36 +30,32 @@ bool SymbolTable::declare(const std::string& name, Symbol symbol) {
     return true;
 }
 
-Symbol* SymbolTable::lookup(const std::string& name) {
+std::optional<Symbol> SymbolTable::lookup(const std::string& name) {
     for (auto it = scopes_.rbegin(); it != scopes_.rend(); ++it) {
-        auto& currScope = it->symbols;  
+        auto& currScope = it->symbols;
         auto jt = currScope.find(name);
         if (jt != currScope.end()) {
-            return &(jt->second);
+            return jt->second;
         }
     }
 
-    return nullptr;
+    return std::nullopt;
 }
 
-Symbol* SymbolTable::lookupInCurrentScope(const std::string& name) {
-    auto& currScope = scopes_.back().symbols; 
+std::optional<Symbol> SymbolTable::lookupInCurrentScope(const std::string& name) {
+    auto& currScope = scopes_.back().symbols;
     auto it = currScope.find(name);
     if (it != currScope.end()) {
-        return &(it->second);
+        return it->second;
     }
 
-    return nullptr;
+    return std::nullopt;
 }
 
 bool SymbolTable::isMutable(const std::string& name) {
     auto symbol = lookup(name);
-
-    if (symbol) {
-        return symbol->isMutable;
-    } else {
-        return false;
-    }
+    assert(symbol.has_value() && "Symbol must exist before checking mutability");
+    return symbol->isMutable;
 }
 
 }
