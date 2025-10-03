@@ -250,11 +250,14 @@ void SemanticAnalyzer::collectFunction(const volta::ast::FnDeclaration& fn) {
 }
 
 void SemanticAnalyzer::collectStruct(const volta::ast::StructDeclaration& structDecl) {
+    // Todo: add check if field is already defined and its being redefined:
     std::vector<StructType::Field> fields;
 
     for (auto& field : structDecl.fields) {
         auto resolvedFieldtype = resolveTypeAnnotation(field->type.get());
         auto structField = StructType::Field(field->identifier, resolvedFieldtype);
+
+        
         fields.push_back(structField);
     }
     
@@ -725,12 +728,19 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeIndexExpression(const volta::ast:
                  indexType.get(), indexExpr->location);
     }
 
-    if (arrayType->kind() == Type::Kind::Array) {
-        auto* arrType = dynamic_cast<const ArrayType*>(arrayType.get());
+    if (!arrayType->isIndexable()) {
+        error("Index operator can only be used on indexable types (arrays, matrices)", indexExpr->location);
+        return std::make_shared<UnknownType>();
+    }
+
+    if (auto* arrType = dynamic_cast<const ArrayType*>(arrayType.get())) {
         return arrType->elementType();
     }
 
-    error("Index operator can only be used on arrays", indexExpr->location);
+    if (auto* matType = dynamic_cast<const MatrixType*>(arrayType.get())) {
+        return matType->elementType();
+    }
+
     return std::make_shared<UnknownType>();
 }
 
@@ -806,8 +816,7 @@ std::shared_ptr<Type> SemanticAnalyzer::inferBinaryOpType(
         if (left->kind() == Type::Kind::Int && right->kind() == Type::Kind::Int) {
             return std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Int);
         }
-        if ((left->kind() == Type::Kind::Float || left->kind() == Type::Kind::Int) &&
-            (right->kind() == Type::Kind::Float || right->kind() == Type::Kind::Int)) {
+        if (left->isNumeric() && right->isNumeric()) {
             return std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Float);
         }
         return std::make_shared<UnknownType>();
@@ -839,7 +848,7 @@ std::shared_ptr<Type> SemanticAnalyzer::inferUnaryOpType(
     using Op = volta::ast::UnaryExpression::Operator;
 
     if (op == Op::Negate) {
-        if (operand->kind() == Type::Kind::Int || operand->kind() == Type::Kind::Float) {
+        if (operand->isNumeric()) {
             return std::shared_ptr<Type>(const_cast<Type*>(operand), [](Type*){});
         }
     }

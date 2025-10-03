@@ -2,6 +2,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 namespace volta::semantic {
 
@@ -21,6 +22,22 @@ public:
     virtual Kind kind() const = 0;
     virtual std::string toString() const = 0;
     virtual bool equals(const Type* other) const = 0;
+
+    // Type trait helpers
+    bool isNumeric() const {
+        return kind() == Kind::Int || kind() == Kind::Float;
+    }
+
+    bool isComparable() const {
+        // Numbers, booleans, and strings support comparison operators
+        return kind() == Kind::Int || kind() == Kind::Float ||
+               kind() == Kind::Bool || kind() == Kind::String;
+    }
+
+    bool isIndexable() const {
+        // Arrays and matrices support indexing
+        return kind() == Kind::Array || kind() == Kind::Matrix;
+    }
 };
 
 class PrimitiveType : public Type {
@@ -227,7 +244,12 @@ public:
     };
 
     StructType(std::string name, std::vector<Field> fields)
-        : name_(std::move(name)), fields_(std::move(fields)) {}
+        : name_(std::move(name)), fields_(std::move(fields)) {
+        // Populate the field index for O(1) lookup
+        for (size_t i = 0; i < fields_.size(); ++i) {
+            fieldIndex_[fields_[i].name] = i;
+        }
+    }
 
     Kind kind() const override { return Kind::Struct; }
 
@@ -248,10 +270,9 @@ public:
 
     // Lookup field by name
     const Field* getField(const std::string& fieldName) const {
-        for (const auto& field : fields_) {
-            if (field.name == fieldName) {
-                return &field;
-            }
+        auto it = fieldIndex_.find(fieldName);
+        if (it != fieldIndex_.end()) {
+            return &fields_[it->second];  
         }
         return nullptr;
     }
@@ -259,6 +280,7 @@ public:
 private:
     std::string name_;
     std::vector<Field> fields_;
+    std::unordered_map<std::string, size_t> fieldIndex_;
 };
 
 class TypeVariable : public Type {
