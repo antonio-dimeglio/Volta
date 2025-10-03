@@ -1,9 +1,10 @@
 #pragma once
 
-#include "IR.hpp"
 #include "IRModule.hpp"
 #include "IRBuilder.hpp"
-#include "ast/Statement.hpp"
+#include "SSABuilder.hpp"
+#include "../ast/Statement.hpp"
+#include "../ast/Expression.hpp"
 #include "../semantic/SemanticAnalyzer.hpp"
 #include "../error/ErrorReporter.hpp"
 #include <memory>
@@ -11,161 +12,120 @@
 
 namespace volta::ir {
 
+// ============================================================================
+// IRGenerator - Converts AST to IR
+// ============================================================================
+
 /**
- * IRGenerator - Converts AST to IR
+ * IRGenerator walks the semantically-analyzed AST and generates IR.
  *
- * This class walks the semantically-analyzed AST and generates IR code.
- * It uses IRBuilder to construct IR instructions.
+ * This is Phase 4 - you'll implement this AFTER completing:
+ * - Phase 1: Value, Instruction, BasicBlock
+ * - Phase 2: IRBuilder
+ * - Phase 3: SSABuilder
  *
- * Design:
- * - Multi-pass generation (can be single-pass for now)
- * - Uses symbol table from semantic analysis for type info
- * - Generates SSA-like code (fresh variables for each value)
+ * Process:
+ * 1. Create IRModule
+ * 2. Generate global variables
+ * 3. Generate function declarations
+ * 4. Generate function bodies (expressions + statements)
+ * 5. Use SSABuilder for proper SSA form
  *
  * Example usage:
  *   IRGenerator generator(errorReporter);
- *   std::unique_ptr<IRModule> module = generator.generate(ast, semanticAnalyzer);
+ *   std::unique_ptr<IRModule> module = generator.generate(ast, analyzer);
  *   if (module) {
- *       // Success - IR generated
+ *       // IR generated successfully
+ *       std::cout << module->toString() << std::endl;
  *   }
  */
 class IRGenerator {
 public:
-    explicit IRGenerator(volta::errors::ErrorReporter& reporter)
-        : reporter_(reporter), module_(nullptr), builder_(nullptr), currentFunction_(nullptr) {}
+    explicit IRGenerator(volta::errors::ErrorReporter& reporter);
 
     /**
-     * Generate IR from AST
-     * Returns nullptr on error
+     * Generate IR from AST.
+     * Returns nullptr on error.
      */
-    std::unique_ptr<IRModule> generate(const volta::ast::Program& program,
-                                       const volta::semantic::SemanticAnalyzer& analyzer);
+    std::unique_ptr<IRModule> generate(
+        const volta::ast::Program& program,
+        const volta::semantic::SemanticAnalyzer& analyzer
+    );
 
 private:
     // ========== Top-Level Generation ==========
 
-    /**
-     * Generate IR for entire program
-     */
     void generateProgram(const volta::ast::Program& program);
-
-    /**
-     * Generate IR for a function declaration
-     */
-    void generateFunction(const volta::ast::FnDeclaration& funcDecl);
-
-    /**
-     * Generate IR for a struct declaration
-     * (Registers type info, no code generation needed)
-     */
+    void generateGlobalVariable(const volta::ast::VarDeclaration& varDecl);
+    void generateFunction(const volta::ast::FnDeclaration& fnDecl);
     void generateStruct(const volta::ast::StructDeclaration& structDecl);
-
-    /**
-     * Generate IR for global variable
-     */
-    void generateGlobal(const volta::ast::VarDeclaration& varDecl);
-
-    /**
-     * Generate IR for top-level initialization function
-     * Wraps top-level statements in a special __init__ function
-     */
-    void generateInitFunction(const std::vector<const volta::ast::Statement*>& stmts);
 
     // ========== Statement Generation ==========
 
-    /**
-     * Generate IR for a statement
-     */
     void generateStatement(const volta::ast::Statement* stmt);
-
-    void generateVarDeclaration(const volta::ast::VarDeclaration& varDecl);
-    void generateExpressionStatement(const volta::ast::ExpressionStatement& stmt);
-    void generateIfStatement(const volta::ast::IfStatement& stmt);
-    void generateWhileStatement(const volta::ast::WhileStatement& stmt);
-    void generateForStatement(const volta::ast::ForStatement& stmt);
-    void generateReturnStatement(const volta::ast::ReturnStatement& stmt);
-    void generateBlock(const volta::ast::Block& block);
+    void generateBlock(const volta::ast::Block* block);
+    void generateVarDeclaration(const volta::ast::VarDeclaration* varDecl);
+    void generateIfStatement(const volta::ast::IfStatement* ifStmt);
+    void generateWhileStatement(const volta::ast::WhileStatement* whileStmt);
+    void generateForStatement(const volta::ast::ForStatement* forStmt);
+    void generateReturnStatement(const volta::ast::ReturnStatement* returnStmt);
+    void generateExpressionStatement(const volta::ast::ExpressionStatement* exprStmt);
 
     // ========== Expression Generation ==========
 
     /**
-     * Generate IR for an expression
-     * Returns the Value* representing the result
+     * Generate IR for an expression.
+     * Returns the SSA value representing the expression result.
      */
     Value* generateExpression(const volta::ast::Expression* expr);
 
-    Value* generateBinaryExpression(const volta::ast::BinaryExpression& expr);
-    Value* generateUnaryExpression(const volta::ast::UnaryExpression& expr);
-    Value* generateCallExpression(const volta::ast::CallExpression& expr);
-    Value* generateIndexExpression(const volta::ast::IndexExpression& expr);
-    Value* generateSliceExpression(const volta::ast::SliceExpression& expr);
-    Value* generateMemberExpression(const volta::ast::MemberExpression& expr);
-    Value* generateMethodCallExpression(const volta::ast::MethodCallExpression& expr);
-    Value* generateIfExpression(const volta::ast::IfExpression& expr);
-    Value* generateMatchExpression(const volta::ast::MatchExpression& expr);
-    Value* generateLambdaExpression(const volta::ast::LambdaExpression& expr);
-    Value* generateIdentifierExpression(const volta::ast::IdentifierExpression& expr);
-    Value* generateIntegerLiteral(const volta::ast::IntegerLiteral& lit);
-    Value* generateFloatLiteral(const volta::ast::FloatLiteral& lit);
-    Value* generateStringLiteral(const volta::ast::StringLiteral& lit);
-    Value* generateBooleanLiteral(const volta::ast::BooleanLiteral& lit);
-    Value* generateNoneLiteral(const volta::ast::NoneLiteral& lit);
-    Value* generateSomeLiteral(const volta::ast::SomeLiteral& lit);
-    Value* generateArrayLiteral(const volta::ast::ArrayLiteral& lit);
-    Value* generateTupleLiteral(const volta::ast::TupleLiteral& lit);
-    Value* generateStructLiteral(const volta::ast::StructLiteral& lit);
+    Value* generateBinaryExpression(const volta::ast::BinaryExpression* binExpr);
+    Value* generateUnaryExpression(const volta::ast::UnaryExpression* unaryExpr);
+    Value* generateCallExpression(const volta::ast::CallExpression* callExpr);
+    Value* generateIdentifier(const volta::ast::IdentifierExpression* identifier);
+    Value* generateLiteral(const volta::ast::Expression* literal);
+    Value* generateIfExpression(const volta::ast::IfExpression* ifExpr);
+    Value* generateMatchExpression(const volta::ast::MatchExpression* matchExpr);
+    Value* generateLambdaExpression(const volta::ast::LambdaExpression* lambdaExpr);
+    Value* generateArrayLiteral(const volta::ast::ArrayLiteral* arrayLit);
+    Value* generateStructLiteral(const volta::ast::StructLiteral* structLit);
+    Value* generateMemberExpression(const volta::ast::MemberExpression* memberExpr);
+    Value* generateIndexExpression(const volta::ast::IndexExpression* indexExpr);
+    Value* generateMethodCall(const volta::ast::MethodCallExpression* methodCall);
 
-    // ========== Type Conversion ==========
+    // ========== Helpers ==========
 
     /**
-     * Convert AST type to semantic type
-     * Uses semantic analyzer's type resolution
+     * Get the IR type for an AST expression (from semantic analysis).
      */
-    std::shared_ptr<semantic::Type> resolveType(const volta::ast::Type* astType);
-
-    // ========== Symbol Management ==========
+    std::shared_ptr<semantic::Type> getType(const volta::ast::Expression* expr);
 
     /**
-     * Register a variable in current scope
-     * Maps variable name to its IR value (alloca result)
+     * Error reporting.
      */
-    void declareVariable(const std::string& name, Value* value);
+    void error(const std::string& message, volta::errors::SourceLocation loc);
 
-    /**
-     * Look up a variable in current scope
-     * Returns nullptr if not found
-     */
-    Value* lookupVariable(const std::string& name);
-
-    // ========== Error Reporting ==========
-
-    void error(const std::string& message, const volta::errors::SourceLocation& loc);
-
-    // ========== Built-in Functions ==========
-
-    /**
-     * Register built-in/foreign functions like print
-     */
-    void registerBuiltinFunctions();
-
-    // ========== State ==========
-
+private:
     volta::errors::ErrorReporter& reporter_;
+    const volta::semantic::SemanticAnalyzer* analyzer_;
+
+    // IR being constructed
     std::unique_ptr<IRModule> module_;
-    IRBuilder builder_;  // Must be initialized after module_
+    IRBuilder builder_;
+    SSABuilder ssaBuilder_;
 
     // Current context
     Function* currentFunction_;
+    BasicBlock* currentBlock_;
 
-    // Variable mapping (name -> IR value)
-    // In SSA-like form, each variable declaration creates a fresh alloca
-    std::unordered_map<std::string, Value*> variableMap_;
+    // Symbol tables (map AST symbols to IR values)
+    std::unordered_map<std::string, GlobalVariable*> globalVariables_;
+    std::unordered_map<std::string, Function*> functions_;
 
-    // Function mapping (name -> IR function)
-    std::unordered_map<std::string, Function*> functionMap_;
+    // Local variables (name -> alloca pointer)
+    std::unordered_map<std::string, Value*> localVariables_;
 
-    // Reference to semantic analyzer for type info
-    const volta::semantic::SemanticAnalyzer* analyzer_;
+    bool hasErrors_;
 };
 
 } // namespace volta::ir

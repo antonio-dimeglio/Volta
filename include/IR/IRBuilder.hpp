@@ -1,244 +1,198 @@
 #pragma once
 
-#include "IR.hpp"
 #include "IRModule.hpp"
+#include "Function.hpp"
+#include "BasicBlock.hpp"
+#include "Instruction.hpp"
+#include "Value.hpp"
+#include "../semantic/Type.hpp"
 #include <memory>
 #include <string>
-#include <stdexcept>
 
 namespace volta::ir {
 
+// ============================================================================
+// IRBuilder - High-level API for constructing IR
+// ============================================================================
+
 /**
- * IRBuilder - Helper class for constructing IR
+ * IRBuilder provides a convenient API for building IR.
  *
- * This class provides a convenient API for building IR instructions.
- * It automatically:
- * - Generates unique names for temporaries (%0, %1, %2, ...)
- * - Inserts instructions into the current basic block
- * - Manages the current function and block context
+ * This is YOUR main tool for Phase 2!
+ *
+ * Instead of manually creating Instructions and managing operands,
+ * you'll use IRBuilder methods like:
+ *   builder.createAdd(lhs, rhs)
+ *   builder.createLoad(ptr)
+ *   builder.createCondBr(cond, thenBlock, elseBlock)
+ *
+ * IRBuilder handles:
+ * - SSA value numbering (%0, %1, %2, ...)
+ * - Instruction creation and insertion into current block
+ * - Type checking and inference
+ * - Use-def chain management
  *
  * Example usage:
  *   IRBuilder builder;
- *   Function* func = builder.createFunction("add", ...);
- *   BasicBlock* entry = builder.createBasicBlock("entry", func);
+ *   Function* fn = module->createFunction("add", ...);
+ *   BasicBlock* entry = fn->createBasicBlock("entry");
  *   builder.setInsertPoint(entry);
  *
- *   Value* sum = builder.createAdd(param0, param1);
+ *   Value* a = fn->getParameter(0);
+ *   Value* b = fn->getParameter(1);
+ *   Value* sum = builder.createAdd(a, b);
  *   builder.createRet(sum);
  */
 class IRBuilder {
 public:
-    IRBuilder(IRModule* module) : module_(module), currentBlock_(nullptr), nextTempId_(0) {}
+    IRBuilder();
 
-    // ========== Context Management ==========
+    // ========== Insert Point Management ==========
 
     /**
-     * Set the current insertion point
-     * New instructions will be added to this block
+     * Set where new instructions will be inserted.
+     * All createXXX methods will add instructions to this block.
      */
-    void setInsertPoint(BasicBlock* block) { currentBlock_ = block; }
+    void setInsertPoint(BasicBlock* block);
+    BasicBlock* getInsertBlock() const { return insertBlock_; }
+
+    // ========== Arithmetic Operations ==========
+
+    Value* createAdd(Value* lhs, Value* rhs, const std::string& name = "");
+    Value* createSub(Value* lhs, Value* rhs, const std::string& name = "");
+    Value* createMul(Value* lhs, Value* rhs, const std::string& name = "");
+    Value* createDiv(Value* lhs, Value* rhs, const std::string& name = "");
+    Value* createMod(Value* lhs, Value* rhs, const std::string& name = "");
+
+    Value* createFAdd(Value* lhs, Value* rhs, const std::string& name = "");
+    Value* createFSub(Value* lhs, Value* rhs, const std::string& name = "");
+    Value* createFMul(Value* lhs, Value* rhs, const std::string& name = "");
+    Value* createFDiv(Value* lhs, Value* rhs, const std::string& name = "");
+
+    // ========== Comparison Operations ==========
+
+    Value* createICmpEQ(Value* lhs, Value* rhs, const std::string& name = "");
+    Value* createICmpNE(Value* lhs, Value* rhs, const std::string& name = "");
+    Value* createICmpLT(Value* lhs, Value* rhs, const std::string& name = "");
+    Value* createICmpLE(Value* lhs, Value* rhs, const std::string& name = "");
+    Value* createICmpGT(Value* lhs, Value* rhs, const std::string& name = "");
+    Value* createICmpGE(Value* lhs, Value* rhs, const std::string& name = "");
+
+    Value* createFCmpEQ(Value* lhs, Value* rhs, const std::string& name = "");
+    Value* createFCmpNE(Value* lhs, Value* rhs, const std::string& name = "");
+    Value* createFCmpLT(Value* lhs, Value* rhs, const std::string& name = "");
+    Value* createFCmpLE(Value* lhs, Value* rhs, const std::string& name = "");
+    Value* createFCmpGT(Value* lhs, Value* rhs, const std::string& name = "");
+    Value* createFCmpGE(Value* lhs, Value* rhs, const std::string& name = "");
+
+    // ========== Logical Operations ==========
+
+    Value* createAnd(Value* lhs, Value* rhs, const std::string& name = "");
+    Value* createOr(Value* lhs, Value* rhs, const std::string& name = "");
+    Value* createNot(Value* operand, const std::string& name = "");
+
+    // ========== Memory Operations (LLVM style) ==========
 
     /**
-     * Get current insertion point
+     * Allocate stack memory for a local variable.
+     * Returns a pointer to the allocated space.
+     *
+     * Example:
+     *   Value* ptr = builder.createAlloca(Type::getInt(), "x");
+     *   // %x = alloca i64
      */
-    BasicBlock* insertPoint() const { return currentBlock_; }
+    Value* createAlloca(std::shared_ptr<semantic::Type> type, const std::string& name = "");
 
     /**
-     * Clear insertion point
+     * Load a value from memory.
+     *
+     * Example:
+     *   Value* val = builder.createLoad(ptr);
+     *   // %0 = load i64, ptr %x
      */
-    void clearInsertPoint() { currentBlock_ = nullptr; }
-
-    // ========== Function & Basic Block Creation ==========
+    Value* createLoad(Value* pointer, const std::string& name = "");
 
     /**
-     * Create a new function
-     * Does not add to module - caller must add it
+     * Store a value to memory.
+     * Note: Store returns void (no SSA value).
+     *
+     * Example:
+     *   builder.createStore(value, ptr);
+     *   // store i64 42, ptr %x
      */
-    std::unique_ptr<Function> createFunction(
-        const std::string& name,
-        std::shared_ptr<semantic::FunctionType> type);
+    void createStore(Value* value, Value* pointer);
+
+    // ========== Control Flow ==========
 
     /**
-     * Create a new basic block in module arena
-     * If parent is provided, adds block to parent function
-     */
-    BasicBlock* createBasicBlock(
-        const std::string& name,
-        Function* parent = nullptr);
-
-    // ========== Arithmetic Instructions ==========
-
-    Value* createAdd(Value* left, Value* right);
-    Value* createSub(Value* left, Value* right);
-    Value* createMul(Value* left, Value* right);
-    Value* createDiv(Value* left, Value* right);
-    Value* createMod(Value* left, Value* right);
-    Value* createNeg(Value* operand);
-
-    // ========== Comparison Instructions ==========
-
-    Value* createEq(Value* left, Value* right);
-    Value* createNe(Value* left, Value* right);
-    Value* createLt(Value* left, Value* right);
-    Value* createLe(Value* left, Value* right);
-    Value* createGt(Value* left, Value* right);
-    Value* createGe(Value* left, Value* right);
-
-    // ========== Logical Instructions ==========
-
-    Value* createAnd(Value* left, Value* right);
-    Value* createOr(Value* left, Value* right);
-    Value* createNot(Value* operand);
-
-    // ========== Memory Instructions ==========
-
-    /**
-     * Allocate memory for a value of given type
-     * Returns a pointer-like value
-     */
-    Value* createAlloc(std::shared_ptr<semantic::Type> type);
-
-    /**
-     * Load value from address
-     */
-    Value* createLoad(std::shared_ptr<semantic::Type> type, Value* address);
-
-    /**
-     * Store value to address
-     */
-    void createStore(Value* value, Value* address);
-
-    /**
-     * Get struct field
-     */
-    Value* createGetField(Value* object, size_t fieldIndex,
-                         std::shared_ptr<semantic::Type> fieldType);
-
-    /**
-     * Set struct field
-     */
-    void createSetField(Value* object, size_t fieldIndex, Value* value);
-
-    /**
-     * Get array element
-     */
-    Value* createGetElement(Value* array, Value* index,
-                           std::shared_ptr<semantic::Type> elementType);
-
-    /**
-     * Set array element
-     */
-    void createSetElement(Value* array, Value* index, Value* value);
-
-    /**
-     * Create new array with elements
-     */
-    Value* createNewArray(std::shared_ptr<semantic::Type> arrayType,
-                         const std::vector<Value*>& elements);
-
-    // ========== Control Flow Instructions ==========
-
-    /**
-     * Unconditional branch
+     * Unconditional branch.
+     *
+     * Example:
+     *   builder.createBr(targetBlock);
+     *   // br label %target
      */
     void createBr(BasicBlock* target);
 
     /**
-     * Conditional branch
+     * Conditional branch.
+     *
+     * Example:
+     *   builder.createCondBr(cond, thenBlock, elseBlock);
+     *   // br i1 %cond, label %then, label %else
      */
-    void createBrIf(Value* condition, BasicBlock* thenBlock, BasicBlock* elseBlock);
+    void createCondBr(Value* condition, BasicBlock* thenBlock, BasicBlock* elseBlock);
 
     /**
-     * Return void
-     */
-    void createRetVoid();
-
-    /**
-     * Return value
+     * Return from function.
+     *
+     * Examples:
+     *   builder.createRet(value);  // ret i64 %value
+     *   builder.createRetVoid();   // ret void
      */
     void createRet(Value* value);
+    void createRetVoid();
+
+    // ========== Function Calls ==========
 
     /**
-     * Function call
+     * Call a function.
+     *
+     * Example:
+     *   Value* result = builder.createCall(func, {arg1, arg2});
+     *   // %0 = call i64 @add(i64 %arg1, i64 %arg2)
      */
-    Value* createCall(Function* callee, const std::vector<Value*>& arguments);
+    Value* createCall(Function* callee, const std::vector<Value*>& arguments, const std::string& name = "");
+
+    // ========== PHI Nodes (SSA) ==========
 
     /**
-     * Foreign function call
+     * Create a PHI node for merging values from different control flow paths.
+     *
+     * Example:
+     *   PhiInstruction* phi = builder.createPhi(Type::getInt(), "merged");
+     *   phi->addIncoming(val1, block1);
+     *   phi->addIncoming(val2, block2);
+     *   // %merged = phi i64 [ %val1, %block1 ], [ %val2, %block2 ]
      */
-    Value* createCallForeign(const std::string& foreignName,
-                            std::shared_ptr<semantic::Type> returnType,
-                            const std::vector<Value*>& arguments);
+    PhiInstruction* createPhi(std::shared_ptr<semantic::Type> type, const std::string& name = "");
 
-    // ========== Constant Creation ==========
+    // ========== SSA Value Naming ==========
 
     /**
-     * Create integer constant
+     * Generate a unique SSA name (%0, %1, %2, ...).
+     * Called automatically by createXXX methods when name is empty.
      */
-    Constant* getInt(int64_t value);
-
-    /**
-     * Create float constant
-     */
-    Constant* getFloat(double value);
-
-    /**
-     * Create boolean constant
-     */
-    Constant* getBool(bool value);
-
-    /**
-     * Create string constant
-     */
-    Constant* getString(const std::string& value);
-
-    /**
-     * Create none constant
-     */
-    Constant* getNone();
-
-    // ========== Parameter Creation ==========
-
-    /**
-     * Create function parameter (delegates to module)
-     */
-    Parameter* createParameter(
-        std::shared_ptr<semantic::Type> type,
-        const std::string& name,
-        size_t index);
-
-    // ========== Helpers ==========
-
-    /**
-     * Generate a unique temporary name (%0, %1, %2, ...)
-     */
-    std::string getUniqueTempName();
-
-    /**
-     * Reset temporary counter (for new function)
-     */
-    void resetTempCounter() { nextTempId_ = 0; }
+    std::string getUniqueName();
 
 private:
-    IRModule* module_;  // Not owned - module outlives builder
-    BasicBlock* currentBlock_;
-    size_t nextTempId_;
+    // Current insertion point
+    BasicBlock* insertBlock_;
 
-    // Helper to insert instruction (takes raw pointer from arena)
-    template<typename T>
-    T* insert(T* inst) {
-        if (!currentBlock_) {
-            throw std::runtime_error("No insertion point set");
-        }
-        currentBlock_->addInstruction(inst);
-        return inst;
-    }
+    // SSA value counter (for generating %0, %1, %2, ...)
+    size_t valueCounter_;
 
-    // Helper for binary operations
-    Value* createBinaryOp(Instruction::Opcode opcode, Value* left, Value* right);
-
-    // Helper for unary operations
-    Value* createUnaryOp(Instruction::Opcode opcode, Value* operand);
+    // Helper: Insert instruction into current block
+    void insertInstruction(std::unique_ptr<Instruction> inst);
 };
 
 } // namespace volta::ir

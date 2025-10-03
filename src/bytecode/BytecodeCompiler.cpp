@@ -148,6 +148,9 @@ CompiledFunction BytecodeCompiler::compileFunction(const ir::Function* function)
 }
 
 void BytecodeCompiler::compileBasicBlock(const ir::BasicBlock* block, Chunk& chunk) {
+    // Set current block context
+    currentBasicBlock_ = block;
+
     // Mark where this block starts (for jump targets)
     defineBlockLabel(block, chunk);
 
@@ -229,6 +232,11 @@ void BytecodeCompiler::compileInstruction(const ir::Instruction* inst, Chunk& ch
             break;
         case ir::Instruction::Opcode::CallForeign:
             compileCallForeignInst(static_cast<const ir::CallForeignInst*>(inst), chunk);
+            break;
+
+        // Phi nodes
+        case ir::Instruction::Opcode::Phi:
+            compilePhiInst(static_cast<const ir::PhiInst*>(inst), chunk);
             break;
 
         default:
@@ -474,6 +482,9 @@ void BytecodeCompiler::compileSetElementInst(const ir::SetElementInst* inst, Chu
 }
 
 void BytecodeCompiler::compileBranchInst(const ir::BranchInst* inst, Chunk& chunk) {
+    // Insert Phi copies before jumping
+    insertPhiCopies(inst->target(), currentBasicBlock_, chunk);
+
     // Unconditional branch: br label
     chunk.emitOpcode(Opcode::Jump);
 
@@ -499,22 +510,14 @@ void BytecodeCompiler::compileBranchIfInst(const ir::BranchIfInst* inst, Chunk& 
     chunk.emitOpcode(Opcode::JumpIfFalse);
 
     // Emit jump to else block (if condition is false)
-    auto elseIt = blockLabelMap_.find(inst->elseBlock());
-    if (elseIt != blockLabelMap_.end()) {
-        // Backward jump
-        int32_t targetOffset = elseIt->second;
-        int32_t currentOffset = chunk.currentOffset() + 4;
-        int32_t relativeOffset = targetOffset - currentOffset;
-        chunk.emitInt32(relativeOffset);
-    } else {
-        // Forward jump - need to patch later
-        size_t patchOffset = chunk.currentOffset();
-        chunk.emitInt32(0xFFFFFFFF);
-        forwardJumps_.push_back({patchOffset, inst->elseBlock()});
-    }
+    size_t elseJumpPatchOffset = chunk.currentOffset();
+    chunk.emitInt32(0xFFFFFFFF); // Placeholder - will patch to point to else copies
 
-    // Fall through to then block (if condition is true)
-    // Emit unconditional jump to then block
+    // Fall through to then block path (if condition is true)
+    // Insert Phi copies for then branch
+    insertPhiCopies(inst->thenBlock(), currentBasicBlock_, chunk);
+
+    // Jump to then block
     chunk.emitOpcode(Opcode::Jump);
     auto thenIt = blockLabelMap_.find(inst->thenBlock());
     if (thenIt != blockLabelMap_.end()) {
@@ -528,6 +531,30 @@ void BytecodeCompiler::compileBranchIfInst(const ir::BranchIfInst* inst, Chunk& 
         size_t patchOffset = chunk.currentOffset();
         chunk.emitInt32(0xFFFFFFFF);
         forwardJumps_.push_back({patchOffset, inst->thenBlock()});
+    }
+
+    // Else block path - patch the JumpIfFalse to point here
+    size_t elseCopiesStart = chunk.currentOffset();
+    int32_t elseJumpOffset = elseCopiesStart - (elseJumpPatchOffset + 4);
+    chunk.patchInt32(elseJumpPatchOffset, elseJumpOffset);
+
+    // Insert Phi copies for else branch
+    insertPhiCopies(inst->elseBlock(), currentBasicBlock_, chunk);
+
+    // Jump to else block
+    chunk.emitOpcode(Opcode::Jump);
+    auto elseIt = blockLabelMap_.find(inst->elseBlock());
+    if (elseIt != blockLabelMap_.end()) {
+        // Backward jump
+        int32_t targetOffset = elseIt->second;
+        int32_t currentOffset = chunk.currentOffset() + 4;
+        int32_t relativeOffset = targetOffset - currentOffset;
+        chunk.emitInt32(relativeOffset);
+    } else {
+        // Forward jump - need to patch later
+        size_t patchOffset = chunk.currentOffset();
+        chunk.emitInt32(0xFFFFFFFF);
+        forwardJumps_.push_back({patchOffset, inst->elseBlock()});
     }
 }
 
@@ -700,6 +727,55 @@ void BytecodeCompiler::defineBlockLabel(const ir::BasicBlock* block, Chunk& chun
         } else {
             ++it;
         }
+    }
+}
+
+void BytecodeCompiler::compilePhiInst(const ir::PhiInst* inst, Chunk& chunk) {
+    // Phi nodes are handled by insertPhiCopies() in predecessor blocks
+    // By the time we reach this instruction in the merge block, the correct
+    // value is already in the Phi's local slot.
+    // So this is a no-op - we just need to make sure the Phi has a local slot allocated
+    // (which was already done in compileFunction when building localIndexMap_)
+}
+
+void BytecodeCompiler::insertPhiCopies(const ir::BasicBlock* successor,
+                                       const ir::BasicBlock* predecessor,
+                                       Chunk& chunk) {
+    // Iterate through instructions in successor block
+    for (const auto* inst : successor->instructions()) {
+        // Check if it's a Phi node
+        if (inst->opcode() != ir::Instruction::Opcode::Phi) {
+            // Phi nodes must be at the start of the block
+            // Once we see a non-Phi, we're done
+            break;
+        }
+
+        const auto* phi = static_cast<const ir::PhiInst*>(inst);
+
+        // Find the incoming value from this predecessor
+        const auto& incomingValues = phi->incomingValues();
+        ir::Value* incomingValue = nullptr;
+
+        for (const auto& [value, block] : incomingValues) {
+            if (block == predecessor) {
+                incomingValue = value;
+                break;
+            }
+        }
+
+        // If this Phi node doesn't have an incoming value from this predecessor,
+        // skip it (this can happen when a block has multiple successors and
+        // we're only one of the paths)
+        if (!incomingValue) {
+            continue;
+        }
+
+        // Emit: load incoming value, store to Phi destination
+        emitLoadValue(incomingValue, chunk);
+
+        uint32_t phiLocalIndex = getLocalIndex(phi);
+        chunk.emitOpcode(Opcode::StoreLocal);
+        chunk.emitInt32(phiLocalIndex);
     }
 }
 

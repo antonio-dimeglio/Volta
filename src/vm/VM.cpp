@@ -990,7 +990,7 @@ void VM::execCall() {
     // Transfer arguments from eval stack to local stack
     // Arguments are the first N locals (parameters)
     for (int i = argCount - 1; i >= 0; i--) {
-        localStack_[localStackTop_ + i] = pop();  // Pop in reverse order
+        localStack_[localStackTop_ + (argCount - i - 1)] = pop();  // Pop in reverse order, store at increasing indices
     }
 
     // Initialize remaining locals to null

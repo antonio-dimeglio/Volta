@@ -161,6 +161,19 @@ private:
     /// Compile foreign function call
     void compileCallForeignInst(const ir::CallForeignInst* inst, Chunk& chunk);
 
+    /// Compile Phi node (no-op, handled by insertPhiCopies)
+    void compilePhiInst(const ir::PhiInst* inst, Chunk& chunk);
+
+    // ========== Phi Elimination ==========
+
+    /**
+     * Insert Phi copies before branching to a successor block
+     * For each Phi in successor, copy appropriate incoming value to Phi's local slot
+     */
+    void insertPhiCopies(const ir::BasicBlock* successor,
+                         const ir::BasicBlock* predecessor,
+                         Chunk& chunk);
+
     // ========== Value Emission ==========
 
     /**
@@ -227,6 +240,9 @@ private:
 
     /// Current function being compiled
     const ir::Function* currentFunction_ = nullptr;
+
+    /// Current basic block being compiled
+    const ir::BasicBlock* currentBasicBlock_ = nullptr;
 
     /// IR Function -> bytecode function index
     std::unordered_map<const ir::Function*, uint32_t> functionIndexMap_;

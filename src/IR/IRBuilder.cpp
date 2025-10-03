@@ -1,293 +1,245 @@
 #include "IR/IRBuilder.hpp"
-#include <stdexcept>
+#include <sstream>
 
 namespace volta::ir {
 
-// ============================================================================
-// Function & Basic Block Creation
-// ============================================================================
-
-std::unique_ptr<Function> IRBuilder::createFunction(
-    const std::string& name,
-    std::shared_ptr<semantic::FunctionType> type) {
-    std::vector<Parameter*> parameters;
-
-    for (size_t i = 0; i < type->paramTypes().size(); i++) {
-        // Create parameter via module (ownership stays in module)
-        Parameter* param = createParameter(
-            type->paramTypes()[i],
-            "%param" + std::to_string(i),
-            i
-        );
-        parameters.push_back(param);
-    }
-
-    return std::make_unique<Function>(name, type, std::move(parameters));
-}
-
-BasicBlock* IRBuilder::createBasicBlock(
-    const std::string& name,
-    Function* parent) {
-
-    return module_->createBasicBlock(name, parent);
+IRBuilder::IRBuilder() : insertBlock_(nullptr), valueCounter_(0) {
 }
 
 // ============================================================================
-// Arithmetic Instructions
+// Insert Point Management
 // ============================================================================
 
-Value* IRBuilder::createAdd(Value* left, Value* right) {
-    return createBinaryOp(Instruction::Opcode::Add, left, right);
-}
-
-Value* IRBuilder::createSub(Value* left, Value* right) {
-    return createBinaryOp(Instruction::Opcode::Sub, left, right);
-}
-
-Value* IRBuilder::createMul(Value* left, Value* right) {
-    return createBinaryOp(Instruction::Opcode::Mul, left, right);
-}
-
-Value* IRBuilder::createDiv(Value* left, Value* right) {
-    return createBinaryOp(Instruction::Opcode::Div, left, right);
-}
-
-Value* IRBuilder::createMod(Value* left, Value* right) {
-    return createBinaryOp(Instruction::Opcode::Mod, left, right);
-}
-
-Value* IRBuilder::createNeg(Value* operand) {
-    return createUnaryOp(Instruction::Opcode::Neg, operand);
+void IRBuilder::setInsertPoint(BasicBlock* block) {
+    // TODO: Set insertBlock_ to the given block.
+    // All subsequent createXXX calls will insert instructions into this block.
 }
 
 // ============================================================================
-// Comparison Instructions
+// Arithmetic Operations
 // ============================================================================
 
-Value* IRBuilder::createEq(Value* left, Value* right) {
-    return createBinaryOp(Instruction::Opcode::Eq, left, right);
+Value* IRBuilder::createAdd(Value* lhs, Value* rhs, const std::string& name) {
+    // TODO: Create an Add instruction and insert it into the current block.
+    // Steps:
+    // 1. Generate a unique name if 'name' is empty (use getUniqueName())
+    // 2. Create a BinaryInstruction with Opcode::Add
+    // 3. Insert it into insertBlock_ (use insertInstruction helper)
+    // 4. Return the instruction (it's also a Value)
+    return nullptr;
 }
 
-Value* IRBuilder::createNe(Value* left, Value* right) {
-    return createBinaryOp(Instruction::Opcode::Ne, left, right);
+Value* IRBuilder::createSub(Value* lhs, Value* rhs, const std::string& name) {
+    // TODO: Same as createAdd, but with Opcode::Sub
+    return nullptr;
 }
 
-Value* IRBuilder::createLt(Value* left, Value* right) {
-    return createBinaryOp(Instruction::Opcode::Lt, left, right);
+Value* IRBuilder::createMul(Value* lhs, Value* rhs, const std::string& name) {
+    // TODO: Same as createAdd, but with Opcode::Mul
+    return nullptr;
 }
 
-Value* IRBuilder::createLe(Value* left, Value* right) {
-    return createBinaryOp(Instruction::Opcode::Le, left, right);
+Value* IRBuilder::createDiv(Value* lhs, Value* rhs, const std::string& name) {
+    // TODO: Same as createAdd, but with Opcode::Div
+    return nullptr;
 }
 
-Value* IRBuilder::createGt(Value* left, Value* right) {
-    return createBinaryOp(Instruction::Opcode::Gt, left, right);
+Value* IRBuilder::createMod(Value* lhs, Value* rhs, const std::string& name) {
+    // TODO: Same as createAdd, but with Opcode::Mod
+    return nullptr;
 }
 
-Value* IRBuilder::createGe(Value* left, Value* right) {
-    return createBinaryOp(Instruction::Opcode::Ge, left, right);
+Value* IRBuilder::createFAdd(Value* lhs, Value* rhs, const std::string& name) {
+    // TODO: Floating-point add
+    return nullptr;
 }
 
-// ============================================================================
-// Logical Instructions
-// ============================================================================
-
-Value* IRBuilder::createAnd(Value* left, Value* right) {
-    return createBinaryOp(Instruction::Opcode::And, left, right);
+Value* IRBuilder::createFSub(Value* lhs, Value* rhs, const std::string& name) {
+    // TODO: Floating-point subtract
+    return nullptr;
 }
 
-Value* IRBuilder::createOr(Value* left, Value* right) {
-    return createBinaryOp(Instruction::Opcode::Or, left, right);
+Value* IRBuilder::createFMul(Value* lhs, Value* rhs, const std::string& name) {
+    // TODO: Floating-point multiply
+    return nullptr;
 }
 
-Value* IRBuilder::createNot(Value* operand) {
-    return createUnaryOp(Instruction::Opcode::Not, operand);
-}
-
-// ============================================================================
-// Memory Instructions
-// ============================================================================
-
-Value* IRBuilder::createAlloc(std::shared_ptr<semantic::Type> type) {
-    std::string name = getUniqueTempName();
-    auto* inst = module_->createInstruction<AllocInst>(type, name);
-    return insert(inst);
-}
-
-Value* IRBuilder::createLoad(std::shared_ptr<semantic::Type> type, Value* address) {
-    std::string name = getUniqueTempName();
-    auto* inst = module_->createInstruction<LoadInst>(type, name, address);
-    return insert(inst);
-}
-
-void IRBuilder::createStore(Value* value, Value* address) {
-    auto* inst = module_->createInstruction<StoreInst>(value, address);
-    insert(inst);
-}
-
-Value* IRBuilder::createGetField(Value* object, size_t fieldIndex,
-                                 std::shared_ptr<semantic::Type> fieldType) {
-    std::string name = getUniqueTempName();
-    auto* inst = module_->createInstruction<GetFieldInst>(fieldType, name, object, fieldIndex);
-    return insert(inst);
-}
-
-void IRBuilder::createSetField(Value* object, size_t fieldIndex, Value* value) {
-    auto* inst = module_->createInstruction<SetFieldInst>(object, fieldIndex, value);
-    insert(inst);
-}
-
-Value* IRBuilder::createGetElement(Value* array, Value* index,
-                                  std::shared_ptr<semantic::Type> elementType) {
-    std::string name = getUniqueTempName();
-    auto* inst = module_->createInstruction<GetElementInst>(elementType, name, array, index);
-    return insert(inst);
-}
-
-void IRBuilder::createSetElement(Value* array, Value* index, Value* value) {
-    auto* inst = module_->createInstruction<SetElementInst>(array, index, value);
-    insert(inst);
-}
-
-Value* IRBuilder::createNewArray(std::shared_ptr<semantic::Type> arrayType,
-                                 const std::vector<Value*>& elements) {
-    std::string name = getUniqueTempName();
-    auto* inst = module_->createInstruction<NewArrayInst>(arrayType, name, elements);
-    return insert(inst);
+Value* IRBuilder::createFDiv(Value* lhs, Value* rhs, const std::string& name) {
+    // TODO: Floating-point divide
+    return nullptr;
 }
 
 // ============================================================================
-// Control Flow Instructions
+// Comparison Operations
+// ============================================================================
+
+Value* IRBuilder::createICmpEQ(Value* lhs, Value* rhs, const std::string& name) {
+    // TODO: Create a CompareInstruction with Opcode::ICmpEQ
+    // Note: Result type is always bool (not the operand type)
+    return nullptr;
+}
+
+Value* IRBuilder::createICmpNE(Value* lhs, Value* rhs, const std::string& name) {
+    // TODO: Integer not-equal comparison
+    return nullptr;
+}
+
+Value* IRBuilder::createICmpLT(Value* lhs, Value* rhs, const std::string& name) {
+    // TODO: Integer less-than comparison
+    return nullptr;
+}
+
+Value* IRBuilder::createICmpLE(Value* lhs, Value* rhs, const std::string& name) {
+    // TODO: Integer less-than-or-equal comparison
+    return nullptr;
+}
+
+Value* IRBuilder::createICmpGT(Value* lhs, Value* rhs, const std::string& name) {
+    // TODO: Integer greater-than comparison
+    return nullptr;
+}
+
+Value* IRBuilder::createICmpGE(Value* lhs, Value* rhs, const std::string& name) {
+    // TODO: Integer greater-than-or-equal comparison
+    return nullptr;
+}
+
+Value* IRBuilder::createFCmpEQ(Value* lhs, Value* rhs, const std::string& name) {
+    // TODO: Float equal comparison
+    return nullptr;
+}
+
+Value* IRBuilder::createFCmpNE(Value* lhs, Value* rhs, const std::string& name) {
+    // TODO: Float not-equal comparison
+    return nullptr;
+}
+
+Value* IRBuilder::createFCmpLT(Value* lhs, Value* rhs, const std::string& name) {
+    // TODO: Float less-than comparison
+    return nullptr;
+}
+
+Value* IRBuilder::createFCmpLE(Value* lhs, Value* rhs, const std::string& name) {
+    // TODO: Float less-than-or-equal comparison
+    return nullptr;
+}
+
+Value* IRBuilder::createFCmpGT(Value* lhs, Value* rhs, const std::string& name) {
+    // TODO: Float greater-than comparison
+    return nullptr;
+}
+
+Value* IRBuilder::createFCmpGE(Value* lhs, Value* rhs, const std::string& name) {
+    // TODO: Float greater-than-or-equal comparison
+    return nullptr;
+}
+
+// ============================================================================
+// Logical Operations
+// ============================================================================
+
+Value* IRBuilder::createAnd(Value* lhs, Value* rhs, const std::string& name) {
+    // TODO: Logical AND
+    return nullptr;
+}
+
+Value* IRBuilder::createOr(Value* lhs, Value* rhs, const std::string& name) {
+    // TODO: Logical OR
+    return nullptr;
+}
+
+Value* IRBuilder::createNot(Value* operand, const std::string& name) {
+    // TODO: Logical NOT (unary operation)
+    // Hint: You'll need to create a UnaryInstruction (not implemented yet - add it!)
+    return nullptr;
+}
+
+// ============================================================================
+// Memory Operations
+// ============================================================================
+
+Value* IRBuilder::createAlloca(std::shared_ptr<semantic::Type> type, const std::string& name) {
+    // TODO: Create an AllocaInstruction.
+    // This allocates stack space for a local variable.
+    // Returns a pointer to the allocated space.
+    return nullptr;
+}
+
+Value* IRBuilder::createLoad(Value* pointer, const std::string& name) {
+    // TODO: Create a LoadInstruction.
+    // Loads the value pointed to by 'pointer'.
+    return nullptr;
+}
+
+void IRBuilder::createStore(Value* value, Value* pointer) {
+    // TODO: Create a StoreInstruction.
+    // Stores 'value' into the memory location pointed to by 'pointer'.
+    // Note: Store doesn't return a value (void)
+}
+
+// ============================================================================
+// Control Flow
 // ============================================================================
 
 void IRBuilder::createBr(BasicBlock* target) {
-    auto* inst = module_->createInstruction<BranchInst>(target);
-    insert(inst);
+    // TODO: Create an unconditional BranchInstruction.
+    // Also update CFG:
+    //   - Add target to insertBlock_'s successors
+    //   - Add insertBlock_ to target's predecessors
 }
 
-void IRBuilder::createBrIf(Value* condition, BasicBlock* thenBlock, BasicBlock* elseBlock) {
-    auto* inst = module_->createInstruction<BranchIfInst>(condition, thenBlock, elseBlock);
-    insert(inst);
-}
-
-void IRBuilder::createRetVoid() {
-    auto* inst = module_->createInstruction<ReturnInst>(nullptr);
-    insert(inst);
+void IRBuilder::createCondBr(Value* condition, BasicBlock* thenBlock, BasicBlock* elseBlock) {
+    // TODO: Create a CondBranchInstruction.
+    // Update CFG for both thenBlock and elseBlock.
 }
 
 void IRBuilder::createRet(Value* value) {
-    auto* inst = module_->createInstruction<ReturnInst>(value);
-    insert(inst);
+    // TODO: Create a ReturnInstruction with the given return value.
 }
 
-Value* IRBuilder::createCall(Function* callee, const std::vector<Value*>& arguments) {
-    auto retType = callee->type()->returnType();
-    CallInst* inst;
-    if (retType->kind() == semantic::PrimitiveType::Kind::Void) {
-        inst = module_->createInstruction<CallInst>(retType, "", callee, arguments);
-    } else {
-        std::string name = getUniqueTempName();
-        inst = module_->createInstruction<CallInst>(retType, name, callee, arguments);
-    }
-
-    return insert(inst);
-}
-
-Value* IRBuilder::createCallForeign(const std::string& foreignName,
-                                   std::shared_ptr<semantic::Type> returnType,
-                                   const std::vector<Value*>& arguments) {
-    std::string name = getUniqueTempName();
-    auto* inst = module_->createInstruction<CallForeignInst>(returnType, name, foreignName, arguments);
-    return insert(inst);
+void IRBuilder::createRetVoid() {
+    // TODO: Create a ReturnInstruction with nullptr (void return).
 }
 
 // ============================================================================
-// Constant Creation
+// Function Calls
 // ============================================================================
 
-Constant* IRBuilder::getInt(int64_t value) {
-    auto intType = std::make_shared<semantic::PrimitiveType>(
-        semantic::PrimitiveType::PrimitiveKind::Int);
-    return module_->createConstant(intType, value);
-}
-
-Constant* IRBuilder::getFloat(double value) {
-    auto floatType = std::make_shared<semantic::PrimitiveType>(
-        semantic::PrimitiveType::PrimitiveKind::Float);
-    return module_->createConstant(floatType, value);
-}
-
-Constant* IRBuilder::getBool(bool value) {
-    auto boolType = std::make_shared<semantic::PrimitiveType>(
-        semantic::PrimitiveType::PrimitiveKind::Bool);
-    return module_->createConstant(boolType, value);
-}
-
-Constant* IRBuilder::getString(const std::string& value) {
-    auto stringType = std::make_shared<semantic::PrimitiveType>(
-        semantic::PrimitiveType::PrimitiveKind::String);
-    return module_->createConstant(stringType, value);
-}
-
-Constant* IRBuilder::getNone() {
-    auto noneType = std::make_shared<semantic::PrimitiveType>(
-        semantic::PrimitiveType::PrimitiveKind::Void);
-    return module_->createConstant(noneType, std::monostate{});
+Value* IRBuilder::createCall(Function* callee, const std::vector<Value*>& arguments, const std::string& name) {
+    // TODO: Create a CallInstruction.
+    // The callee should be converted to a Value (functions are first-class values).
+    // For now, you can cast callee or create a function pointer value.
+    return nullptr;
 }
 
 // ============================================================================
-// Parameter Creation
+// PHI Nodes
 // ============================================================================
 
-Parameter* IRBuilder::createParameter(
-    std::shared_ptr<semantic::Type> type,
-    const std::string& name,
-    size_t index) {
-    return module_->createParameter(type, name, index);
+PhiInstruction* IRBuilder::createPhi(std::shared_ptr<semantic::Type> type, const std::string& name) {
+    // TODO: Create a PhiInstruction.
+    // Caller will add incoming values via phi->addIncoming(value, block).
+    //
+    // Important: PHI nodes must be at the START of a basic block!
+    // Insert it before any other instructions.
+    return nullptr;
 }
 
 // ============================================================================
-// Helper Methods
+// Helpers
 // ============================================================================
 
-std::string IRBuilder::getUniqueTempName() {
-    std::string name = "%" + std::to_string(nextTempId_);
-    nextTempId_++;
-    return name;
+std::string IRBuilder::getUniqueName() {
+    // TODO: Generate a unique SSA name like "%0", "%1", "%2", etc.
+    // Increment valueCounter_ each time.
+    // Format: "%" + std::to_string(valueCounter_++)
+    return "";
 }
 
-// ============================================================================
-// Private Helper Methods
-// ============================================================================
-
-Value* IRBuilder::createBinaryOp(Instruction::Opcode opcode, Value* left, Value* right) {
-    std::string name = getUniqueTempName();
-    std::shared_ptr<semantic::Type> type;
-
-    switch (opcode) {
-        case Instruction::Opcode::Eq:
-        case Instruction::Opcode::Ne:
-        case Instruction::Opcode::Lt:
-        case Instruction::Opcode::Le:
-        case Instruction::Opcode::Gt:
-        case Instruction::Opcode::Ge:
-            type = std::make_shared<semantic::PrimitiveType>(
-                semantic::PrimitiveType::PrimitiveKind::Bool);
-            break;
-        default:
-            type = left->type();
-            break;
-    }
-
-    auto* inst = module_->createInstruction<BinaryInst>(opcode, type, name, left, right);
-    return insert(inst);
+void IRBuilder::insertInstruction(std::unique_ptr<Instruction> inst) {
+    // TODO: Insert the instruction into insertBlock_.
+    // Check that insertBlock_ is not nullptr!
+    // Call insertBlock_->addInstruction(std::move(inst))
 }
 
-Value* IRBuilder::createUnaryOp(Instruction::Opcode opcode, Value* operand) {
-    std::string name = getUniqueTempName();
-    std::shared_ptr<semantic::Type> type = operand->type();
-    auto* inst = module_->createInstruction<UnaryInst>(opcode, type, name, operand);
-    return insert(inst);
-}
-
-}
+} // namespace volta::ir

@@ -1,77 +1,67 @@
 #pragma once
 
-#include "IR.hpp"
 #include "IRModule.hpp"
 #include <ostream>
 #include <string>
 
 namespace volta::ir {
 
+// ============================================================================
+// IRPrinter - Pretty-prints IR in human-readable format
+// ============================================================================
+
 /**
- * IRPrinter - Pretty-print IR in human-readable format
+ * IRPrinter formats IR for debugging and visualization.
  *
- * Outputs IR in a format similar to LLVM IR:
+ * Output format is similar to LLVM IR:
+ *   ; ModuleID = 'test.volta'
  *
- * function @factorial(%n: int) -> int:
- *   bb0:
- *     %0 = le %n, 1
- *     br_if %0, bb1, bb2
+ *   @global = global i64 42
  *
- *   bb1:
- *     ret 1
+ *   define i64 @add(i64 %a, i64 %b) {
+ *   entry:
+ *       %0 = add i64 %a, %b
+ *       ret i64 %0
+ *   }
  *
- *   bb2:
- *     %1 = sub %n, 1
- *     %2 = call @factorial, %1
- *     %3 = mul %n, %2
- *     ret %3
+ * Usage:
+ *   IRPrinter printer;
+ *   printer.print(module, std::cout);
  */
 class IRPrinter {
 public:
-    explicit IRPrinter(std::ostream& out) : out_(out), indentLevel_(0) {}
+    IRPrinter();
 
     /**
-     * Print entire module
+     * Print entire module to output stream.
      */
-    void print(const IRModule& module);
+    void print(const IRModule& module, std::ostream& out);
 
     /**
-     * Print a function
+     * Print single function.
      */
-    void printFunction(const Function& function);
+    void printFunction(const Function& function, std::ostream& out);
 
     /**
-     * Print a basic block
+     * Print single basic block.
      */
-    void printBasicBlock(const BasicBlock& block);
+    void printBasicBlock(const BasicBlock& block, std::ostream& out);
 
     /**
-     * Print an instruction
+     * Print single instruction.
      */
-    void printInstruction(const Instruction& inst);
+    void printInstruction(const Instruction& instruction, std::ostream& out);
 
     /**
-     * Print a global variable
+     * Configuration: indent level (for pretty-printing).
      */
-    void printGlobal(const GlobalVariable& global);
-
-    /**
-     * Print a value (for use in operands)
-     */
-    std::string valueToString(const Value* value);
-
-    /**
-     * Print a type
-     */
-    std::string typeToString(const semantic::Type* type);
+    void setIndentLevel(int level) { indentLevel_ = level; }
 
 private:
-    std::ostream& out_;
     int indentLevel_;
 
-    void indent();
-    void increaseIndent() { indentLevel_++; }
-    void decreaseIndent() { indentLevel_--; }
+    // Helper: Get indent string
+    std::string getIndent() const;
 };
 
 } // namespace volta::ir
