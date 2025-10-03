@@ -98,6 +98,7 @@ private:
 private:
     volta::errors::ErrorReporter& errorReporter_;
     std::unique_ptr<SymbolTable> symbolTable_;
+    TypeCache typeCache_;
 
     // Store inferred types for expressions
     std::unordered_map<const volta::ast::Expression*, std::shared_ptr<Type>> expressionTypes_;

@@ -323,4 +323,125 @@ public:
     }
 };
 
+/**
+ * Type cache for interning types to avoid duplicate allocations
+ * Provides canonical instances of primitive and commonly used types
+ */
+class TypeCache {
+public:
+    TypeCache()
+        : intType_(std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Int)),
+          floatType_(std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Float)),
+          boolType_(std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Bool)),
+          stringType_(std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::String)),
+          voidType_(std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Void)),
+          unknownType_(std::make_shared<UnknownType>()) {}
+
+    // Primitive types - always return the same instance
+    std::shared_ptr<Type> getInt() const {
+        return intType_;
+    }
+
+    std::shared_ptr<Type> getFloat() const {
+        return floatType_;
+    }
+
+    std::shared_ptr<Type> getBool() const {
+        return boolType_;
+    }
+
+    std::shared_ptr<Type> getString() const {
+        return stringType_;
+    }
+
+    std::shared_ptr<Type> getVoid() const {
+        return voidType_;
+    }
+
+    std::shared_ptr<Type> getUnknown() const {
+        return unknownType_;
+    }
+
+    // Complex types - cache by structure
+    std::shared_ptr<Type> getArrayType(std::shared_ptr<Type> elementType) const {
+        std::string key = "Array[" + elementType->toString() + "]";
+        auto it = cache_.find(key);
+        if (it != cache_.end()) {
+            return it->second;
+        }
+        auto type = std::make_shared<ArrayType>(elementType);
+        cache_[key] = type;
+        return type;
+    }
+
+    std::shared_ptr<Type> getMatrixType(std::shared_ptr<Type> elementType) const {
+        std::string key = "Matrix[" + elementType->toString() + "]";
+        auto it = cache_.find(key);
+        if (it != cache_.end()) {
+            return it->second;
+        }
+        auto type = std::make_shared<MatrixType>(elementType);
+        cache_[key] = type;
+        return type;
+    }
+
+    std::shared_ptr<Type> getOptionType(std::shared_ptr<Type> innerType) const {
+        std::string key = "Option[" + innerType->toString() + "]";
+        auto it = cache_.find(key);
+        if (it != cache_.end()) {
+            return it->second;
+        }
+        auto type = std::make_shared<OptionType>(innerType);
+        cache_[key] = type;
+        return type;
+    }
+
+    std::shared_ptr<Type> getTupleType(std::vector<std::shared_ptr<Type>> elementTypes) const {
+        std::string key = "(";
+        for (size_t i = 0; i < elementTypes.size(); ++i) {
+            if (i > 0) key += ", ";
+            key += elementTypes[i]->toString();
+        }
+        key += ")";
+
+        auto it = cache_.find(key);
+        if (it != cache_.end()) {
+            return it->second;
+        }
+        auto type = std::make_shared<TupleType>(std::move(elementTypes));
+        cache_[key] = type;
+        return type;
+    }
+
+    std::shared_ptr<Type> getFunctionType(std::vector<std::shared_ptr<Type>> paramTypes,
+                                          std::shared_ptr<Type> returnType) const {
+        std::string key = "fn(";
+        for (size_t i = 0; i < paramTypes.size(); ++i) {
+            if (i > 0) key += ", ";
+            key += paramTypes[i]->toString();
+        }
+        key += ") -> " + returnType->toString();
+
+        auto it = cache_.find(key);
+        if (it != cache_.end()) {
+            return it->second;
+        }
+        auto type = std::make_shared<FunctionType>(std::move(paramTypes), returnType);
+        cache_[key] = type;
+        return type;
+    }
+
+private:
+    // Cached primitive types
+    std::shared_ptr<Type> intType_;
+    std::shared_ptr<Type> floatType_;
+    std::shared_ptr<Type> boolType_;
+    std::shared_ptr<Type> stringType_;
+    std::shared_ptr<Type> voidType_;
+    std::shared_ptr<Type> unknownType_;
+
+    // Complex type cache
+    mutable std::unordered_map<std::string, std::shared_ptr<Type>> cache_;
+};
+
 } // namespace volta::semantic

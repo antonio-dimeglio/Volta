@@ -12,10 +12,10 @@ void SemanticAnalyzer::registerBuiltins() {
     // print(str) -> void
     {
         std::vector<std::shared_ptr<Type>> params = {
-            std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::String)
+            typeCache_.getString()
         };
-        auto returnType = std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Void);
-        auto printType = std::make_shared<FunctionType>(std::move(params), returnType);
+        auto returnType = typeCache_.getVoid();
+        auto printType = typeCache_.getFunctionType(std::move(params), returnType);
 
         auto symbol = Symbol("print", printType, false, volta::errors::SourceLocation());
         symbolTable_->declare("print", symbol);
@@ -73,7 +73,7 @@ std::shared_ptr<Type> SemanticAnalyzer::lookupVariable(const std::string& name, 
     auto* symbol = symbolTable_->lookup(name);
     if (symbol == nullptr) {
         error("Undefined variable '" + name + "'", loc);
-        return std::make_shared<UnknownType>();
+        return typeCache_.getUnknown();
     }
 
     return symbol->type;
@@ -83,7 +83,7 @@ std::shared_ptr<Type> SemanticAnalyzer::lookupFunction(const std::string& name, 
     auto* symbol = symbolTable_->lookup(name);
     if (symbol == nullptr) {
         error("Undefined function '" + name + "'", loc);
-        return std::make_shared<UnknownType>();
+        return typeCache_.getUnknown();
     }
 
     return symbol->type;
@@ -130,22 +130,22 @@ void SemanticAnalyzer::typeError(const std::string& message, const Type* expecte
 
 std::shared_ptr<Type> SemanticAnalyzer::resolveTypeAnnotation(const volta::ast::Type* astType) const {
     if (!astType) {
-        return std::make_shared<UnknownType>();
+        return typeCache_.getUnknown();
     }
 
     // Handle PrimitiveType (int, float, bool, str, void)
     if (auto* prim = dynamic_cast<const volta::ast::PrimitiveType*>(astType)) {
         switch (prim->kind) {
             case volta::ast::PrimitiveType::Kind::Int:
-                return std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Int);
+                return typeCache_.getInt();
             case volta::ast::PrimitiveType::Kind::Float:
-                return std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Float);
+                return typeCache_.getFloat();
             case volta::ast::PrimitiveType::Kind::Bool:
-                return std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Bool);
+                return typeCache_.getBool();
             case volta::ast::PrimitiveType::Kind::Str:
-                return std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::String);
+                return typeCache_.getString();
             case volta::ast::PrimitiveType::Kind::Void:
-                return std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Void);
+                return typeCache_.getVoid();
         }
     }
 
@@ -153,35 +153,35 @@ std::shared_ptr<Type> SemanticAnalyzer::resolveTypeAnnotation(const volta::ast::
         switch (compound->kind) {
             case volta::ast::CompoundType::Kind::Array: {
                 if (compound->typeArgs.size() != 1) {
-                    return std::make_shared<UnknownType>();
+                    return typeCache_.getUnknown();
                 }
                 auto elemType = resolveTypeAnnotation(compound->typeArgs[0].get());
-                return std::make_shared<ArrayType>(elemType);
+                return typeCache_.getArrayType(elemType);
             }
-            
+
             case volta::ast::CompoundType::Kind::Matrix: {
                 // Matrix must have exactly 1 type argument
                 if (compound->typeArgs.size() != 1) {
-                    return std::make_shared<UnknownType>();
+                    return typeCache_.getUnknown();
                 }
                 auto elemType = resolveTypeAnnotation(compound->typeArgs[0].get());
-                return std::make_shared<MatrixType>(elemType);
+                return typeCache_.getMatrixType(elemType);
             }
-            
+
             case volta::ast::CompoundType::Kind::Option: {
                 if (compound->typeArgs.size() != 1) {
-                    return std::make_shared<UnknownType>();
+                    return typeCache_.getUnknown();
                 }
                 auto innerType = resolveTypeAnnotation(compound->typeArgs[0].get());
-                return std::make_shared<OptionType>(innerType);
+                return typeCache_.getOptionType(innerType);
             }
-            
+
             case volta::ast::CompoundType::Kind::Tuple: {
                 std::vector<std::shared_ptr<Type>> elementTypes;
                 for (const auto& typeArg : compound->typeArgs) {
                     elementTypes.push_back(resolveTypeAnnotation(typeArg.get()));
                 }
-                return std::make_shared<TupleType>(std::move(elementTypes));
+                return typeCache_.getTupleType(std::move(elementTypes));
             }
         }
     }
@@ -193,7 +193,7 @@ std::shared_ptr<Type> SemanticAnalyzer::resolveTypeAnnotation(const volta::ast::
             paramTypes.push_back(resolveTypeAnnotation(paramType.get()));
         }
         auto returnType = resolveTypeAnnotation(fnType->returnType.get());
-        return std::make_shared<FunctionType>(std::move(paramTypes), returnType);
+        return typeCache_.getFunctionType(std::move(paramTypes), returnType);
     }
 
     // Handle NamedType (user-defined structs or type aliases)
@@ -204,7 +204,7 @@ std::shared_ptr<Type> SemanticAnalyzer::resolveTypeAnnotation(const volta::ast::
 
         if (!symbol) {
             // Type not found
-            return std::make_shared<UnknownType>();
+            return typeCache_.getUnknown();
         }
 
         // Return the type associated with this symbol
@@ -213,7 +213,7 @@ std::shared_ptr<Type> SemanticAnalyzer::resolveTypeAnnotation(const volta::ast::
     }
 
     // Unknown type
-    return std::make_shared<UnknownType>();
+    return typeCache_.getUnknown();
 }
 
 void SemanticAnalyzer::collectDeclarations(const volta::ast::Program& program) {
@@ -237,7 +237,7 @@ void SemanticAnalyzer::collectFunction(const volta::ast::FnDeclaration& fn) {
 
     auto returnTypeResolved = resolveTypeAnnotation(fn.returnType.get());
 
-    auto fnType = std::make_shared<FunctionType>(std::move(paramTypes), returnTypeResolved);
+    auto fnType = typeCache_.getFunctionType(std::move(paramTypes), returnTypeResolved);
 
     // For methods, use qualified name: "ReceiverType.methodName"
     std::string functionName = fn.identifier;
@@ -377,7 +377,7 @@ void SemanticAnalyzer::analyzeFnDeclaration(const volta::ast::FnDeclaration* fnD
 
 void SemanticAnalyzer::analyzeIfStatement(const volta::ast::IfStatement* ifStmt) {
     auto condType = analyzeExpression(ifStmt->condition.get());
-    auto boolType = std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Bool);
+    auto boolType = typeCache_.getBool();
 
     if (!areTypesCompatible(boolType.get(), condType.get())) {
         typeError("If condition must be bool", boolType.get(), condType.get(), ifStmt->location);
@@ -413,7 +413,7 @@ void SemanticAnalyzer::analyzeIfStatement(const volta::ast::IfStatement* ifStmt)
 
 void SemanticAnalyzer::analyzeWhileStatement(const volta::ast::WhileStatement* whileStmt) {
     auto condType = analyzeExpression(whileStmt->condition.get());
-    auto boolType = std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Bool);
+    auto boolType = typeCache_.getBool();
 
     if (!areTypesCompatible(boolType.get(), condType.get())) {
         typeError("While condition must be bool", boolType.get(), condType.get(), whileStmt->location);
@@ -442,11 +442,11 @@ void SemanticAnalyzer::analyzeForStatement(const volta::ast::ForStatement* forSt
     // Check if it's a range (will have int elements)
     else if (exprType->kind() == Type::Kind::Int) {
         // Range expressions (0..10) produce integers
-        elementType = std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Int);
+        elementType = typeCache_.getInt();
     }
     else {
         error("Expression is not iterable", forStmt->location);
-        elementType = std::make_shared<UnknownType>();
+        elementType = typeCache_.getUnknown();
     }
 
     enterLoop();
@@ -474,7 +474,7 @@ void SemanticAnalyzer::analyzeReturnStatement(const volta::ast::ReturnStatement*
         returnType = analyzeExpression(returnStmt->expression.get());
     } else {
         // Empty return statement
-        returnType = std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Void);
+        returnType = typeCache_.getVoid();
     }
 
     auto expectedType = currentFunctionReturnType();
@@ -524,7 +524,7 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeExpression(const volta::ast::Expr
         resultType = analyzeStructLiteral(structLit);
     }
     else {
-        resultType = std::make_shared<UnknownType>();
+        resultType = typeCache_.getUnknown();
     }
 
     expressionTypes_[expr] = resultType;
@@ -533,18 +533,18 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeExpression(const volta::ast::Expr
 
 std::shared_ptr<Type> SemanticAnalyzer::analyzeLiteral(const volta::ast::Expression* literal) {
     if (dynamic_cast<const volta::ast::IntegerLiteral*>(literal)) {
-        return std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Int);
+        return typeCache_.getInt();
     }
     else if (dynamic_cast<const volta::ast::FloatLiteral*>(literal)) {
-        return std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Float);
+        return typeCache_.getFloat();
     }
     else if (dynamic_cast<const volta::ast::BooleanLiteral*>(literal)) {
-        return std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Bool);
+        return typeCache_.getBool();
     }
     else if (dynamic_cast<const volta::ast::StringLiteral*>(literal)) {
-        return std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::String);
+        return typeCache_.getString();
     }
-    return std::make_shared<UnknownType>();
+    return typeCache_.getUnknown();
 }
 
 std::shared_ptr<Type> SemanticAnalyzer::analyzeIdentifier(const volta::ast::IdentifierExpression* identifier) {
@@ -608,7 +608,7 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeCallExpression(const volta::ast::
     auto* fnType = dynamic_cast<const FunctionType*>(calleeType.get());
     if (!fnType) {
         error("Expression is not callable", callExpr->location);
-        return std::make_shared<UnknownType>();
+        return typeCache_.getUnknown();
     }
 
     if (callExpr->arguments.size() != fnType->paramTypes().size()) {
@@ -642,7 +642,7 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeMatchExpression(const volta::ast:
         }
     }
 
-    return resultType ? resultType : std::make_shared<UnknownType>();
+    return resultType ? resultType : typeCache_.getUnknown();
 }
 
 std::shared_ptr<Type> SemanticAnalyzer::analyzeMemberExpression(const volta::ast::MemberExpression* memberExpr) {
@@ -651,7 +651,7 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeMemberExpression(const volta::ast
     auto* structType = dynamic_cast<const StructType*>(objectType.get());
     if (!structType) {
         error("Member access on non-struct type", memberExpr->location);
-        return std::make_shared<UnknownType>();
+        return typeCache_.getUnknown();
     }
 
     const std::string& fieldName = memberExpr->member->name;
@@ -660,7 +660,7 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeMemberExpression(const volta::ast
     if (!field) {
         error("Struct '" + structType->name() + "' has no field '" + fieldName + "'",
               memberExpr->location);
-        return std::make_shared<UnknownType>();
+        return typeCache_.getUnknown();
     }
 
     return field->type;
@@ -672,7 +672,7 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeMethodCallExpression(const volta:
     auto* structType = dynamic_cast<const StructType*>(objectType.get());
     if (!structType) {
         error("Method call on non-struct type", methodCall->location);
-        return std::make_shared<UnknownType>();
+        return typeCache_.getUnknown();
     }
 
     const std::string& methodName = methodCall->method->name;
@@ -682,13 +682,13 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeMethodCallExpression(const volta:
     if (!methodSymbol) {
         error("Struct '" + structType->name() + "' has no method '" + methodName + "'",
               methodCall->location);
-        return std::make_shared<UnknownType>();
+        return typeCache_.getUnknown();
     }
 
     auto* fnType = dynamic_cast<const FunctionType*>(methodSymbol->type.get());
     if (!fnType) {
         error("'" + qualifiedName + "' is not a method", methodCall->location);
-        return std::make_shared<UnknownType>();
+        return typeCache_.getUnknown();
     }
 
     size_t expectedArgCount = fnType->paramTypes().size() - 1;
@@ -711,11 +711,11 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeMethodCallExpression(const volta:
 
 std::shared_ptr<Type> SemanticAnalyzer::analyzeArrayLiteral(const volta::ast::ArrayLiteral* arrayLit) {
     if (arrayLit->elements.empty()) {
-        return std::make_shared<ArrayType>(std::make_shared<UnknownType>());
+        return typeCache_.getArrayType(typeCache_.getUnknown());
     }
 
     auto elemType = analyzeExpression(arrayLit->elements[0].get());
-    return std::make_shared<ArrayType>(elemType);
+    return typeCache_.getArrayType(elemType);
 }
 
 std::shared_ptr<Type> SemanticAnalyzer::analyzeIndexExpression(const volta::ast::IndexExpression* indexExpr) {
@@ -724,13 +724,13 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeIndexExpression(const volta::ast:
 
     if (indexType->kind() != Type::Kind::Int) {
         typeError("Array index must be an integer",
-                 std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Int).get(),
+                 typeCache_.getInt().get(),
                  indexType.get(), indexExpr->location);
     }
 
     if (!arrayType->isIndexable()) {
         error("Index operator can only be used on indexable types (arrays, matrices)", indexExpr->location);
-        return std::make_shared<UnknownType>();
+        return typeCache_.getUnknown();
     }
 
     if (auto* arrType = dynamic_cast<const ArrayType*>(arrayType.get())) {
@@ -741,7 +741,7 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeIndexExpression(const volta::ast:
         return matType->elementType();
     }
 
-    return std::make_shared<UnknownType>();
+    return typeCache_.getUnknown();
 }
 
 std::shared_ptr<Type> SemanticAnalyzer::analyzeStructLiteral(const volta::ast::StructLiteral* structLit) {
@@ -750,12 +750,12 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeStructLiteral(const volta::ast::S
 
     if (!symbol) {
         error("Unknown struct type '" + structName + "'", structLit->location);
-        return std::make_shared<UnknownType>();
+        return typeCache_.getUnknown();
     }
 
     if (symbol->type->kind() != Type::Kind::Struct) {
         error("'" + structName + "' is not a struct type", structLit->location);
-        return std::make_shared<UnknownType>();
+        return typeCache_.getUnknown();
     }
 
     auto structType = std::dynamic_pointer_cast<StructType>(symbol->type);
@@ -814,31 +814,31 @@ std::shared_ptr<Type> SemanticAnalyzer::inferBinaryOpType(
         op == Op::Divide || op == Op::Modulo || op == Op::Power) {
 
         if (left->kind() == Type::Kind::Int && right->kind() == Type::Kind::Int) {
-            return std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Int);
+            return typeCache_.getInt();
         }
         if (left->isNumeric() && right->isNumeric()) {
-            return std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Float);
+            return typeCache_.getFloat();
         }
-        return std::make_shared<UnknownType>();
+        return typeCache_.getUnknown();
     }
 
     // Comparison operators
     if (op == Op::Equal || op == Op::NotEqual || op == Op::Less ||
         op == Op::Greater || op == Op::LessEqual || op == Op::GreaterEqual) {
-        return std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Bool);
+        return typeCache_.getBool();
     }
 
     // Logical operators
     if (op == Op::LogicalAnd || op == Op::LogicalOr) {
-        return std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Bool);
+        return typeCache_.getBool();
     }
 
     // Range operators
     if (op == Op::Range || op == Op::RangeInclusive) {
-        return std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Int);
+        return typeCache_.getInt();
     }
 
-    return std::make_shared<UnknownType>();
+    return typeCache_.getUnknown();
 }
 
 std::shared_ptr<Type> SemanticAnalyzer::inferUnaryOpType(
@@ -855,11 +855,11 @@ std::shared_ptr<Type> SemanticAnalyzer::inferUnaryOpType(
 
     if (op == Op::Not) {
         if (operand->kind() == Type::Kind::Bool) {
-            return std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Bool);
+            return typeCache_.getBool();
         }
     }
 
-    return std::make_shared<UnknownType>();
+    return typeCache_.getUnknown();
 }
 
 }
