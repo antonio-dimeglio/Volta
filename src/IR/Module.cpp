@@ -29,9 +29,6 @@ Module::Module(const std::string& name, size_t chunkSize)
     stringPool_ = std::make_unique<std::unordered_map<std::string, ConstantString*>>();
 }
 
-Module::~Module() {
-}
-
 Module::Module(Module&& other) noexcept
     : name_(std::move(other.name_)),
       arena_(std::move(other.arena_)),

@@ -59,8 +59,6 @@ public:
         Function
     };
 
-    virtual ~Value() = default;
-
     // Core properties
     ValueKind getKind() const { return kind_; }
     std::shared_ptr<IRType> getType() const { return type_; }
@@ -116,7 +114,6 @@ private:
 class Use {
 public:
     Use(Value* value, Instruction* user);
-    ~Use();
 
     // Disable copy to prevent use-def chain corruption
     Use(const Use&) = delete;
@@ -146,7 +143,6 @@ private:
  */
 class Constant : public Value {
 public:
-    virtual ~Constant() = default;
 
     static bool classof(const Value* V) {
         return V->getKind() >= ValueKind::ConstantInt &&

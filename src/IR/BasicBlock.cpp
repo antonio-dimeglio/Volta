@@ -21,14 +21,6 @@ BasicBlock::BasicBlock(const std::string& name, Function* parent)
       parent_(parent) {
 }
 
-BasicBlock::~BasicBlock() {
-    // Delete all instructions owned by this block
-    for (auto* inst : instructions_) {
-        delete inst;
-    }
-    instructions_.clear();
-}
-
 // ========================================================================
 // Instruction Management
 // ========================================================================

@@ -29,7 +29,7 @@ static std::shared_ptr<IRType> makeVoidType() {
 TEST(FunctionTest, CreateEmptyFunction) {
     Module module("test");
     auto intType = makeIntType();
-    auto* func = Function::create("test", intType, {});
+    auto* func = module.createFunction("test", intType, {});
 
     ASSERT_NE(func, nullptr);
     EXPECT_EQ(func->getName(), "test");
@@ -43,7 +43,7 @@ TEST(FunctionTest, CreateEmptyFunction) {
 TEST(FunctionTest, CreateFunctionWithParameters) {
     Module module("test");
     auto intType = makeIntType();
-    auto* func = Function::create("add", intType, {intType, intType});
+    auto* func = module.createFunction("add", intType, {intType, intType});
 
     ASSERT_NE(func, nullptr);
     EXPECT_EQ(func->getNumParams(), 2);
@@ -65,7 +65,7 @@ TEST(FunctionTest, CreateFunctionWithParameters) {
 TEST(FunctionTest, CreateVoidFunction) {
     Module module("test");
     auto voidType = makeVoidType();
-    auto* func = Function::create("doSomething", voidType, {});
+    auto* func = module.createFunction("doSomething", voidType, {});
 
     ASSERT_NE(func, nullptr);
     EXPECT_EQ(func->getReturnType(), voidType);
@@ -76,7 +76,7 @@ TEST(FunctionTest, CreateVoidFunction) {
 TEST(FunctionTest, CreateMainFunction) {
     Module module("test");
     auto intType = makeIntType();
-    auto* func = Function::create("main", intType, {});
+    auto* func = module.createFunction("main", intType, {});
 
     ASSERT_NE(func, nullptr);
     EXPECT_EQ(func->getName(), "main");
@@ -92,7 +92,7 @@ TEST(FunctionTest, GetParameterByIndex) {
     Module module("test");
     auto intType = makeIntType();
     auto boolType = makeBoolType();
-    auto* func = Function::create("test", intType, {intType, boolType, intType});
+    auto* func = module.createFunction("test", intType, {intType, boolType, intType});
 
     EXPECT_EQ(func->getNumParams(), 3);
 
@@ -113,7 +113,7 @@ TEST(FunctionTest, GetParameterByIndex) {
 TEST(FunctionTest, GetParameterOutOfBounds) {
     Module module("test");
     auto intType = makeIntType();
-    auto* func = Function::create("test", intType, {intType});
+    auto* func = module.createFunction("test", intType, {intType});
 
     auto* param = func->getParam(5);
     EXPECT_EQ(param, nullptr);
@@ -123,7 +123,7 @@ TEST(FunctionTest, GetParameterOutOfBounds) {
 TEST(FunctionTest, GetAllArguments) {
     Module module("test");
     auto intType = makeIntType();
-    auto* func = Function::create("test", intType, {intType, intType, intType});
+    auto* func = module.createFunction("test", intType, {intType, intType, intType});
 
     const auto& args = func->getArguments();
     EXPECT_EQ(args.size(), 3);
@@ -142,7 +142,7 @@ TEST(FunctionTest, GetAllArguments) {
 TEST(FunctionTest, AddFirstBasicBlock) {
     Module module("test");
     auto intType = makeIntType();
-    auto* func = Function::create("test", intType, {});
+    auto* func = module.createFunction("test", intType, {});
 
     auto* bb = module.createBasicBlock("entry");
     func->addBasicBlock(bb);
@@ -159,7 +159,7 @@ TEST(FunctionTest, AddFirstBasicBlock) {
 TEST(FunctionTest, AddMultipleBasicBlocks) {
     Module module("test");
     auto intType = makeIntType();
-    auto* func = Function::create("test", intType, {});
+    auto* func = module.createFunction("test", intType, {});
 
     auto* bb1 = module.createBasicBlock("entry");
     auto* bb2 = module.createBasicBlock("loop");
@@ -182,7 +182,7 @@ TEST(FunctionTest, AddMultipleBasicBlocks) {
 TEST(FunctionTest, RemoveBasicBlock) {
     Module module("test");
     auto intType = makeIntType();
-    auto* func = Function::create("test", intType, {});
+    auto* func = module.createFunction("test", intType, {});
 
     auto* bb1 = module.createBasicBlock("bb1");
     auto* bb2 = module.createBasicBlock("bb2");
@@ -202,7 +202,7 @@ TEST(FunctionTest, RemoveBasicBlock) {
 TEST(FunctionTest, EraseBasicBlock) {
     Module module("test");
     auto intType = makeIntType();
-    auto* func = Function::create("test", intType, {});
+    auto* func = module.createFunction("test", intType, {});
 
     auto* bb1 = module.createBasicBlock("bb1");
     auto* bb2 = module.createBasicBlock("bb2");
@@ -220,7 +220,7 @@ TEST(FunctionTest, EraseBasicBlock) {
 TEST(FunctionTest, FindBlockByName) {
     Module module("test");
     auto intType = makeIntType();
-    auto* func = Function::create("test", intType, {});
+    auto* func = module.createFunction("test", intType, {});
 
     auto* entry = module.createBasicBlock("entry");
     auto* loop = module.createBasicBlock("loop");
@@ -240,7 +240,7 @@ TEST(FunctionTest, FindBlockByName) {
 TEST(FunctionTest, SetEntryBlock) {
     Module module("test");
     auto intType = makeIntType();
-    auto* func = Function::create("test", intType, {});
+    auto* func = module.createFunction("test", intType, {});
 
     auto* bb1 = module.createBasicBlock("bb1");
     auto* bb2 = module.createBasicBlock("bb2");
@@ -258,7 +258,7 @@ TEST(FunctionTest, SetEntryBlock) {
 TEST(FunctionTest, HasSingleBlock) {
     Module module("test");
     auto intType = makeIntType();
-    auto* func = Function::create("test", intType, {});
+    auto* func = module.createFunction("test", intType, {});
 
     EXPECT_FALSE(func->hasSingleBlock());
 
@@ -281,7 +281,7 @@ TEST(FunctionTest, HasSingleBlock) {
 TEST(FunctionTest, GetAllInstructions) {
     Module module("test");
     auto intType = makeIntType();
-    auto* func = Function::create("test", intType, {intType, intType});
+    auto* func = module.createFunction("test", intType, {intType, intType});
 
     auto* bb1 = module.createBasicBlock("bb1");
     auto* bb2 = module.createBasicBlock("bb2");
@@ -310,7 +310,7 @@ TEST(FunctionTest, GetAllInstructions) {
 TEST(FunctionTest, GetNumInstructions) {
     Module module("test");
     auto intType = makeIntType();
-    auto* func = Function::create("test", intType, {});
+    auto* func = module.createFunction("test", intType, {});
 
     EXPECT_EQ(func->getNumInstructions(), 0);
 
@@ -338,7 +338,7 @@ TEST(FunctionTest, GetNumInstructions) {
 TEST(FunctionTest, GetExitBlocks) {
     Module module("test");
     auto intType = makeIntType();
-    auto* func = Function::create("test", intType, {});
+    auto* func = module.createFunction("test", intType, {});
 
     auto* bb1 = module.createBasicBlock("bb1");
     auto* bb2 = module.createBasicBlock("bb2");
@@ -363,7 +363,7 @@ TEST(FunctionTest, GetExitBlocks) {
 TEST(FunctionTest, GetUnreachableBlocks) {
     Module module("test");
     auto intType = makeIntType();
-    auto* func = Function::create("test", intType, {});
+    auto* func = module.createFunction("test", intType, {});
 
     auto* entry = module.createBasicBlock("entry");
     auto* reachable = module.createBasicBlock("reachable");
@@ -395,7 +395,7 @@ TEST(FunctionTest, GetUnreachableBlocks) {
 TEST(FunctionTest, RemoveUnreachableBlocks) {
     Module module("test");
     auto intType = makeIntType();
-    auto* func = Function::create("test", intType, {});
+    auto* func = module.createFunction("test", intType, {});
 
     auto* entry = module.createBasicBlock("entry");
     auto* reachable = module.createBasicBlock("reachable");
@@ -420,7 +420,7 @@ TEST(FunctionTest, RemoveUnreachableBlocks) {
 TEST(FunctionTest, CanReturn) {
     Module module("test");
     auto intType = makeIntType();
-    auto* func = Function::create("test", intType, {});
+    auto* func = module.createFunction("test", intType, {});
 
     auto* bb = module.createBasicBlock("entry");
     func->addBasicBlock(bb);
@@ -437,7 +437,7 @@ TEST(FunctionTest, CanReturn) {
 TEST(FunctionTest, DoesNotReturn) {
     Module module("test");
     auto voidType = makeVoidType();
-    auto* func = Function::create("abort", voidType, {});
+    auto* func = module.createFunction("abort", voidType, {});
 
     auto* bb = module.createBasicBlock("entry");
     func->addBasicBlock(bb);
@@ -459,8 +459,8 @@ TEST(FunctionTest, HasReturnValue) {
     auto intType = makeIntType();
     auto voidType = makeVoidType();
 
-    auto* func1 = Function::create("returnsInt", intType, {});
-    auto* func2 = Function::create("returnsVoid", voidType, {});
+    auto* func1 = module.createFunction("returnsInt", intType, {});
+    auto* func2 = module.createFunction("returnsVoid", voidType, {});
 
     EXPECT_TRUE(func1->hasReturnValue());
     EXPECT_FALSE(func2->hasReturnValue());
@@ -474,7 +474,7 @@ TEST(FunctionTest, HasReturnValue) {
 TEST(FunctionTest, VerifyValidFunction) {
     Module module("test");
     auto intType = makeIntType();
-    auto* func = Function::create("test", intType, {intType});
+    auto* func = module.createFunction("test", intType, {intType});
 
     auto* entry = module.createBasicBlock("entry");
     func->addBasicBlock(entry);
@@ -490,7 +490,7 @@ TEST(FunctionTest, VerifyValidFunction) {
 TEST(FunctionTest, VerifyDeclarationIsValid) {
     Module module("test");
     auto intType = makeIntType();
-    auto* func = Function::create("external", intType, {intType, intType});
+    auto* func = module.createFunction("external", intType, {intType, intType});
 
     // Declaration with no body
     std::string error;
@@ -501,7 +501,7 @@ TEST(FunctionTest, VerifyDeclarationIsValid) {
 TEST(FunctionTest, VerifyFailsWithoutTerminator) {
     Module module("test");
     auto intType = makeIntType();
-    auto* func = Function::create("test", intType, {});
+    auto* func = module.createFunction("test", intType, {});
 
     auto* entry = module.createBasicBlock("entry");
     func->addBasicBlock(entry);
@@ -521,7 +521,7 @@ TEST(FunctionTest, VerifyComplexCFG) {
     Module module("test");
     auto intType = makeIntType();
     auto boolType = makeBoolType();
-    auto* func = Function::create("test", intType, {intType});
+    auto* func = module.createFunction("test", intType, {intType});
 
     auto* entry = module.createBasicBlock("entry");
     auto* thenBlock = module.createBasicBlock("then");
@@ -559,7 +559,7 @@ TEST(FunctionTest, VerifyComplexCFG) {
 TEST(FunctionTest, ToStringDeclaration) {
     Module module("test");
     auto intType = makeIntType();
-    auto* func = Function::create("add", intType, {intType, intType});
+    auto* func = module.createFunction("add", intType, {intType, intType});
 
     std::string str = func->toString();
 
@@ -571,7 +571,7 @@ TEST(FunctionTest, ToStringDeclaration) {
 TEST(FunctionTest, ToStringDefinition) {
     Module module("test");
     auto intType = makeIntType();
-    auto* func = Function::create("test", intType, {});
+    auto* func = module.createFunction("test", intType, {});
 
     auto* entry = module.createBasicBlock("entry");
     func->addBasicBlock(entry);
@@ -588,7 +588,7 @@ TEST(FunctionTest, ToStringDefinition) {
 TEST(FunctionTest, ToStringWithParameters) {
     Module module("test");
     auto intType = makeIntType();
-    auto* func = Function::create("add", intType, {intType, intType});
+    auto* func = module.createFunction("add", intType, {intType, intType});
 
     auto* entry = module.createBasicBlock("entry");
     func->addBasicBlock(entry);
@@ -615,7 +615,7 @@ TEST(FunctionTest, ToStringWithParameters) {
 TEST(FunctionTest, PrintCFG) {
     Module module("test");
     auto intType = makeIntType();
-    auto* func = Function::create("test", intType, {});
+    auto* func = module.createFunction("test", intType, {});
 
     auto* entry = module.createBasicBlock("entry");
     auto* bb1 = module.createBasicBlock("bb1");
@@ -653,7 +653,7 @@ TEST(FunctionTest, FactorialFunction) {
     // }
 
     auto intType = makeIntType();
-    auto* func = Function::create("factorial", intType, {intType});
+    auto* func = module.createFunction("factorial", intType, {intType});
 
     auto* entry = module.createBasicBlock("entry");
     auto* baseCase = module.createBasicBlock("base_case");
@@ -695,7 +695,7 @@ TEST(FunctionTest, LoopFunction) {
     // }
 
     auto intType = makeIntType();
-    auto* func = Function::create("loop", intType, {intType});
+    auto* func = module.createFunction("loop", intType, {intType});
 
     auto* entry = module.createBasicBlock("entry");
     auto* loopHeader = module.createBasicBlock("loop_header");

@@ -22,17 +22,6 @@ Instruction::Instruction(Opcode opcode,
     }
 }
 
-Instruction::~Instruction() {
-    // The Use-Def chain cleanup is handled automatically:
-    // 1. operands_ vector destroys its Use objects
-    // 2. Each Use destructor calls value_->removeUse(this)
-    // The issue is when other instructions use THIS instruction - they need to be updated first
-    //
-    // Solution: BasicBlock should delete instructions in reverse order
-    // This ensures that if inst A uses inst B, and B is defined before A,
-    // then A is deleted before B, so A's uses of B are cleaned up first
-}
-
 void Instruction::addOperand(Value* value) {
     if (value == nullptr) return;
     operands_.emplace_back(value, this);

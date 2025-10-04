@@ -60,11 +60,6 @@ public:
      */
     explicit Module(const std::string& name, size_t chunkSize = 1024 * 1024);
 
-    /**
-     * Destructor - arena automatically frees all IR objects
-     */
-    ~Module();
-
     // Disable copy (module owns unique resources)
     Module(const Module&) = delete;
     Module& operator=(const Module&) = delete;

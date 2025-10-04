@@ -15,6 +15,7 @@ class Function;
  *
  * Design Philosophy:
  * - RISC-style: Simple, orthogonal operations
+ 
  * - SSA Form: Each instruction produces a single value
  * - Type-aware: Leverage static types for optimization
  * - GC-aware: Track allocations for garbage collector
@@ -113,8 +114,6 @@ public:
         // SSA operations
         Phi,        // SSA phi node (merge values from predecessors)
     };
-
-    virtual ~Instruction();
 
     // Core properties
     Opcode getOpcode() const { return opcode_; }

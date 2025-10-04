@@ -42,7 +42,6 @@ class BasicBlock : public Value {
     friend class Arena;
     friend class Module;
 public:
-    ~BasicBlock() override;
 
     // ========================================================================
     // Instruction Management

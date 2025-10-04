@@ -54,19 +54,8 @@ public:
      * @param returnType The type this function returns
      * @param paramTypes Types of the function parameters
      * @return Newly created function
-     *
-     * LEARNING TIP: This creates Argument values for each parameter
+    
      */
-    static Function* create(const std::string& name,
-                           std::shared_ptr<IRType> returnType,
-                           const std::vector<std::shared_ptr<IRType>>& paramTypes = {});
-
-    /**
-     * Destructor - Must clean up all owned resources
-     * LEARNING TIP: Functions own their blocks and arguments!
-     */
-    ~Function() override;
-
     // ========================================================================
     // Basic Properties
     // ========================================================================

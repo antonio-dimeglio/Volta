@@ -105,12 +105,6 @@ Use& Use::operator=(Use&& other) noexcept {
     return *this;
 }
 
-Use::~Use() {
-    if (value_) {
-        value_->removeUse(this);
-    }
-}
-
 void Use::setValue(Value* newValue) {
     if (value_) {
         value_->removeUse(this);

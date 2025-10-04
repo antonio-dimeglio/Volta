@@ -25,37 +25,7 @@ Function::Function(const std::string& name,
     // This is a transitional pattern - eventually all creation should go through Module
 }
 
-Function::~Function() {
-    // NOTE: This handles both arena-allocated and standalone (test) functions
-    // For arena-allocated: Module owns this, don't call destructor manually
-    // For standalone: Need to clean up
 
-    // Clean up blocks (which clean up their instructions)
-    for (auto* block : blocks_) {
-        delete block;
-    }
-
-    // Clean up arguments
-    for (auto* arg : arguments_) {
-        delete arg;
-    }
-}
-
-Function* Function::create(const std::string& name,
-                           std::shared_ptr<IRType> returnType,
-                           const std::vector<std::shared_ptr<IRType>>& paramTypes) {
-    auto* func = new Function(name, returnType, paramTypes);
-
-    // Create arguments for standalone function creation (mainly for tests)
-    // NOTE: This uses 'new' - when using Module, use Module::createFunction() instead
-    for (size_t i = 0; i < paramTypes.size(); ++i) {
-        auto* arg = new Argument(paramTypes[i], i, "arg" + std::to_string(i));
-        arg->setParent(func);
-        func->arguments_.push_back(arg);
-    }
-
-    return func;
-}
 
 // ============================================================================
 // Basic Properties
