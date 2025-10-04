@@ -74,7 +74,7 @@ void DeadCodeEliminationPass::markLive(Instruction* inst) {
         Value* operand = inst->getOperand(i);
 
         // If operand is an instruction, mark it live too
-        if (auto* operandInst = dynamic_cast<Instruction*>(operand)) {
+        if (auto* operandInst = dyn_cast<Instruction>(operand)) {
             markLive(operandInst);
         }
     }
@@ -89,7 +89,8 @@ bool DeadCodeEliminationPass::isInstructionLive(const Instruction* inst) const {
 // ============================================================================
 
 bool ConstantFoldingPass::runOnModule(Module& module) {
-    // TODO CHECK IF CORRECT
+    // Store module pointer for constant creation
+    module_ = &module;
     bool changed = false;
 
     for (auto* func : module.getFunctions()) {
@@ -98,6 +99,7 @@ bool ConstantFoldingPass::runOnModule(Module& module) {
         }
     }
 
+    module_ = nullptr;  // Clear after use
     return changed;
 }
 
@@ -112,17 +114,11 @@ bool ConstantFoldingPass::runOnFunction(Function* func) {
             Value* folded = nullptr;
 
             // Try to fold based on instruction type
-            if (auto* binOp = dynamic_cast<BinaryOperator*>(inst)) {
-                // Check if it's a comparison operation
-                auto opcode = binOp->getOpcode();
-                if (opcode == Instruction::Opcode::Eq || opcode == Instruction::Opcode::Ne ||
-                    opcode == Instruction::Opcode::Lt || opcode == Instruction::Opcode::Le ||
-                    opcode == Instruction::Opcode::Gt || opcode == Instruction::Opcode::Ge) {
-                    folded = foldComparison(binOp);
-                } else {
-                    folded = foldBinaryOp(binOp);
-                }
-            } else if (auto* unOp = dynamic_cast<UnaryOperator*>(inst)) {
+            if (auto* binOp = dyn_cast<BinaryOperator>(inst)) {
+                folded = foldBinaryOp(binOp);
+            } else if (auto* cmpInst = dyn_cast<CmpInst>(inst)) {
+                folded = foldComparison(cmpInst);
+            } else if (auto* unOp = dyn_cast<UnaryOperator>(inst)) {
                 folded = foldUnaryOp(unOp);
             }
 
@@ -139,8 +135,8 @@ bool ConstantFoldingPass::runOnFunction(Function* func) {
 
 Value* ConstantFoldingPass::foldBinaryOp(BinaryOperator* binOp) {
     // Try to fold integers first
-    auto* lhsInt = dynamic_cast<ConstantInt*>(binOp->getLHS());
-    auto* rhsInt = dynamic_cast<ConstantInt*>(binOp->getRHS());
+    auto* lhsInt = dyn_cast<ConstantInt>(binOp->getLHS());
+    auto* rhsInt = dyn_cast<ConstantInt>(binOp->getRHS());
 
     if (lhsInt && rhsInt) {
         // Compute result based on opcode
@@ -166,12 +162,12 @@ Value* ConstantFoldingPass::foldBinaryOp(BinaryOperator* binOp) {
             default:
                 return nullptr;  // Unknown opcode
         }
-        return ConstantInt::get(result, binOp->getType());
+        return module_->getConstantInt(result, binOp->getType());
     }
 
     // Try to fold floats
-    auto* lhsFloat = dynamic_cast<ConstantFloat*>(binOp->getLHS());
-    auto* rhsFloat = dynamic_cast<ConstantFloat*>(binOp->getRHS());
+    auto* lhsFloat = dyn_cast<ConstantFloat>(binOp->getLHS());
+    auto* rhsFloat = dyn_cast<ConstantFloat>(binOp->getRHS());
 
     if (lhsFloat && rhsFloat) {
         double result;
@@ -192,7 +188,7 @@ Value* ConstantFoldingPass::foldBinaryOp(BinaryOperator* binOp) {
             default:
                 return nullptr;
         }
-        return ConstantFloat::get(result, binOp->getType());
+        return module_->getConstantFloat(result, binOp->getType());
     }
 
     return nullptr;  // Can't fold non-constants
@@ -200,21 +196,21 @@ Value* ConstantFoldingPass::foldBinaryOp(BinaryOperator* binOp) {
 
 Value* ConstantFoldingPass::foldUnaryOp(UnaryOperator* unOp) {
     if (unOp->getOpcode() == Instruction::Opcode::Neg) {
-        if (auto* operand = dynamic_cast<ConstantInt*>(unOp->getOperand())) {
-            return ConstantInt::get(-operand->getValue(), unOp->getType());
+        if (auto* operand = dyn_cast<ConstantInt>(unOp->getOperand())) {
+            return module_->getConstantInt(-operand->getValue(), unOp->getType());
         }
     } else if (unOp->getOpcode() == Instruction::Opcode::Not) {
-        if (auto* operand = dynamic_cast<ConstantBool*>(unOp->getOperand())) {
-            return ConstantBool::get(!operand->getValue(), unOp->getType());
+        if (auto* operand = dyn_cast<ConstantBool>(unOp->getOperand())) {
+            return module_->getConstantBool(!operand->getValue(), unOp->getType());
         }
     }
 
     return nullptr;
 }
 
-Value* ConstantFoldingPass::foldComparison(BinaryOperator* cmp) {
-    auto* lhs = dynamic_cast<ConstantInt*>(cmp->getLHS());
-    auto* rhs = dynamic_cast<ConstantInt*>(cmp->getRHS());
+Value* ConstantFoldingPass::foldComparison(Instruction* cmp) {
+    auto* lhs = dyn_cast<ConstantInt>(cmp->getOperand(0));
+    auto* rhs = dyn_cast<ConstantInt>(cmp->getOperand(1));
 
     if (!lhs || !rhs) return nullptr;
 
@@ -244,7 +240,7 @@ Value* ConstantFoldingPass::foldComparison(BinaryOperator* cmp) {
 
     // Return bool constant
     auto boolType = std::make_shared<IRPrimitiveType>(IRType::Kind::I1);
-    return ConstantBool::get(result, boolType);
+    return module_->getConstantBool(result, boolType);
 }
 
 // ============================================================================
@@ -326,7 +322,7 @@ bool Mem2RegPass::runOnFunction(Function* func) {
     if (!entry) return false;
 
     for (auto* inst : entry->getInstructions()) {
-        if (auto* alloca = dynamic_cast<AllocaInst*>(inst)) {
+        if (auto* alloca = dyn_cast<AllocaInst>(inst)) {
             if (isPromotable(alloca)) {
                 allocasToPromote.push_back(alloca);
             }
@@ -357,7 +353,7 @@ bool Mem2RegPass::isPromotable(const AllocaInst* alloca) const {
         }
 
         // For stores, must store TO the alloca, not store the alloca itself
-        if (auto* store = dynamic_cast<StoreInst*>(user)) {
+        if (auto* store = dyn_cast<StoreInst>(user)) {
             if (store->getValue() == alloca) {
                 return false;  // Storing the pointer itself
             }
@@ -373,9 +369,9 @@ void Mem2RegPass::promoteAlloca(AllocaInst* alloca) {
     LoadInst* load = nullptr;
 
     for (auto* use : alloca->getUses()) {
-        if (auto* s = dynamic_cast<StoreInst*>(use->getUser())) {
+        if (auto* s = dyn_cast<StoreInst>(use->getUser())) {
             store = s;
-        } else if (auto* l = dynamic_cast<LoadInst*>(use->getUser())) {
+        } else if (auto* l = dyn_cast<LoadInst>(use->getUser())) {
             load = l;
         }
     }

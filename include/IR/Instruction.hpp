@@ -507,7 +507,7 @@ private:
 class BranchInst : public Instruction {
 public:
     BasicBlock* getDestination() const { return destination_; }
-    void setDestination(BasicBlock* dest) { destination_ = dest; }
+    void setDestination(BasicBlock* dest);
 
     friend class Arena;
     static bool classof(const Instruction* I) {
@@ -529,8 +529,8 @@ public:
     BasicBlock* getTrueDest() const { return trueDest_; }
     BasicBlock* getFalseDest() const { return falseDest_; }
 
-    void setTrueDest(BasicBlock* dest) { trueDest_ = dest; }
-    void setFalseDest(BasicBlock* dest) { falseDest_ = dest; }
+    void setTrueDest(BasicBlock* dest);
+    void setFalseDest(BasicBlock* dest);
 
     friend class Arena;
     static bool classof(const Instruction* I) {

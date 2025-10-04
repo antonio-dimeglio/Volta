@@ -48,6 +48,14 @@ void BasicBlock::addInstruction(Instruction* inst) {
 
     inst->setParent(this);
     instructions_.push_back(inst);
+
+    // If this is a terminator instruction, update CFG edges
+    if (inst->isTerminator()) {
+        auto successors = getSuccessors();
+        for (auto* succ : successors) {
+            succ->addPredecessor(this);
+        }
+    }
 }
 
 void BasicBlock::insertBefore(Instruction* inst, Instruction* before) {
@@ -82,22 +90,22 @@ std::vector<BasicBlock*> BasicBlock::getSuccessors() const {
         return successors; // No terminator = no successors
     }
 
-    if (auto* ret = dynamic_cast<ReturnInst*>(term)) {
+    if (isa<ReturnInst>(term)) {
         return successors; // Empty vector
     }
-    
-    if (auto* br = dynamic_cast<BranchInst*>(term)) {
+
+    if (auto* br = dyn_cast<BranchInst>(term)) {
         successors.push_back(br->getDestination());
         return successors;
     }
 
-    if (auto* condBr = dynamic_cast<CondBranchInst*>(term)) {
+    if (auto* condBr = dyn_cast<CondBranchInst>(term)) {
         successors.push_back(condBr->getTrueDest());
         successors.push_back(condBr->getFalseDest());
         return successors;
     }
-    
-    if (auto* sw = dynamic_cast<SwitchInst*>(term)) {
+
+    if (auto* sw = dyn_cast<SwitchInst>(term)) {
         // Default case
         successors.push_back(sw->getDefaultDest());
         
@@ -201,7 +209,7 @@ std::vector<PhiNode*> BasicBlock::getPhiNodes() const {
 
     // Phi nodes are always at the beginning, stop at first non-phi
     for (auto* inst : instructions_) {
-        if (auto* phi = dynamic_cast<PhiNode*>(inst)) {
+        if (auto* phi = dyn_cast<PhiNode>(inst)) {
             phis.push_back(phi);
         } else {
             break; // First non-phi, stop
@@ -213,14 +221,14 @@ std::vector<PhiNode*> BasicBlock::getPhiNodes() const {
 
 bool BasicBlock::hasPhiNodes() const {
     if (instructions_.empty()) return false;
-    return dynamic_cast<PhiNode*>(instructions_[0]) != nullptr;
+    return isa<PhiNode>(instructions_[0]);
 }
 
 void BasicBlock::addPhiNode(PhiNode* phi) {
     // Find position: after existing phis, before other instructions
     auto it = instructions_.begin();
 
-    while (it != instructions_.end() && dynamic_cast<PhiNode*>(*it)) {
+    while (it != instructions_.end() && isa<PhiNode>(*it)) {
         ++it;
     }
 

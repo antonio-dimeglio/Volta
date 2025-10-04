@@ -505,9 +505,7 @@ TEST(ModuleTest, BuildFibonacci) {
     auto* retZero = module.createReturn(zero);
     recursiveCase->addInstruction(retZero);
 
-    // Update CFG edges
-    baseCase->addPredecessor(entry);
-    recursiveCase->addPredecessor(entry);
+    // CFG edges are automatically added when conditional branch is added to entry block
 
     // Verify
     std::string error;

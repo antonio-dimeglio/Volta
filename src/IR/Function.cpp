@@ -138,7 +138,7 @@ std::vector<BasicBlock*> Function::getExitBlocks() const {
 
     for (auto* block : blocks_) {
         auto* terminator = block->getTerminator();
-        if (terminator && dynamic_cast<ReturnInst*>(terminator)) {
+        if (terminator && isa<ReturnInst>(terminator)) {
             exits.push_back(block);
         }
     }
@@ -180,7 +180,7 @@ bool Function::canReturn() const {
     // Check if any block has a return instruction
     for (auto* block : blocks_) {
         auto* term = block->getTerminator();
-        if (term && dynamic_cast<ReturnInst*>(term)) {
+        if (term && isa<ReturnInst>(term)) {
             return true;
         }
     }
@@ -256,7 +256,7 @@ bool Function::verify(std::string* error) const {
         // All returns must have a value
         for (auto* block : blocks_) {
             auto* term = block->getTerminator();
-            if (auto* ret = dynamic_cast<ReturnInst*>(term)) {
+            if (auto* ret = dyn_cast<ReturnInst>(term)) {
                 if (!ret->hasReturnValue()) {
                     if (error) *error = "Function expects return value but has void return";
                     return false;

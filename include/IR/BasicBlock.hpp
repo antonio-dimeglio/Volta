@@ -10,6 +10,13 @@ namespace volta::ir {
 
 // Forward declarations
 class Function;
+class Module;
+
+namespace cfg {
+    void connectBlocks(Module& module, BasicBlock* from, BasicBlock* to);
+    void connectBlocksConditional(Module& module, BasicBlock* from, Value* condition,
+                                  BasicBlock* trueBlock, BasicBlock* falseBlock);
+}
 
 /**
  * BasicBlock - A sequence of instructions with a single entry and single exit
@@ -164,15 +171,6 @@ public:
     bool hasMultiplePredecessors() const { return predecessors_.size() > 1; }
 
     /**
-     * Add a predecessor block
-     * IMPORTANT: This creates a one-way edge. You must also update the
-     * predecessor's terminator to point to this block!
-     *
-     * LEARNING TIP: Check for duplicates before adding.
-     */
-    void addPredecessor(BasicBlock* pred);
-
-    /**
      * Remove a predecessor block
      * LEARNING TIP: Use std::find + std::vector::erase
      */
@@ -280,6 +278,23 @@ public:
 
 private:
     BasicBlock(const std::string& name, Function* parent);
+
+    /**
+     * Add a predecessor block
+     * PRIVATE: Only callable by terminator instructions to maintain CFG consistency
+     * This ensures that predecessor lists are always in sync with terminator destinations
+     */
+    void addPredecessor(BasicBlock* pred);
+
+    // Allow terminators to manage CFG edges
+    friend class BranchInst;
+    friend class CondBranchInst;
+    friend class SwitchInst;
+
+    // Allow cfg utility functions to manage edges
+    friend void cfg::connectBlocks(Module& module, BasicBlock* from, BasicBlock* to);
+    friend void cfg::connectBlocksConditional(Module& module, BasicBlock* from, Value* condition,
+                                             BasicBlock* trueBlock, BasicBlock* falseBlock);
 
     // Instruction list (owned pointers)
     std::vector<Instruction*> instructions_;

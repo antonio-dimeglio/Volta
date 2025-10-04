@@ -1,474 +1,469 @@
-// #include <gtest/gtest.h>
-// #include <memory>
-// #include "IR/IRPrinter.hpp"
-// #include "IR/Module.hpp"
-// #include "IR/IRBuilder.hpp"
-// #include "IR/Function.hpp"
-// #include "IR/BasicBlock.hpp"
-// #include "IR/Instruction.hpp"
-// #include "IR/Value.hpp"
-
-// using namespace volta::ir;
-
-// // ============================================================================
-// // Test Fixture
-// // ============================================================================
-
-// class IRPrinterTest : public ::testing::Test {
-// protected:
-//     void SetUp() override {
-//         module = std::make_unique<Module>("test_module");
-//         printer = std::make_unique<IRPrinter>();
-//     }
-
-//     void TearDown() override {
-//         // Cleanup any standalone allocated values
-//         for (auto* val : allocatedValues) {
-//             delete val;
-//         }
-//         allocatedValues.clear();
-//     }
-
-//     // Helper to track allocated values for cleanup
-//     template<typename T>
-//     T* track(T* ptr) {
-//         allocatedValues.push_back(ptr);
-//         return ptr;
-//     }
-
-//     std::unique_ptr<Module> module;
-//     std::unique_ptr<IRPrinter> printer;
-//     std::vector<Value*> allocatedValues;
-// };
+#include <gtest/gtest.h>
+#include <memory>
+#include "IR/IRPrinter.hpp"
+#include "IR/Module.hpp"
+#include "IR/IRBuilder.hpp"
+#include "IR/Function.hpp"
+#include "IR/BasicBlock.hpp"
+#include "IR/Instruction.hpp"
+#include "IR/Value.hpp"
 
-// // ============================================================================
-// // Type Printing Tests
-// // ============================================================================
-
-// TEST_F(IRPrinterTest, PrintType_Int) {
-//     auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
-//     std::string result = printer->printType(intType);
+using namespace volta::ir;
 
-//     EXPECT_EQ(result, "i64");
-// }
+// ============================================================================
+// Test Fixture
+// ============================================================================
 
-// TEST_F(IRPrinterTest, PrintType_Float) {
-//     auto floatType = std::make_shared<IRPrimitiveType>(IRType::Kind::F64);
-//     std::string result = printer->printType(floatType);
-
-//     EXPECT_EQ(result, "f64");
-// }
+class IRPrinterTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        module = std::make_unique<Module>("test_module");
+        printer = std::make_unique<IRPrinter>();
+    }
 
-// TEST_F(IRPrinterTest, PrintType_Bool) {
-//     auto boolType = std::make_shared<IRPrimitiveType>(IRType::Kind::I1);
-//     std::string result = printer->printType(boolType);
+    // No TearDown needed - arena handles all cleanup
 
-//     EXPECT_EQ(result, "i1");
-// }
+    std::unique_ptr<Module> module;
+    std::unique_ptr<IRPrinter> printer;
+};
 
-// TEST_F(IRPrinterTest, PrintType_Void) {
-//     auto voidType = std::make_shared<IRPrimitiveType>(IRType::Kind::Void);
-//     std::string result = printer->printType(voidType);
+// ============================================================================
+// Type Printing Tests
+// ============================================================================
 
-//     EXPECT_EQ(result, "void");
-// }
+TEST_F(IRPrinterTest, PrintType_Int) {
+    auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
+    std::string result = printer->printType(intType);
 
-// TEST_F(IRPrinterTest, PrintType_Pointer) {
-//     auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
-//     auto ptrType = std::make_shared<IRPointerType>(intType);
-//     std::string result = printer->printType(ptrType);
+    EXPECT_EQ(result, "i64");
+}
 
-//     EXPECT_EQ(result, "ptr<i64>");
-// }
+TEST_F(IRPrinterTest, PrintType_Float) {
+    auto floatType = std::make_shared<IRPrimitiveType>(IRType::Kind::F64);
+    std::string result = printer->printType(floatType);
 
-// TEST_F(IRPrinterTest, PrintType_Array) {
-//     auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
-//     auto arrType = std::make_shared<IRArrayType>(intType, 10);
-//     std::string result = printer->printType(arrType);
+    EXPECT_EQ(result, "f64");
+}
 
-//     EXPECT_EQ(result, "[10 x i64]");
-// }
+TEST_F(IRPrinterTest, PrintType_Bool) {
+    auto boolType = std::make_shared<IRPrimitiveType>(IRType::Kind::I1);
+    std::string result = printer->printType(boolType);
 
-// // ============================================================================
-// // Value Printing Tests
-// // ============================================================================
+    EXPECT_EQ(result, "i1");
+}
 
-// TEST_F(IRPrinterTest, PrintValue_ConstantInt) {
-//     auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
-//     auto* constant = track(module.getConstantInt(42, intType));
+TEST_F(IRPrinterTest, PrintType_Void) {
+    auto voidType = std::make_shared<IRPrimitiveType>(IRType::Kind::Void);
+    std::string result = printer->printType(voidType);
 
-//     std::string result = printer->printValue(constant);
+    EXPECT_EQ(result, "void");
+}
 
-//     EXPECT_EQ(result, "42");
-// }
+TEST_F(IRPrinterTest, PrintType_Pointer) {
+    auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
+    auto ptrType = std::make_shared<IRPointerType>(intType);
+    std::string result = printer->printType(ptrType);
 
-// TEST_F(IRPrinterTest, PrintValue_ConstantFloat) {
-//     auto floatType = std::make_shared<IRPrimitiveType>(IRType::Kind::F64);
-//     auto* constant = track(module.getConstantFloat(3.14, floatType));
+    EXPECT_EQ(result, "ptr<i64>");
+}
 
-//     std::string result = printer->printValue(constant);
+TEST_F(IRPrinterTest, PrintType_Array) {
+    auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
+    auto arrType = std::make_shared<IRArrayType>(intType, 10);
+    std::string result = printer->printType(arrType);
 
-//     // Should print floating point value
-//     EXPECT_NE(result.find("3.14"), std::string::npos);
-// }
+    EXPECT_EQ(result, "[10 x i64]");
+}
 
-// TEST_F(IRPrinterTest, PrintValue_ConstantBool_True) {
-//     auto boolType = std::make_shared<IRPrimitiveType>(IRType::Kind::I1);
-//     auto* constant = track(module.getConstantBool(true, boolType));
+// ============================================================================
+// Value Printing Tests
+// ============================================================================
 
-//     std::string result = printer->printValue(constant);
+TEST_F(IRPrinterTest, PrintValue_ConstantInt) {
+    auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
+    auto* constant = module->getConstantInt(42, intType);
 
-//     EXPECT_EQ(result, "true");
-// }
+    std::string result = printer->printValue(constant);
 
-// TEST_F(IRPrinterTest, PrintValue_ConstantBool_False) {
-//     auto boolType = std::make_shared<IRPrimitiveType>(IRType::Kind::I1);
-//     auto* constant = track(module.getConstantBool(false, boolType));
+    EXPECT_EQ(result, "42");
+}
 
-//     std::string result = printer->printValue(constant);
+TEST_F(IRPrinterTest, PrintValue_ConstantFloat) {
+    auto floatType = std::make_shared<IRPrimitiveType>(IRType::Kind::F64);
+    auto* constant = module->getConstantFloat(3.14, floatType);
 
-//     EXPECT_EQ(result, "false");
-// }
+    std::string result = printer->printValue(constant);
 
-// TEST_F(IRPrinterTest, PrintValue_NamedArgument) {
-//     auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
-//     Argument arg(intType, 0, "x");
+    // Should print floating point value
+    EXPECT_NE(result.find("3.14"), std::string::npos);
+}
 
-//     std::string result = printer->printValue(&arg);
+TEST_F(IRPrinterTest, PrintValue_ConstantBool_True) {
+    auto boolType = std::make_shared<IRPrimitiveType>(IRType::Kind::I1);
+    auto* constant = module->getConstantBool(true, boolType);
 
-//     EXPECT_EQ(result, "%x");
-// }
+    std::string result = printer->printValue(constant);
 
-// TEST_F(IRPrinterTest, PrintValue_UnnamedValue_GetsSSANumber) {
-//     auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
-//     auto* lhs = track(module.getConstantInt(1, intType));
-//     auto* rhs = track(module.getConstantInt(2, intType));
-//     auto* add = track(module.createBinaryOp(Instruction::Opcode::Add, lhs, rhs));
+    EXPECT_EQ(result, "true");
+}
 
-//     std::string result = printer->printValue(add);
+TEST_F(IRPrinterTest, PrintValue_ConstantBool_False) {
+    auto boolType = std::make_shared<IRPrimitiveType>(IRType::Kind::I1);
+    auto* constant = module->getConstantBool(false, boolType);
 
-//     // Should assign SSA number
-//     EXPECT_EQ(result, "%0");
-// }
+    std::string result = printer->printValue(constant);
 
-// TEST_F(IRPrinterTest, PrintValue_MultipleUnnamedValues_IncrementSSANumber) {
-//     auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
-//     auto* val1 = track(module.getConstantInt(1, intType));
-//     auto* val2 = track(module.getConstantInt(2, intType));
+    EXPECT_EQ(result, "false");
+}
 
-//     auto* add1 = track(module.createBinaryOp(Instruction::Opcode::Add, val1, val2));
-//     auto* add2 = track(module.createBinaryOp(Instruction::Opcode::Add, val1, val2));
+TEST_F(IRPrinterTest, PrintValue_NamedArgument) {
+    auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
+    Argument arg(intType, 0, "x");
 
-//     std::string result1 = printer->printValue(add1);
-//     std::string result2 = printer->printValue(add2);
+    std::string result = printer->printValue(&arg);
 
-//     EXPECT_EQ(result1, "%0");
-//     EXPECT_EQ(result2, "%1");
-// }
+    EXPECT_EQ(result, "%x");
+}
 
-// TEST_F(IRPrinterTest, PrintValue_Reset_ClearsSSANumbering) {
-//     auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
-//     auto* val1 = track(module.getConstantInt(1, intType));
-//     auto* val2 = track(module.getConstantInt(2, intType));
-//     auto* add1 = track(module.createBinaryOp(Instruction::Opcode::Add, val1, val2));
+TEST_F(IRPrinterTest, PrintValue_UnnamedValue_GetsSSANumber) {
+    auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
+    auto* lhs = module->getConstantInt(1, intType);
+    auto* rhs = module->getConstantInt(2, intType);
+    auto* add = module->createBinaryOp(Instruction::Opcode::Add, lhs, rhs);
 
-//     printer->printValue(add1);  // Gets %0
-//     printer->reset();
+    std::string result = printer->printValue(add);
 
-//     auto* add2 = track(module.createBinaryOp(Instruction::Opcode::Add, val1, val2));
-//     std::string result = printer->printValue(add2);
+    // Should assign SSA number
+    EXPECT_EQ(result, "%0");
+}
 
-//     EXPECT_EQ(result, "%0");  // Should restart at %0
-// }
+TEST_F(IRPrinterTest, PrintValue_MultipleUnnamedValues_IncrementSSANumber) {
+    auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
+    auto* val1 = module->getConstantInt(1, intType);
+    auto* val2 = module->getConstantInt(2, intType);
 
-// // ============================================================================
-// // Instruction Printing Tests
-// // ============================================================================
+    auto* add1 = module->createBinaryOp(Instruction::Opcode::Add, val1, val2);
+    auto* add2 = module->createBinaryOp(Instruction::Opcode::Add, val1, val2);
 
-// TEST_F(IRPrinterTest, PrintInstruction_Add) {
-//     auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
-//     auto* lhs = track(module.getConstantInt(10, intType));
-//     auto* rhs = track(module.getConstantInt(20, intType));
-//     auto* add = track(module.createBinaryOp(Instruction::Opcode::Add, lhs, rhs, "sum"));
+    std::string result1 = printer->printValue(add1);
+    std::string result2 = printer->printValue(add2);
 
-//     std::string result = printer->printInstruction(add);
+    EXPECT_EQ(result1, "%0");
+    EXPECT_EQ(result2, "%1");
+}
 
-//     // Should contain: add, i64, operands
-//     EXPECT_NE(result.find("add"), std::string::npos);
-//     EXPECT_NE(result.find("i64"), std::string::npos);
-// }
+TEST_F(IRPrinterTest, PrintValue_Reset_ClearsSSANumbering) {
+    auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
+    auto* val1 = module->getConstantInt(1, intType);
+    auto* val2 = module->getConstantInt(2, intType);
+    auto* add1 = module->createBinaryOp(Instruction::Opcode::Add, val1, val2);
 
-// TEST_F(IRPrinterTest, PrintInstruction_Return) {
-//     auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
-//     auto* value = track(module.getConstantInt(42, intType));
-//     auto* ret = track(module.createReturn(value));
+    printer->printValue(add1);  // Gets %0
+    printer->reset();
 
-//     std::string result = printer->printInstruction(ret);
+    auto* add2 = module->createBinaryOp(Instruction::Opcode::Add, val1, val2);
+    std::string result = printer->printValue(add2);
 
-//     EXPECT_NE(result.find("ret"), std::string::npos);
-// }
+    EXPECT_EQ(result, "%0");  // Should restart at %0
+}
 
-// TEST_F(IRPrinterTest, PrintInstruction_ReturnVoid) {
-//     auto* ret = track(module.createReturn(nullptr));
+// ============================================================================
+// Instruction Printing Tests
+// ============================================================================
 
-//     std::string result = printer->printInstruction(ret);
+TEST_F(IRPrinterTest, PrintInstruction_Add) {
+    auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
+    auto* lhs = module->getConstantInt(10, intType);
+    auto* rhs = module->getConstantInt(20, intType);
+    auto* add = module->createBinaryOp(Instruction::Opcode::Add, lhs, rhs, "sum");
 
-//     EXPECT_NE(result.find("ret"), std::string::npos);
-//     EXPECT_NE(result.find("void"), std::string::npos);
-// }
+    std::string result = printer->printInstruction(add);
 
-// // ============================================================================
-// // Basic Block Printing Tests
-// // ============================================================================
+    // Should contain: add, i64, operands
+    EXPECT_NE(result.find("add"), std::string::npos);
+    EXPECT_NE(result.find("i64"), std::string::npos);
+}
 
-// TEST_F(IRPrinterTest, PrintBasicBlock_Empty) {
-//     BasicBlock* block = module->createBasicBlock("entry");
+TEST_F(IRPrinterTest, PrintInstruction_Return) {
+    auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
+    auto* value = module->getConstantInt(42, intType);
+    auto* ret = module->createReturn(value);
 
-//     std::string result = printer->printBasicBlock(block);
+    std::string result = printer->printInstruction(ret);
 
-//     EXPECT_NE(result.find("entry"), std::string::npos);
-// }
+    EXPECT_NE(result.find("ret"), std::string::npos);
+}
 
-// TEST_F(IRPrinterTest, PrintBasicBlock_WithInstructions) {
-//     BasicBlock* block = module->createBasicBlock("entry");
+TEST_F(IRPrinterTest, PrintInstruction_ReturnVoid) {
+    auto* ret = module->createReturn(nullptr);
 
-//     auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
-//     auto* lhs = track(module.getConstantInt(1, intType));
-//     auto* rhs = track(module.getConstantInt(2, intType));
-//     auto* add = module.createBinaryOp(Instruction::Opcode::Add, lhs, rhs);
-//     block->addInstruction(add);
+    std::string result = printer->printInstruction(ret);
 
-//     std::string result = printer->printBasicBlock(block);
+    EXPECT_NE(result.find("ret"), std::string::npos);
+    EXPECT_NE(result.find("void"), std::string::npos);
+}
 
-//     EXPECT_NE(result.find("entry"), std::string::npos);
-//     EXPECT_NE(result.find("add"), std::string::npos);
-//     // Note: add is owned by block which is owned by module's arena
-// }
+// ============================================================================
+// Basic Block Printing Tests
+// ============================================================================
 
-// TEST_F(IRPrinterTest, PrintBasicBlock_WithPredecessors) {
-//     BasicBlock* pred1 = module->createBasicBlock("pred1");
-//     BasicBlock* pred2 = module->createBasicBlock("pred2");
-//     BasicBlock* block = module->createBasicBlock("merge");
+TEST_F(IRPrinterTest, PrintBasicBlock_Empty) {
+    BasicBlock* block = module->createBasicBlock("entry");
 
-//     block->addPredecessor(pred1);
-//     block->addPredecessor(pred2);
+    std::string result = printer->printBasicBlock(block);
 
-//     printer->setShowCFG(true);
-//     std::string result = printer->printBasicBlock(block);
+    EXPECT_NE(result.find("entry"), std::string::npos);
+}
 
-//     // Should show predecessors
-//     EXPECT_NE(result.find("preds"), std::string::npos);
-// }
+TEST_F(IRPrinterTest, PrintBasicBlock_WithInstructions) {
+    BasicBlock* block = module->createBasicBlock("entry");
 
-// // ============================================================================
-// // Function Printing Tests
-// // ============================================================================
+    auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
+    auto* lhs = module->getConstantInt(1, intType);
+    auto* rhs = module->getConstantInt(2, intType);
+    auto* add = module->createBinaryOp(Instruction::Opcode::Add, lhs, rhs);
+    block->addInstruction(add);
 
-// TEST_F(IRPrinterTest, PrintFunction_EmptyVoid) {
-//     auto voidType = std::make_shared<IRPrimitiveType>(IRType::Kind::Void);
-//     Function* func = module->createFunction("test", voidType, {});
+    std::string result = printer->printBasicBlock(block);
 
-//     std::string result = printer->printFunction(func);
+    EXPECT_NE(result.find("entry"), std::string::npos);
+    EXPECT_NE(result.find("add"), std::string::npos);
+    // Note: add is owned by block which is owned by module's arena
+}
 
-//     EXPECT_NE(result.find("function"), std::string::npos);
-//     EXPECT_NE(result.find("@test"), std::string::npos);
-//     EXPECT_NE(result.find("void"), std::string::npos);
-// }
+TEST_F(IRPrinterTest, PrintBasicBlock_WithPredecessors) {
+    BasicBlock* pred1 = module->createBasicBlock("pred1");
+    BasicBlock* pred2 = module->createBasicBlock("pred2");
+    BasicBlock* block = module->createBasicBlock("merge");
 
-// TEST_F(IRPrinterTest, PrintFunction_WithParameters) {
-//     auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
-//     std::vector<std::shared_ptr<IRType>> params = {intType, intType};
-//     Function* func = module->createFunction("add", intType, params);
+    // Create CFG edges using branch instructions
+    auto* br1 = module->createBranch(block);
+    pred1->addInstruction(br1);
+    auto* br2 = module->createBranch(block);
+    pred2->addInstruction(br2);
 
-//     std::string result = printer->printFunction(func);
+    printer->setShowCFG(true);
+    std::string result = printer->printBasicBlock(block);
 
-//     EXPECT_NE(result.find("@add"), std::string::npos);
-//     EXPECT_NE(result.find("i64"), std::string::npos);
-// }
+    // Should show predecessors
+    EXPECT_NE(result.find("preds"), std::string::npos);
+}
 
-// TEST_F(IRPrinterTest, PrintFunction_WithBody) {
-//     auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
-//     std::vector<std::shared_ptr<IRType>> params = {intType, intType};
-//     Function* func = module->createFunction("add", intType, params);
+// ============================================================================
+// Function Printing Tests
+// ============================================================================
 
-//     auto* entry = module->createBasicBlock("entry", func);
-//     auto* arg0 = func->getParam(0);
-//     auto* arg1 = func->getParam(1);
-//     auto* add = module.createBinaryOp(Instruction::Opcode::Add, arg0, arg1);
-//     entry->addInstruction(add);
-//     auto* ret = module.createReturn(add);
-//     entry->addInstruction(ret);
+TEST_F(IRPrinterTest, PrintFunction_EmptyVoid) {
+    auto voidType = std::make_shared<IRPrimitiveType>(IRType::Kind::Void);
+    Function* func = module->createFunction("test", voidType, {});
 
-//     std::string result = printer->printFunction(func);
+    std::string result = printer->printFunction(func);
 
-//     EXPECT_NE(result.find("add"), std::string::npos);
-//     EXPECT_NE(result.find("ret"), std::string::npos);
-// }
+    EXPECT_NE(result.find("define"), std::string::npos);
+    EXPECT_NE(result.find("@test"), std::string::npos);
+    EXPECT_NE(result.find("void"), std::string::npos);
+}
 
-// // ============================================================================
-// // Module Printing Tests
-// // ============================================================================
+TEST_F(IRPrinterTest, PrintFunction_WithParameters) {
+    auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
+    std::vector<std::shared_ptr<IRType>> params = {intType, intType};
+    Function* func = module->createFunction("add", intType, params);
 
-// TEST_F(IRPrinterTest, PrintModule_Empty) {
-//     std::string result = printer->printModule(*module);
+    std::string result = printer->printFunction(func);
 
-//     EXPECT_NE(result.find("Module"), std::string::npos);
-//     EXPECT_NE(result.find("test_module"), std::string::npos);
-// }
+    EXPECT_NE(result.find("@add"), std::string::npos);
+    EXPECT_NE(result.find("i64"), std::string::npos);
+}
 
-// TEST_F(IRPrinterTest, PrintModule_WithFunction) {
-//     auto voidType = std::make_shared<IRPrimitiveType>(IRType::Kind::Void);
-//     module->createFunction("main", voidType, {});
+TEST_F(IRPrinterTest, PrintFunction_WithBody) {
+    auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
+    std::vector<std::shared_ptr<IRType>> params = {intType, intType};
+    Function* func = module->createFunction("add", intType, params);
 
-//     std::string result = printer->printModule(*module);
+    auto* entry = module->createBasicBlock("entry", func);
+    auto* arg0 = func->getParam(0);
+    auto* arg1 = func->getParam(1);
+    auto* add = module->createBinaryOp(Instruction::Opcode::Add, arg0, arg1);
+    entry->addInstruction(add);
+    auto* ret = module->createReturn(add);
+    entry->addInstruction(ret);
 
-//     EXPECT_NE(result.find("@main"), std::string::npos);
-// }
+    std::string result = printer->printFunction(func);
 
-// TEST_F(IRPrinterTest, PrintModule_WithGlobal) {
-//     auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
-//     auto* init = track(module.getConstantInt(42, intType));
-//     module->createGlobalVariable("counter", intType, init, false);
+    EXPECT_NE(result.find("add"), std::string::npos);
+    EXPECT_NE(result.find("ret"), std::string::npos);
+}
 
-//     std::string result = printer->printModule(*module);
+// ============================================================================
+// Module Printing Tests
+// ============================================================================
 
-//     EXPECT_NE(result.find("@counter"), std::string::npos);
-// }
+TEST_F(IRPrinterTest, PrintModule_Empty) {
+    std::string result = printer->printModule(*module);
 
-// // ============================================================================
-// // Printer Options Tests
-// // ============================================================================
+    EXPECT_NE(result.find("Module"), std::string::npos);
+    EXPECT_NE(result.find("test_module"), std::string::npos);
+}
 
-// TEST_F(IRPrinterTest, ShowTypes_Enabled) {
-//     printer->setShowTypes(true);
+TEST_F(IRPrinterTest, PrintModule_WithFunction) {
+    auto voidType = std::make_shared<IRPrimitiveType>(IRType::Kind::Void);
+    module->createFunction("main", voidType, {});
 
-//     auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
-//     auto* lhs = track(module.getConstantInt(1, intType));
-//     auto* rhs = track(module.getConstantInt(2, intType));
-//     auto* add = track(module.createBinaryOp(Instruction::Opcode::Add, lhs, rhs));
+    std::string result = printer->printModule(*module);
 
-//     std::string result = printer->printInstruction(add);
+    EXPECT_NE(result.find("@main"), std::string::npos);
+}
 
-//     // Should include type
-//     EXPECT_NE(result.find("i64"), std::string::npos);
-// }
+TEST_F(IRPrinterTest, PrintModule_WithGlobal) {
+    auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
+    auto* init = module->getConstantInt(42, intType);
+    module->createGlobalVariable("counter", intType, init, false);
 
-// TEST_F(IRPrinterTest, ShowTypes_Disabled) {
-//     printer->setShowTypes(false);
+    std::string result = printer->printModule(*module);
 
-//     auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
-//     auto* lhs = track(module.getConstantInt(1, intType));
-//     auto* rhs = track(module.getConstantInt(2, intType));
-//     auto* add = track(module.createBinaryOp(Instruction::Opcode::Add, lhs, rhs));
+    EXPECT_NE(result.find("@counter"), std::string::npos);
+}
 
-//     std::string result = printer->printInstruction(add);
+// ============================================================================
+// Printer Options Tests
+// ============================================================================
 
-//     // Type might still appear but less prominently
-// }
+TEST_F(IRPrinterTest, ShowTypes_Enabled) {
+    printer->setShowTypes(true);
 
-// TEST_F(IRPrinterTest, ShowCFG_Enabled) {
-//     printer->setShowCFG(true);
+    auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
+    auto* lhs = module->getConstantInt(1, intType);
+    auto* rhs = module->getConstantInt(2, intType);
+    auto* add = module->createBinaryOp(Instruction::Opcode::Add, lhs, rhs);
 
-//     BasicBlock* pred = module->createBasicBlock("pred");
-//     BasicBlock* block = module->createBasicBlock("block");
-//     block->addPredecessor(pred);
+    std::string result = printer->printInstruction(add);
 
-//     std::string result = printer->printBasicBlock(block);
+    // Should include type
+    EXPECT_NE(result.find("i64"), std::string::npos);
+}
 
-//     EXPECT_NE(result.find("preds"), std::string::npos);
-// }
+TEST_F(IRPrinterTest, ShowTypes_Disabled) {
+    printer->setShowTypes(false);
 
-// TEST_F(IRPrinterTest, ShowCFG_Disabled) {
-//     printer->setShowCFG(false);
+    auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
+    auto* lhs = module->getConstantInt(1, intType);
+    auto* rhs = module->getConstantInt(2, intType);
+    auto* add = module->createBinaryOp(Instruction::Opcode::Add, lhs, rhs);
 
-//     BasicBlock* pred = module->createBasicBlock("pred");
-//     BasicBlock* block = module->createBasicBlock("block");
-//     block->addPredecessor(pred);
+    std::string result = printer->printInstruction(add);
 
-//     std::string result = printer->printBasicBlock(block);
+    // Type might still appear but less prominently
+}
 
-//     // Should not show predecessors
-// }
+TEST_F(IRPrinterTest, ShowCFG_Enabled) {
+    printer->setShowCFG(true);
 
-// // ============================================================================
-// // Integration Tests
-// // ============================================================================
+    BasicBlock* pred = module->createBasicBlock("pred");
+    BasicBlock* block = module->createBasicBlock("block");
 
-// TEST_F(IRPrinterTest, Integration_SimpleFunction) {
-//     // Build: fn add(x: i64, y: i64) -> i64 { return x + y; }
+    // Create CFG edge using branch instruction
+    auto* br = module->createBranch(block);
+    pred->addInstruction(br);
 
-//     auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
-//     std::vector<std::shared_ptr<IRType>> params = {intType, intType};
-//     Function* func = module->createFunction("add", intType, params);
+    std::string result = printer->printBasicBlock(block);
 
-//     auto* entry = module->createBasicBlock("entry", func);
-//     auto* x = func->getParam(0);
-//     auto* y = func->getParam(1);
+    EXPECT_NE(result.find("preds"), std::string::npos);
+}
 
-//     auto* sum = module.createBinaryOp(Instruction::Opcode::Add, x, y, "sum");
-//     entry->addInstruction(sum);
+TEST_F(IRPrinterTest, ShowCFG_Disabled) {
+    printer->setShowCFG(false);
 
-//     auto* ret = module.createReturn(sum);
-//     entry->addInstruction(ret);
+    BasicBlock* pred = module->createBasicBlock("pred");
+    BasicBlock* block = module->createBasicBlock("block");
 
-//     std::string result = printer->printFunction(func);
+    // Create CFG edge using branch instruction
+    auto* br = module->createBranch(block);
+    pred->addInstruction(br);
 
-//     // Verify output contains all expected parts
-//     EXPECT_NE(result.find("@add"), std::string::npos);
-//     EXPECT_NE(result.find("entry"), std::string::npos);
-//     EXPECT_NE(result.find("add"), std::string::npos);
-//     EXPECT_NE(result.find("ret"), std::string::npos);
-// }
+    std::string result = printer->printBasicBlock(block);
 
-// TEST_F(IRPrinterTest, Integration_IfThenElse) {
-//     // Build: fn abs(x: i64) -> i64 {
-//     //   if x < 0 { return -x; } else { return x; }
-//     // }
+    // Should not show predecessors
+}
 
-//     auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
-//     auto boolType = std::make_shared<IRPrimitiveType>(IRType::Kind::I1);
-//     std::vector<std::shared_ptr<IRType>> params = {intType};
-//     Function* func = module->createFunction("abs", intType, params);
+// ============================================================================
+// Integration Tests
+// ============================================================================
 
-//     auto* entry = module->createBasicBlock("entry", func);
-//     auto* thenBlock = module->createBasicBlock("then", func);
-//     auto* elseBlock = module->createBasicBlock("else", func);
-//     auto* mergeBlock = module->createBasicBlock("merge", func);
+TEST_F(IRPrinterTest, Integration_SimpleFunction) {
+    // Build: fn add(x: i64, y: i64) -> i64 { return x + y; }
 
-//     // Entry: condition
-//     auto* x = func->getParam(0);
-//     auto* zero = track(module.getConstantInt(0, intType));
-//     auto* cond = module.createCmp(Instruction::Opcode::Lt, x, zero);
-//     entry->addInstruction(cond);
-//     auto* br = Condmodule.createBranch(cond, thenBlock, elseBlock);
-//     entry->addInstruction(br);
+    auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
+    std::vector<std::shared_ptr<IRType>> params = {intType, intType};
+    Function* func = module->createFunction("add", intType, params);
 
-//     // Then: negate
-//     auto* negX = module.createUnaryOp(Instruction::Opcode::Neg, x);
-//     thenBlock->addInstruction(negX);
-//     auto* brThen = module.createBranch(mergeBlock);
-//     thenBlock->addInstruction(brThen);
+    auto* entry = module->createBasicBlock("entry", func);
+    auto* x = func->getParam(0);
+    auto* y = func->getParam(1);
 
-//     // Else: just use x
-//     auto* brElse = module.createBranch(mergeBlock);
-//     elseBlock->addInstruction(brElse);
+    auto* sum = module->createBinaryOp(Instruction::Opcode::Add, x, y, "sum");
+    entry->addInstruction(sum);
 
-//     // Merge: phi and return
-//     std::vector<PhiNode::IncomingValue> incoming = {
-//         {negX, thenBlock},
-//         {x, elseBlock}
-//     };
-//     auto* phi = module.createPhi(intType, incoming, "result");
-//     mergeBlock->addInstruction(phi);
-//     auto* ret = module.createReturn(phi);
-//     mergeBlock->addInstruction(ret);
+    auto* ret = module->createReturn(sum);
+    entry->addInstruction(ret);
 
-//     std::string result = printer->printFunction(func);
+    std::string result = printer->printFunction(func);
 
-//     // Verify CFG structure
-//     EXPECT_NE(result.find("entry"), std::string::npos);
-//     EXPECT_NE(result.find("then"), std::string::npos);
-//     EXPECT_NE(result.find("else"), std::string::npos);
-//     EXPECT_NE(result.find("merge"), std::string::npos);
-//     EXPECT_NE(result.find("phi"), std::string::npos);
-// }
+    // Verify output contains all expected parts
+    EXPECT_NE(result.find("@add"), std::string::npos);
+    EXPECT_NE(result.find("entry"), std::string::npos);
+    EXPECT_NE(result.find("add"), std::string::npos);
+    EXPECT_NE(result.find("ret"), std::string::npos);
+}
+
+TEST_F(IRPrinterTest, Integration_IfThenElse) {
+    // Build: fn abs(x: i64) -> i64 {
+    //   if x < 0 { return -x; } else { return x; }
+    // }
+
+    auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
+    auto boolType = std::make_shared<IRPrimitiveType>(IRType::Kind::I1);
+    std::vector<std::shared_ptr<IRType>> params = {intType};
+    Function* func = module->createFunction("abs", intType, params);
+
+    auto* entry = module->createBasicBlock("entry", func);
+    auto* thenBlock = module->createBasicBlock("then", func);
+    auto* elseBlock = module->createBasicBlock("else", func);
+    auto* mergeBlock = module->createBasicBlock("merge", func);
+
+    // Entry: condition
+    auto* x = func->getParam(0);
+    auto* zero = module->getConstantInt(0, intType);
+    auto* cond = module->createCmp(Instruction::Opcode::Lt, x, zero);
+    entry->addInstruction(cond);
+    auto* br = module->createCondBranch(cond, thenBlock, elseBlock);
+    entry->addInstruction(br);
+
+    // Then: negate
+    auto* negX = module->createUnaryOp(Instruction::Opcode::Neg, x);
+    thenBlock->addInstruction(negX);
+    auto* brThen = module->createBranch(mergeBlock);
+    thenBlock->addInstruction(brThen);
+
+    // Else: just use x
+    auto* brElse = module->createBranch(mergeBlock);
+    elseBlock->addInstruction(brElse);
+
+    // Merge: phi and return
+    std::vector<PhiNode::IncomingValue> incoming = {
+        {negX, thenBlock},
+        {x, elseBlock}
+    };
+    auto* phi = module->createPhi(intType, incoming, "result");
+    mergeBlock->addInstruction(phi);
+    auto* ret = module->createReturn(phi);
+    mergeBlock->addInstruction(ret);
+
+    std::string result = printer->printFunction(func);
+
+    // Verify CFG structure
+    EXPECT_NE(result.find("entry"), std::string::npos);
+    EXPECT_NE(result.find("then"), std::string::npos);
+    EXPECT_NE(result.find("else"), std::string::npos);
+    EXPECT_NE(result.find("merge"), std::string::npos);
+    EXPECT_NE(result.find("phi"), std::string::npos);
+}

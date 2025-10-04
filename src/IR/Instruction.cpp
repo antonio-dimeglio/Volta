@@ -1,5 +1,6 @@
 #include "IR/Instruction.hpp"
 #include "IR/Value.hpp"
+#include "IR/Function.hpp"
 #include <stdexcept>
 #include <cassert>
 
@@ -205,9 +206,9 @@ const char* Instruction::getOpcodeName(Opcode op) {
 
 std::string Instruction::toString() const {
     // Format: "%name = opcode operands"
-    auto str = "%" + getName() + "= " + getOpcodeName(opcode_);
+    auto str = "% " + getName() + " = " + getOpcodeName(opcode_);
     for (const auto& op : operands_) {
-        str += op.getValue()->toString();
+        str += op.getValue()->toString() + " ";
     }
     return str;
 }
@@ -276,7 +277,7 @@ namespace {
 // ============================================================================
 
 BinaryOperator::BinaryOperator(Opcode op, Value* lhs, Value* rhs, const std::string& name)
-    : Instruction(op, lhs->getType(), {lhs, rhs}, name) {
+    : Instruction(op, computeBinaryOpType(op, lhs, rhs), {lhs, rhs}, name) {
     assert(op >= Opcode::Add && op <= Opcode::Or);
 }
 
@@ -490,6 +491,21 @@ BranchInst::BranchInst(BasicBlock* dest)
                   std::make_shared<IRPrimitiveType>(IRType::Kind::Void),
                   {}),
       destination_(dest) {
+    // CFG edges will be set when instruction is added to a block
+}
+
+void BranchInst::setDestination(BasicBlock* dest) {
+    // Remove old edge
+    if (destination_ && getParent()) {
+        destination_->removePredecessor(getParent());
+    }
+
+    destination_ = dest;
+
+    // Add new edge
+    if (destination_ && getParent()) {
+        destination_->addPredecessor(getParent());
+    }
 }
 
 
@@ -504,6 +520,35 @@ CondBranchInst::CondBranchInst(Value* condition, BasicBlock* trueDest,
                   {condition}),
       trueDest_(trueDest),
       falseDest_(falseDest) {
+    // CFG edges will be set when instruction is added to a block
+}
+
+void CondBranchInst::setTrueDest(BasicBlock* dest) {
+    // Remove old edge
+    if (trueDest_ && getParent()) {
+        trueDest_->removePredecessor(getParent());
+    }
+
+    trueDest_ = dest;
+
+    // Add new edge
+    if (trueDest_ && getParent()) {
+        trueDest_->addPredecessor(getParent());
+    }
+}
+
+void CondBranchInst::setFalseDest(BasicBlock* dest) {
+    // Remove old edge
+    if (falseDest_ && getParent()) {
+        falseDest_->removePredecessor(getParent());
+    }
+
+    falseDest_ = dest;
+
+    // Add new edge
+    if (falseDest_ && getParent()) {
+        falseDest_->addPredecessor(getParent());
+    }
 }
 
 // ============================================================================
@@ -521,6 +566,11 @@ SwitchInst::SwitchInst(Value* value, BasicBlock* defaultDest,
 
 void SwitchInst::addCase(Constant* value, BasicBlock* dest) {
     cases_.push_back({value, dest});
+
+    // Update CFG edge if this instruction is already in a block
+    if (getParent() && dest) {
+        dest->addPredecessor(getParent());
+    }
 }
 
 // ============================================================================
@@ -530,12 +580,10 @@ void SwitchInst::addCase(Constant* value, BasicBlock* dest) {
 CallInst::CallInst(Function* callee, const std::vector<Value*>& args,
                    const std::string& name)
     : Instruction(Opcode::Call,
-                  /* return type - will be set from callee->getReturnType() */ nullptr,
+                  callee->getReturnType(),
                   args,
                   name),
       callee_(callee) {
-    // TODO: Once Function class is implemented, set type:
-    //   type_ = callee->getReturnType();
 }
 
 // ============================================================================
@@ -596,11 +644,8 @@ void PhiNode::removeIncomingValue(unsigned idx) {
     // Remove from incoming values
     incomingValues_.erase(incomingValues_.begin() + idx);
 
-    // Rebuild operands from remaining incoming values
-    operands_.clear();
-    for (const auto& incoming : incomingValues_) {
-        addOperand(incoming.value);
-    }
+    // Remove just the operand at this index
+    operands_.erase(operands_.begin() + idx);
 }
 
 } // namespace volta::ir

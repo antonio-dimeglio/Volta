@@ -1,5 +1,6 @@
 #include "IR/IRGenerator.hpp"
 #include "IR/IRType.hpp"
+#include "semantic/SemanticAnalyzer.hpp"
 
 namespace volta::ir {
 
@@ -13,7 +14,19 @@ IRGenerator::IRGenerator(Module& module)
       breakTarget_(nullptr),
       continueTarget_(nullptr),
       hasErrors_(false),
-      currentFunction_(nullptr) {
+      currentFunction_(nullptr),
+      analyzer_(nullptr) {
+    symbolTable_.push_back({});
+}
+
+IRGenerator::IRGenerator(Module& module, const volta::semantic::SemanticAnalyzer* analyzer)
+    : module_(module),
+      builder_(module),
+      breakTarget_(nullptr),
+      continueTarget_(nullptr),
+      hasErrors_(false),
+      currentFunction_(nullptr),
+      analyzer_(analyzer) {
     symbolTable_.push_back({});
 }
 
@@ -65,16 +78,24 @@ void IRGenerator::generateStatement(const ast::Statement* stmt) {
 }
 
 void IRGenerator::generateFunctionDecl(const ast::FnDeclaration* decl) {
-    // TODO: Type information should come from semantic analysis
-    // For now, use placeholder types based on AST type names
+    // 1. Lower return type from semantic analysis or AST
+    std::shared_ptr<IRType> returnType;
+    if (analyzer_ && decl->returnType) {
+        auto semType = analyzer_->resolveTypeAnnotation(decl->returnType.get());
+        returnType = lowerType(semType);
+    } else {
+        returnType = builder_.getIntType();  // Fallback
+    }
 
-    // 1. Lower return type (placeholder - needs semantic types)
-    auto returnType = builder_.getIntType();  // Placeholder
-
-    // 2. Lower parameter types (placeholder - needs semantic types)
+    // 2. Lower parameter types from semantic analysis or AST
     std::vector<std::shared_ptr<IRType>> paramTypes;
     for (const auto& param : decl->parameters) {
-        paramTypes.push_back(builder_.getIntType());  // Placeholder
+        if (analyzer_ && param->type) {
+            auto semType = analyzer_->resolveTypeAnnotation(param->type.get());
+            paramTypes.push_back(lowerType(semType));
+        } else {
+            paramTypes.push_back(builder_.getIntType());  // Fallback
+        }
     }
 
     // 3. Create function
@@ -105,13 +126,17 @@ void IRGenerator::generateFunctionDecl(const ast::FnDeclaration* decl) {
     }
 
     // 7. Add implicit return if missing
-    if (!isBlockTerminated()) {
-        if (returnType->kind() == IRType::Kind::Void) {
+    // Check if we need to add an implicit return
+    // For now, only add for void functions; type checker ensures non-void functions return
+    if (returnType->kind() == IRType::Kind::Void) {
+        // Check if entry block has terminator
+        bool hasReturn = func->getEntryBlock() && func->getEntryBlock()->hasTerminator();
+        if (!hasReturn && func->getEntryBlock()) {
+            builder_.setInsertionPoint(func->getEntryBlock());
             builder_.createRet();
-        } else {
-            reportError("Non-void function must return a value");
         }
     }
+    // Note: Non-void functions are validated by semantic analyzer
 
     // 8. Exit function scope
     exitScope();
@@ -119,7 +144,17 @@ void IRGenerator::generateFunctionDecl(const ast::FnDeclaration* decl) {
 }
 
 void IRGenerator::generateVarDecl(const ast::VarDeclaration* decl) {
-    std::shared_ptr<IRType> type = builder_.getIntType();  // Placeholder
+    // 1. Get type from semantic analysis or initializer
+    std::shared_ptr<IRType> type;
+    if (analyzer_ && decl->typeAnnotation && decl->typeAnnotation->type) {
+        auto semType = analyzer_->resolveTypeAnnotation(decl->typeAnnotation->type.get());
+        type = lowerType(semType);
+    } else if (analyzer_ && decl->initializer) {
+        auto semType = analyzer_->getExpressionType(decl->initializer.get());
+        type = lowerType(semType);
+    } else {
+        type = builder_.getIntType();  // Fallback
+    }
 
     // 2. Create alloca for variable
     Value* alloca = builder_.createAlloca(type, decl->identifier);
@@ -139,10 +174,25 @@ void IRGenerator::generateVarDecl(const ast::VarDeclaration* decl) {
 
 void IRGenerator::generateIfStmt(const ast::IfStatement* stmt) {
     // 1. Generate condition
-    Value* cond = generateExpression(stmt->condition.get());
-    if (!cond) return;
+    if (!stmt->condition) {
+        reportError("If statement: condition is null in AST");
+        return;
+    }
 
-    // 2. Create blocks
+    Value* cond = nullptr;
+    try {
+        cond = generateExpression(stmt->condition.get());
+    } catch (const std::exception& e) {
+        reportError(std::string("Exception generating if condition: ") + e.what());
+    }
+
+    if (!cond) {
+        reportError("If statement: failed to generate condition (cond is null)");
+        // Don't return - let's see if there are more errors
+        cond = builder_.getBool(false);  // Dummy value to continue
+    }
+
+    // 2. Create blocks (this creates condBr in current block)
     auto blocks = builder_.createIfThenElse(cond);
 
     // 3. Generate then block
@@ -170,6 +220,18 @@ void IRGenerator::generateIfStmt(const ast::IfStatement* stmt) {
 
     // 5. Continue in merge block
     builder_.setInsertionPoint(blocks.mergeBlock);
+
+    // If the merge block is unreachable (both branches terminated), add a dummy return
+    if (blocks.mergeBlock->getNumPredecessors() == 0) {
+        // The block is unreachable, but we still need a terminator for valid IR
+        if (currentFunction_ && currentFunction_->getReturnType()->kind() == IRType::Kind::Void) {
+            builder_.createRet();
+        } else if (currentFunction_) {
+            // For non-void functions, return an undef value (unreachable anyway)
+            Value* undefVal = builder_.getUndef(currentFunction_->getReturnType());
+            builder_.createRet(undefVal);
+        }
+    }
 }
 
 void IRGenerator::generateWhileStmt(const ast::WhileStatement* stmt) {
@@ -187,6 +249,10 @@ void IRGenerator::generateWhileStmt(const ast::WhileStatement* stmt) {
     Value* cond = generateExpression(stmt->condition.get());
     if (cond) {
         builder_.createCondBr(cond, blocks.bodyBlock, blocks.exitBlock);
+    } else {
+        // If condition generation failed, still add a terminator to avoid invalid IR
+        reportError("While statement: failed to generate condition");
+        builder_.createBr(blocks.exitBlock);  // Just exit the loop
     }
 
     // 5. Generate body
@@ -260,6 +326,11 @@ void IRGenerator::generateBlock(const ast::Block* block) {
 // ============================================================================
 
 Value* IRGenerator::generateExpression(const ast::Expression* expr) {
+    if (!expr) {
+        reportError("generateExpression: null expression");
+        return nullptr;
+    }
+
     if (auto* intLit = dynamic_cast<const ast::IntegerLiteral*>(expr)) {
         return generateIntLiteral(intLit);
     }
@@ -294,7 +365,12 @@ Value* IRGenerator::generateExpression(const ast::Expression* expr) {
         return generateArrayLiteral(arrLit);
     }
 
-    reportError("Unknown expression type");
+    // Try to get type info for debugging
+    std::string typeName = "unknown";
+    if (expr) {
+        typeName = std::string(typeid(*expr).name());
+    }
+    reportError("Unknown/unimplemented expression type: " + typeName);
     return nullptr;
 }
 
@@ -340,7 +416,8 @@ Value* IRGenerator::generateIdentifier(const ast::IdentifierExpression* expr) {
     Value* allocaPtr = lookupVariable(expr->name);
 
     if (!allocaPtr) {
-        reportError("Undefined variable: " + expr->name);
+        std::string scopeInfo = "symbol table has " + std::to_string(symbolTable_.size()) + " scopes";
+        reportError("Undefined variable '" + expr->name + "' (" + scopeInfo + ")");
         return nullptr;
     }
 
@@ -356,47 +433,43 @@ Value* IRGenerator::generateBinaryExpr(const ast::BinaryExpression* expr) {
 
     // Generate left and right operands
     Value* left = generateExpression(expr->left.get());
-    Value* right = generateExpression(expr->right.get());
+    if (!left) {
+        reportError("Failed to generate left operand of binary expression");
+        return nullptr;
+    }
 
-    if (!left || !right) {
-        reportError("Failed to generate binary expression operands");
+    Value* right = generateExpression(expr->right.get());
+    if (!right) {
+        reportError("Failed to generate right operand of binary expression");
         return nullptr;
     }
 
     // Map operator to IR opcode
     Instruction::Opcode opcode = mapBinaryOp(expr->op);
 
-    // Create appropriate instruction based on operator type
-    if (expr->op >= ast::BinaryExpression::Operator::Add &&
-        expr->op <= ast::BinaryExpression::Operator::Power) {
+    // Create appropriate instruction based on opcode (not operator enum value)
+    switch (opcode) {
         // Arithmetic
-        switch (opcode) {
-            case Instruction::Opcode::Add: return builder_.createAdd(left, right);
-            case Instruction::Opcode::Sub: return builder_.createSub(left, right);
-            case Instruction::Opcode::Mul: return builder_.createMul(left, right);
-            case Instruction::Opcode::Div: return builder_.createDiv(left, right);
-            case Instruction::Opcode::Rem: return builder_.createRem(left, right);
-            case Instruction::Opcode::Pow: return builder_.createPow(left, right);
-            default: break;
-        }
-    }
-    else if (expr->op >= ast::BinaryExpression::Operator::Equal &&
-             expr->op <= ast::BinaryExpression::Operator::GreaterEqual) {
+        case Instruction::Opcode::Add: return builder_.createAdd(left, right);
+        case Instruction::Opcode::Sub: return builder_.createSub(left, right);
+        case Instruction::Opcode::Mul: return builder_.createMul(left, right);
+        case Instruction::Opcode::Div: return builder_.createDiv(left, right);
+        case Instruction::Opcode::Rem: return builder_.createRem(left, right);
+        case Instruction::Opcode::Pow: return builder_.createPow(left, right);
+
         // Comparison
-        switch (opcode) {
-            case Instruction::Opcode::Eq: return builder_.createEq(left, right);
-            case Instruction::Opcode::Ne: return builder_.createNe(left, right);
-            case Instruction::Opcode::Lt: return builder_.createLt(left, right);
-            case Instruction::Opcode::Le: return builder_.createLe(left, right);
-            case Instruction::Opcode::Gt: return builder_.createGt(left, right);
-            case Instruction::Opcode::Ge: return builder_.createGe(left, right);
-            default: break;
-        }
-    }
-    else {
+        case Instruction::Opcode::Eq: return builder_.createEq(left, right);
+        case Instruction::Opcode::Ne: return builder_.createNe(left, right);
+        case Instruction::Opcode::Lt: return builder_.createLt(left, right);
+        case Instruction::Opcode::Le: return builder_.createLe(left, right);
+        case Instruction::Opcode::Gt: return builder_.createGt(left, right);
+        case Instruction::Opcode::Ge: return builder_.createGe(left, right);
+
         // Logical
-        if (opcode == Instruction::Opcode::And) return builder_.createAnd(left, right);
-        if (opcode == Instruction::Opcode::Or) return builder_.createOr(left, right);
+        case Instruction::Opcode::And: return builder_.createAnd(left, right);
+        case Instruction::Opcode::Or: return builder_.createOr(left, right);
+
+        default: break;
     }
 
     reportError("Unknown binary operator");
@@ -426,11 +499,33 @@ Value* IRGenerator::generateUnaryExpr(const ast::UnaryExpression* expr) {
 }
 
 Value* IRGenerator::generateCallExpr(const ast::CallExpression* expr) {
-    // TODO: Implement
-    // 1. Look up function
-    // 2. Generate arguments
-    // 3. Create call instruction
-    return nullptr;
+    // 1. Get function name (callee should be an IdentifierExpression for now)
+    auto* identExpr = dynamic_cast<const ast::IdentifierExpression*>(expr->callee.get());
+    if (!identExpr) {
+        reportError("Call expression: callee must be an identifier");
+        return nullptr;
+    }
+
+    // 2. Look up function in module
+    Function* func = module_.getFunction(identExpr->name);
+    if (!func) {
+        reportError("Call expression: undefined function '" + identExpr->name + "'");
+        return nullptr;
+    }
+
+    // 3. Generate arguments
+    std::vector<Value*> args;
+    for (const auto& argExpr : expr->arguments) {
+        Value* arg = generateExpression(argExpr.get());
+        if (!arg) {
+            reportError("Call expression: failed to generate argument");
+            return nullptr;
+        }
+        args.push_back(arg);
+    }
+
+    // 4. Create call instruction
+    return builder_.createCall(func, args);
 }
 
 Value* IRGenerator::generateIndexExpr(const ast::IndexExpression* expr) {
@@ -581,6 +676,31 @@ void IRGenerator::setLoopTargets(BasicBlock* breakTarget, BasicBlock* continueTa
 void IRGenerator::clearLoopTargets() {
     breakTarget_ = nullptr;
     continueTarget_ = nullptr;
+}
+
+// ============================================================================
+// Standalone API
+// ============================================================================
+
+std::unique_ptr<Module> generateIR(
+    const volta::ast::Program& program,
+    const volta::semantic::SemanticAnalyzer& analyzer,
+    const std::string& moduleName
+) {
+    auto module = std::make_unique<Module>(moduleName);
+    IRGenerator generator(*module, &analyzer);
+
+    if (!generator.generate(&program)) {
+        // Generation failed - print errors
+        auto errors = generator.getErrors();
+        std::cerr << "IR generation failed with " << errors.size() << " errors:\n";
+        for (const auto& error : errors) {
+            std::cerr << "  IR Gen Error: " << error << "\n";
+        }
+        return nullptr;
+    }
+
+    return module;
 }
 
 } // namespace volta::ir

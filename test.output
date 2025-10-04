@@ -1,0 +1,1550 @@
+Running tests...
+Running main() from ./googletest/src/gtest_main.cc
+[==========] Running 502 tests from 30 test suites.
+[----------] Global test environment set-up.
+[----------] 18 tests from EndToEndIRTest
+[ RUN      ] EndToEndIRTest.SimpleFunction
+DEBUG: BinaryExpr operator=0
+[       OK ] EndToEndIRTest.SimpleFunction (2 ms)
+[ RUN      ] EndToEndIRTest.FunctionWithLocalVariable
+DEBUG: BinaryExpr operator=2
+[       OK ] EndToEndIRTest.FunctionWithLocalVariable (0 ms)
+[ RUN      ] EndToEndIRTest.FunctionWithTypeInference
+DEBUG: BinaryExpr operator=2
+[       OK ] EndToEndIRTest.FunctionWithTypeInference (0 ms)
+[ RUN      ] EndToEndIRTest.IfElseStatement
+DEBUG: BinaryExpr operator=9
+IR generation failed with 1 errors:
+  IR Gen Error: If statement: failed to generate condition (cond is null)
+IR generation failed
+tests/test_end_to_end_ir.cpp:145: Failure
+Expected: (module) != (nullptr), actual: (nullptr) vs (nullptr)
+
+[  FAILED  ] EndToEndIRTest.IfElseStatement (0 ms)
+[ RUN      ] EndToEndIRTest.WhileLoop
+DEBUG: BinaryExpr operator=8
+DEBUG: BinaryExpr operator=16
+DEBUG: BinaryExpr operator=0
+IR verification failed:
+  - Basic block 'loop.header' has no terminator
+tests/test_end_to_end_ir.cpp:166: Failure
+Expected: (module) != (nullptr), actual: (nullptr) vs (nullptr)
+
+[  FAILED  ] EndToEndIRTest.WhileLoop (0 ms)
+[ RUN      ] EndToEndIRTest.NestedIfStatements
+DEBUG: BinaryExpr operator=9
+DEBUG: BinaryExpr operator=9
+IR generation failed with 2 errors:
+  IR Gen Error: If statement: failed to generate condition (cond is null)
+  IR Gen Error: If statement: failed to generate condition (cond is null)
+IR generation failed
+tests/test_end_to_end_ir.cpp:191: Failure
+Expected: (module) != (nullptr), actual: (nullptr) vs (nullptr)
+
+[  FAILED  ] EndToEndIRTest.NestedIfStatements (0 ms)
+[ RUN      ] EndToEndIRTest.ComplexArithmetic
+DEBUG: BinaryExpr operator=2
+DEBUG: BinaryExpr operator=0
+DEBUG: BinaryExpr operator=1
+[       OK ] EndToEndIRTest.ComplexArithmetic (0 ms)
+[ RUN      ] EndToEndIRTest.MultipleOperations
+DEBUG: BinaryExpr operator=0
+DEBUG: BinaryExpr operator=2
+DEBUG: BinaryExpr operator=1
+[       OK ] EndToEndIRTest.MultipleOperations (0 ms)
+[ RUN      ] EndToEndIRTest.MultipleFunctions
+DEBUG: BinaryExpr operator=2
+IR verification failed:
+  - Basic block 'entry' has no terminator
+tests/test_end_to_end_ir.cpp:245: Failure
+Expected: (module) != (nullptr), actual: (nullptr) vs (nullptr)
+
+[  FAILED  ] EndToEndIRTest.MultipleFunctions (0 ms)
+[ RUN      ] EndToEndIRTest.RecursiveFunction
+DEBUG: BinaryExpr operator=10
+DEBUG: BinaryExpr operator=2
+IR generation failed with 2 errors:
+  IR Gen Error: If statement: failed to generate condition (cond is null)
+  IR Gen Error: Failed to generate right operand of binary expression
+IR generation failed
+tests/test_end_to_end_ir.cpp:264: Failure
+Expected: (module) != (nullptr), actual: (nullptr) vs (nullptr)
+
+[  FAILED  ] EndToEndIRTest.RecursiveFunction (0 ms)
+[ RUN      ] EndToEndIRTest.BooleanTypes
+DEBUG: BinaryExpr operator=9
+IR verification failed:
+  - Basic block 'entry' has no terminator
+tests/test_end_to_end_ir.cpp:282: Failure
+Expected: (module) != (nullptr), actual: (nullptr) vs (nullptr)
+
+[  FAILED  ] EndToEndIRTest.BooleanTypes (0 ms)
+[ RUN      ] EndToEndIRTest.FloatTypes
+DEBUG: BinaryExpr operator=0
+[       OK ] EndToEndIRTest.FloatTypes (0 ms)
+[ RUN      ] EndToEndIRTest.MixedTypes
+DEBUG: BinaryExpr operator=2
+IR verification failed:
+  - Basic block 'if.merge' has no terminator
+tests/test_end_to_end_ir.cpp:316: Failure
+Expected: (module) != (nullptr), actual: (nullptr) vs (nullptr)
+
+[  FAILED  ] EndToEndIRTest.MixedTypes (0 ms)
+[ RUN      ] EndToEndIRTest.FibonacciIterative
+DEBUG: BinaryExpr operator=8
+DEBUG: BinaryExpr operator=0
+DEBUG: BinaryExpr operator=16
+DEBUG: BinaryExpr operator=16
+DEBUG: BinaryExpr operator=16
+DEBUG: BinaryExpr operator=0
+IR verification failed:
+  - Basic block 'loop.header' has no terminator
+tests/test_end_to_end_ir.cpp:342: Failure
+Expected: (module) != (nullptr), actual: (nullptr) vs (nullptr)
+
+[  FAILED  ] EndToEndIRTest.FibonacciIterative (0 ms)
+[ RUN      ] EndToEndIRTest.GCDAlgorithm
+DEBUG: BinaryExpr operator=7
+DEBUG: BinaryExpr operator=16
+DEBUG: BinaryExpr operator=4
+DEBUG: BinaryExpr operator=16
+IR verification failed:
+  - Basic block 'loop.header' has no terminator
+tests/test_end_to_end_ir.cpp:365: Failure
+Expected: (module) != (nullptr), actual: (nullptr) vs (nullptr)
+
+[  FAILED  ] EndToEndIRTest.GCDAlgorithm (0 ms)
+[ RUN      ] EndToEndIRTest.VerifySSAForm
+DEBUG: BinaryExpr operator=0
+DEBUG: BinaryExpr operator=2
+[       OK ] EndToEndIRTest.VerifySSAForm (0 ms)
+[ RUN      ] EndToEndIRTest.VerifyControlFlow
+DEBUG: BinaryExpr operator=9
+IR generation failed with 1 errors:
+  IR Gen Error: If statement: failed to generate condition (cond is null)
+IR generation failed
+tests/test_end_to_end_ir.cpp:401: Failure
+Expected: (module) != (nullptr), actual: (nullptr) vs (nullptr)
+
+[  FAILED  ] EndToEndIRTest.VerifyControlFlow (0 ms)
+[ RUN      ] EndToEndIRTest.IROutputFormat
+DEBUG: BinaryExpr operator=0
+tests/test_end_to_end_ir.cpp:424: Failure
+Expected: (ir.find("define")) != (std::string::npos), actual: 18446744073709551615 vs 18446744073709551615
+
+[  FAILED  ] EndToEndIRTest.IROutputFormat (0 ms)
+[----------] 18 tests from EndToEndIRTest (8 ms total)
+
+[----------] 31 tests from BasicBlockTest
+[ RUN      ] BasicBlockTest.CreateBasicBlock
+[       OK ] BasicBlockTest.CreateBasicBlock (0 ms)
+[ RUN      ] BasicBlockTest.CreateUnnamedBlock
+[       OK ] BasicBlockTest.CreateUnnamedBlock (0 ms)
+[ RUN      ] BasicBlockTest.CreateWithParent
+[       OK ] BasicBlockTest.CreateWithParent (0 ms)
+[ RUN      ] BasicBlockTest.AddSingleInstruction
+[       OK ] BasicBlockTest.AddSingleInstruction (0 ms)
+[ RUN      ] BasicBlockTest.AddMultipleInstructions
+[       OK ] BasicBlockTest.AddMultipleInstructions (0 ms)
+[ RUN      ] BasicBlockTest.AddTerminator
+[       OK ] BasicBlockTest.AddTerminator (0 ms)
+[ RUN      ] BasicBlockTest.CannotAddInstructionAfterTerminator
+[       OK ] BasicBlockTest.CannotAddInstructionAfterTerminator (0 ms)
+[ RUN      ] BasicBlockTest.GetFirstInstruction
+[       OK ] BasicBlockTest.GetFirstInstruction (0 ms)
+[ RUN      ] BasicBlockTest.RemoveInstruction
+[       OK ] BasicBlockTest.RemoveInstruction (0 ms)
+[ RUN      ] BasicBlockTest.EraseInstruction
+[       OK ] BasicBlockTest.EraseInstruction (0 ms)
+[ RUN      ] BasicBlockTest.InsertBefore
+[       OK ] BasicBlockTest.InsertBefore (0 ms)
+[ RUN      ] BasicBlockTest.InitiallyNoPredecessors
+[       OK ] BasicBlockTest.InitiallyNoPredecessors (0 ms)
+[ RUN      ] BasicBlockTest.AddPredecessor
+[       OK ] BasicBlockTest.AddPredecessor (0 ms)
+[ RUN      ] BasicBlockTest.AddMultiplePredecessors
+[       OK ] BasicBlockTest.AddMultiplePredecessors (0 ms)
+[ RUN      ] BasicBlockTest.RemovePredecessor
+[       OK ] BasicBlockTest.RemovePredecessor (0 ms)
+[ RUN      ] BasicBlockTest.NoDuplicatePredecessors
+[       OK ] BasicBlockTest.NoDuplicatePredecessors (0 ms)
+[ RUN      ] BasicBlockTest.GetSuccessors_ReturnInst
+[       OK ] BasicBlockTest.GetSuccessors_ReturnInst (0 ms)
+[ RUN      ] BasicBlockTest.GetSuccessors_BranchInst
+[       OK ] BasicBlockTest.GetSuccessors_BranchInst (0 ms)
+[ RUN      ] BasicBlockTest.GetSuccessors_CondBranchInst
+[       OK ] BasicBlockTest.GetSuccessors_CondBranchInst (0 ms)
+[ RUN      ] BasicBlockTest.GetNumSuccessors
+[       OK ] BasicBlockTest.GetNumSuccessors (0 ms)
+[ RUN      ] BasicBlockTest.InitiallyNoPhiNodes
+[       OK ] BasicBlockTest.InitiallyNoPhiNodes (0 ms)
+[ RUN      ] BasicBlockTest.AddPhiNode
+[       OK ] BasicBlockTest.AddPhiNode (0 ms)
+[ RUN      ] BasicBlockTest.PhiNodesBeforeRegularInstructions
+[       OK ] BasicBlockTest.PhiNodesBeforeRegularInstructions (0 ms)
+[ RUN      ] BasicBlockTest.MultiplePhiNodes
+[       OK ] BasicBlockTest.MultiplePhiNodes (0 ms)
+[ RUN      ] BasicBlockTest.ToStringEmpty
+[       OK ] BasicBlockTest.ToStringEmpty (0 ms)
+[ RUN      ] BasicBlockTest.ToStringWithInstructions
+[       OK ] BasicBlockTest.ToStringWithInstructions (0 ms)
+[ RUN      ] BasicBlockTest.ToStringWithPredecessors
+[       OK ] BasicBlockTest.ToStringWithPredecessors (0 ms)
+[ RUN      ] BasicBlockTest.SplitAtInstruction
+[       OK ] BasicBlockTest.SplitAtInstruction (0 ms)
+[ RUN      ] BasicBlockTest.EmptyBlockHasNoTerminator
+[       OK ] BasicBlockTest.EmptyBlockHasNoTerminator (0 ms)
+[ RUN      ] BasicBlockTest.BlockWithOnlyTerminator
+[       OK ] BasicBlockTest.BlockWithOnlyTerminator (0 ms)
+[ RUN      ] BasicBlockTest.IsReachable
+[       OK ] BasicBlockTest.IsReachable (0 ms)
+[----------] 31 tests from BasicBlockTest (3 ms total)
+
+[----------] 2 tests from CFGBuilderTest
+[ RUN      ] CFGBuilderTest.ConnectBlocks
+[       OK ] CFGBuilderTest.ConnectBlocks (0 ms)
+[ RUN      ] CFGBuilderTest.ConnectBlocksConditional
+[       OK ] CFGBuilderTest.ConnectBlocksConditional (0 ms)
+[----------] 2 tests from CFGBuilderTest (0 ms total)
+
+[----------] 1 test from CFGTest
+[ RUN      ] CFGTest.SimpleDiamondCFG
+[       OK ] CFGTest.SimpleDiamondCFG (0 ms)
+[----------] 1 test from CFGTest (0 ms total)
+
+[----------] 4 tests from CFGUtilityTest
+[ RUN      ] CFGUtilityTest.HasPath_DirectConnection
+[       OK ] CFGUtilityTest.HasPath_DirectConnection (0 ms)
+[ RUN      ] CFGUtilityTest.HasPath_IndirectConnection
+[       OK ] CFGUtilityTest.HasPath_IndirectConnection (0 ms)
+[ RUN      ] CFGUtilityTest.GetReachableBlocks
+[       OK ] CFGUtilityTest.GetReachableBlocks (0 ms)
+[ RUN      ] CFGUtilityTest.ReversePostorder
+[       OK ] CFGUtilityTest.ReversePostorder (0 ms)
+[----------] 4 tests from CFGUtilityTest (0 ms total)
+
+[----------] 68 tests from IRBuilderTest
+[ RUN      ] IRBuilderTest.InsertionPoint_InitialState
+[       OK ] IRBuilderTest.InsertionPoint_InitialState (0 ms)
+[ RUN      ] IRBuilderTest.InsertionPoint_SetToBlock
+[       OK ] IRBuilderTest.InsertionPoint_SetToBlock (0 ms)
+[ RUN      ] IRBuilderTest.InsertionPoint_Clear
+[       OK ] IRBuilderTest.InsertionPoint_Clear (0 ms)
+[ RUN      ] IRBuilderTest.InsertionPoint_Before
+[       OK ] IRBuilderTest.InsertionPoint_Before (0 ms)
+[ RUN      ] IRBuilderTest.InsertionPoint_After
+[       OK ] IRBuilderTest.InsertionPoint_After (0 ms)
+[ RUN      ] IRBuilderTest.TypeHelpers_PrimitiveTypes
+[       OK ] IRBuilderTest.TypeHelpers_PrimitiveTypes (0 ms)
+[ RUN      ] IRBuilderTest.TypeHelpers_PointerType
+[       OK ] IRBuilderTest.TypeHelpers_PointerType (0 ms)
+[ RUN      ] IRBuilderTest.TypeHelpers_ArrayType
+[       OK ] IRBuilderTest.TypeHelpers_ArrayType (0 ms)
+[ RUN      ] IRBuilderTest.TypeHelpers_OptionType
+[       OK ] IRBuilderTest.TypeHelpers_OptionType (0 ms)
+[ RUN      ] IRBuilderTest.CreateFunction_NoParams
+[       OK ] IRBuilderTest.CreateFunction_NoParams (0 ms)
+[ RUN      ] IRBuilderTest.CreateFunction_WithParams
+[       OK ] IRBuilderTest.CreateFunction_WithParams (0 ms)
+[ RUN      ] IRBuilderTest.CreateFunction_SetsInsertionPoint
+[       OK ] IRBuilderTest.CreateFunction_SetsInsertionPoint (0 ms)
+[ RUN      ] IRBuilderTest.CreateFunction_NoInsertionPoint
+[       OK ] IRBuilderTest.CreateFunction_NoInsertionPoint (0 ms)
+[ RUN      ] IRBuilderTest.CreateBasicBlock_Standalone
+[       OK ] IRBuilderTest.CreateBasicBlock_Standalone (0 ms)
+[ RUN      ] IRBuilderTest.CreateBasicBlock_InCurrentFunction
+[       OK ] IRBuilderTest.CreateBasicBlock_InCurrentFunction (0 ms)
+[ RUN      ] IRBuilderTest.ConstantInt_Creation
+[       OK ] IRBuilderTest.ConstantInt_Creation (0 ms)
+[ RUN      ] IRBuilderTest.ConstantFloat_Creation
+[       OK ] IRBuilderTest.ConstantFloat_Creation (0 ms)
+[ RUN      ] IRBuilderTest.ConstantBool_Creation
+[       OK ] IRBuilderTest.ConstantBool_Creation (0 ms)
+[ RUN      ] IRBuilderTest.ConstantString_Creation
+[       OK ] IRBuilderTest.ConstantString_Creation (0 ms)
+[ RUN      ] IRBuilderTest.ConstantNone_Creation
+[       OK ] IRBuilderTest.ConstantNone_Creation (0 ms)
+[ RUN      ] IRBuilderTest.UndefValue_Creation
+[       OK ] IRBuilderTest.UndefValue_Creation (0 ms)
+[ RUN      ] IRBuilderTest.CreateAdd
+[       OK ] IRBuilderTest.CreateAdd (0 ms)
+[ RUN      ] IRBuilderTest.CreateSub
+[       OK ] IRBuilderTest.CreateSub (0 ms)
+[ RUN      ] IRBuilderTest.CreateMul
+[       OK ] IRBuilderTest.CreateMul (0 ms)
+[ RUN      ] IRBuilderTest.CreateDiv
+[       OK ] IRBuilderTest.CreateDiv (0 ms)
+[ RUN      ] IRBuilderTest.CreateRem
+[       OK ] IRBuilderTest.CreateRem (0 ms)
+[ RUN      ] IRBuilderTest.CreatePow
+[       OK ] IRBuilderTest.CreatePow (0 ms)
+[ RUN      ] IRBuilderTest.CreateNeg
+[       OK ] IRBuilderTest.CreateNeg (0 ms)
+[ RUN      ] IRBuilderTest.CreateEq
+[       OK ] IRBuilderTest.CreateEq (0 ms)
+[ RUN      ] IRBuilderTest.CreateNe
+[       OK ] IRBuilderTest.CreateNe (0 ms)
+[ RUN      ] IRBuilderTest.CreateLt
+[       OK ] IRBuilderTest.CreateLt (0 ms)
+[ RUN      ] IRBuilderTest.AllComparisonOps
+[       OK ] IRBuilderTest.AllComparisonOps (0 ms)
+[ RUN      ] IRBuilderTest.CreateAnd
+[       OK ] IRBuilderTest.CreateAnd (0 ms)
+[ RUN      ] IRBuilderTest.CreateOr
+[       OK ] IRBuilderTest.CreateOr (0 ms)
+[ RUN      ] IRBuilderTest.CreateNot
+[       OK ] IRBuilderTest.CreateNot (0 ms)
+[ RUN      ] IRBuilderTest.CreateAlloca
+[       OK ] IRBuilderTest.CreateAlloca (0 ms)
+[ RUN      ] IRBuilderTest.CreateLoad
+[       OK ] IRBuilderTest.CreateLoad (0 ms)
+[ RUN      ] IRBuilderTest.CreateStore
+[       OK ] IRBuilderTest.CreateStore (0 ms)
+[ RUN      ] IRBuilderTest.CreateGCAlloc
+[       OK ] IRBuilderTest.CreateGCAlloc (0 ms)
+[ RUN      ] IRBuilderTest.CreateArrayNew
+[       OK ] IRBuilderTest.CreateArrayNew (0 ms)
+[ RUN      ] IRBuilderTest.CreateArrayGet
+[       OK ] IRBuilderTest.CreateArrayGet (0 ms)
+[ RUN      ] IRBuilderTest.CreateArraySet
+[       OK ] IRBuilderTest.CreateArraySet (0 ms)
+[ RUN      ] IRBuilderTest.CreateArrayLen
+[       OK ] IRBuilderTest.CreateArrayLen (0 ms)
+[ RUN      ] IRBuilderTest.CreateArraySlice
+[       OK ] IRBuilderTest.CreateArraySlice (0 ms)
+[ RUN      ] IRBuilderTest.CreateCast
+[       OK ] IRBuilderTest.CreateCast (0 ms)
+[ RUN      ] IRBuilderTest.CreateRet_WithValue
+[       OK ] IRBuilderTest.CreateRet_WithValue (0 ms)
+[ RUN      ] IRBuilderTest.CreateRet_Void
+[       OK ] IRBuilderTest.CreateRet_Void (0 ms)
+[ RUN      ] IRBuilderTest.CreateBr
+[       OK ] IRBuilderTest.CreateBr (0 ms)
+[ RUN      ] IRBuilderTest.CreateCondBr
+[       OK ] IRBuilderTest.CreateCondBr (0 ms)
+[ RUN      ] IRBuilderTest.CreateCall_NoArgs
+[       OK ] IRBuilderTest.CreateCall_NoArgs (0 ms)
+[ RUN      ] IRBuilderTest.CreateCall_WithArgs
+[       OK ] IRBuilderTest.CreateCall_WithArgs (0 ms)
+[ RUN      ] IRBuilderTest.CreatePhi_Empty
+[       OK ] IRBuilderTest.CreatePhi_Empty (0 ms)
+[ RUN      ] IRBuilderTest.CreateIfThenElse
+[       OK ] IRBuilderTest.CreateIfThenElse (0 ms)
+[ RUN      ] IRBuilderTest.CreateLoop
+[       OK ] IRBuilderTest.CreateLoop (0 ms)
+[ RUN      ] IRBuilderTest.CreateVariable_NoInitializer
+[       OK ] IRBuilderTest.CreateVariable_NoInitializer (0 ms)
+[ RUN      ] IRBuilderTest.CreateVariable_WithInitializer
+[       OK ] IRBuilderTest.CreateVariable_WithInitializer (0 ms)
+[ RUN      ] IRBuilderTest.ReadVariable
+[       OK ] IRBuilderTest.ReadVariable (0 ms)
+[ RUN      ] IRBuilderTest.WriteVariable
+[       OK ] IRBuilderTest.WriteVariable (0 ms)
+[ RUN      ] IRBuilderTest.NamedValues_SetAndGet
+[       OK ] IRBuilderTest.NamedValues_SetAndGet (0 ms)
+[ RUN      ] IRBuilderTest.NamedValues_NotFound
+[       OK ] IRBuilderTest.NamedValues_NotFound (0 ms)
+[ RUN      ] IRBuilderTest.NamedValues_Remove
+[       OK ] IRBuilderTest.NamedValues_Remove (0 ms)
+[ RUN      ] IRBuilderTest.NamedValues_Clear
+[       OK ] IRBuilderTest.NamedValues_Clear (0 ms)
+[ RUN      ] IRBuilderTest.GetCurrentFunction
+[       OK ] IRBuilderTest.GetCurrentFunction (0 ms)
+[ RUN      ] IRBuilderTest.GetCurrentFunction_NoInsertionPoint
+[       OK ] IRBuilderTest.GetCurrentFunction_NoInsertionPoint (0 ms)
+[ RUN      ] IRBuilderTest.Validate_ValidState
+[       OK ] IRBuilderTest.Validate_ValidState (0 ms)
+[ RUN      ] IRBuilderTest.Integration_SimpleFunction
+[       OK ] IRBuilderTest.Integration_SimpleFunction (0 ms)
+[ RUN      ] IRBuilderTest.Integration_IfThenElse
+[       OK ] IRBuilderTest.Integration_IfThenElse (0 ms)
+[ RUN      ] IRBuilderTest.Integration_Loop
+[       OK ] IRBuilderTest.Integration_Loop (0 ms)
+[----------] 68 tests from IRBuilderTest (6 ms total)
+
+[----------] 32 tests from FunctionTest
+[ RUN      ] FunctionTest.CreateEmptyFunction
+[       OK ] FunctionTest.CreateEmptyFunction (0 ms)
+[ RUN      ] FunctionTest.CreateFunctionWithParameters
+[       OK ] FunctionTest.CreateFunctionWithParameters (0 ms)
+[ RUN      ] FunctionTest.CreateVoidFunction
+[       OK ] FunctionTest.CreateVoidFunction (0 ms)
+[ RUN      ] FunctionTest.CreateMainFunction
+[       OK ] FunctionTest.CreateMainFunction (0 ms)
+[ RUN      ] FunctionTest.GetParameterByIndex
+[       OK ] FunctionTest.GetParameterByIndex (0 ms)
+[ RUN      ] FunctionTest.GetParameterOutOfBounds
+[       OK ] FunctionTest.GetParameterOutOfBounds (0 ms)
+[ RUN      ] FunctionTest.GetAllArguments
+[       OK ] FunctionTest.GetAllArguments (0 ms)
+[ RUN      ] FunctionTest.AddFirstBasicBlock
+[       OK ] FunctionTest.AddFirstBasicBlock (0 ms)
+[ RUN      ] FunctionTest.AddMultipleBasicBlocks
+[       OK ] FunctionTest.AddMultipleBasicBlocks (0 ms)
+[ RUN      ] FunctionTest.RemoveBasicBlock
+[       OK ] FunctionTest.RemoveBasicBlock (0 ms)
+[ RUN      ] FunctionTest.EraseBasicBlock
+[       OK ] FunctionTest.EraseBasicBlock (0 ms)
+[ RUN      ] FunctionTest.FindBlockByName
+[       OK ] FunctionTest.FindBlockByName (0 ms)
+[ RUN      ] FunctionTest.SetEntryBlock
+[       OK ] FunctionTest.SetEntryBlock (0 ms)
+[ RUN      ] FunctionTest.HasSingleBlock
+[       OK ] FunctionTest.HasSingleBlock (0 ms)
+[ RUN      ] FunctionTest.GetAllInstructions
+[       OK ] FunctionTest.GetAllInstructions (0 ms)
+[ RUN      ] FunctionTest.GetNumInstructions
+[       OK ] FunctionTest.GetNumInstructions (0 ms)
+[ RUN      ] FunctionTest.GetExitBlocks
+[       OK ] FunctionTest.GetExitBlocks (0 ms)
+[ RUN      ] FunctionTest.GetUnreachableBlocks
+[       OK ] FunctionTest.GetUnreachableBlocks (0 ms)
+[ RUN      ] FunctionTest.RemoveUnreachableBlocks
+[       OK ] FunctionTest.RemoveUnreachableBlocks (0 ms)
+[ RUN      ] FunctionTest.CanReturn
+[       OK ] FunctionTest.CanReturn (0 ms)
+[ RUN      ] FunctionTest.DoesNotReturn
+[       OK ] FunctionTest.DoesNotReturn (0 ms)
+[ RUN      ] FunctionTest.HasReturnValue
+[       OK ] FunctionTest.HasReturnValue (0 ms)
+[ RUN      ] FunctionTest.VerifyValidFunction
+[       OK ] FunctionTest.VerifyValidFunction (0 ms)
+[ RUN      ] FunctionTest.VerifyDeclarationIsValid
+[       OK ] FunctionTest.VerifyDeclarationIsValid (0 ms)
+[ RUN      ] FunctionTest.VerifyFailsWithoutTerminator
+[       OK ] FunctionTest.VerifyFailsWithoutTerminator (0 ms)
+[ RUN      ] FunctionTest.VerifyComplexCFG
+[       OK ] FunctionTest.VerifyComplexCFG (0 ms)
+[ RUN      ] FunctionTest.ToStringDeclaration
+[       OK ] FunctionTest.ToStringDeclaration (0 ms)
+[ RUN      ] FunctionTest.ToStringDefinition
+[       OK ] FunctionTest.ToStringDefinition (0 ms)
+[ RUN      ] FunctionTest.ToStringWithParameters
+[       OK ] FunctionTest.ToStringWithParameters (0 ms)
+[ RUN      ] FunctionTest.PrintCFG
+[       OK ] FunctionTest.PrintCFG (0 ms)
+[ RUN      ] FunctionTest.FactorialFunction
+[       OK ] FunctionTest.FactorialFunction (0 ms)
+[ RUN      ] FunctionTest.LoopFunction
+[       OK ] FunctionTest.LoopFunction (0 ms)
+[----------] 32 tests from FunctionTest (3 ms total)
+
+[----------] 49 tests from IRGeneratorTest
+[ RUN      ] IRGeneratorTest.IntegerLiteral
+[       OK ] IRGeneratorTest.IntegerLiteral (0 ms)
+[ RUN      ] IRGeneratorTest.FloatLiteral
+[       OK ] IRGeneratorTest.FloatLiteral (0 ms)
+[ RUN      ] IRGeneratorTest.BooleanLiteral_True
+[       OK ] IRGeneratorTest.BooleanLiteral_True (0 ms)
+[ RUN      ] IRGeneratorTest.BooleanLiteral_False
+[       OK ] IRGeneratorTest.BooleanLiteral_False (0 ms)
+[ RUN      ] IRGeneratorTest.StringLiteral
+[       OK ] IRGeneratorTest.StringLiteral (0 ms)
+[ RUN      ] IRGeneratorTest.NoneLiteral
+[       OK ] IRGeneratorTest.NoneLiteral (0 ms)
+[ RUN      ] IRGeneratorTest.BinaryOp_Mapping_Add
+[       OK ] IRGeneratorTest.BinaryOp_Mapping_Add (0 ms)
+[ RUN      ] IRGeneratorTest.BinaryOp_Mapping_Subtract
+[       OK ] IRGeneratorTest.BinaryOp_Mapping_Subtract (0 ms)
+[ RUN      ] IRGeneratorTest.BinaryOp_Mapping_Multiply
+[       OK ] IRGeneratorTest.BinaryOp_Mapping_Multiply (0 ms)
+[ RUN      ] IRGeneratorTest.BinaryOp_Mapping_Divide
+[       OK ] IRGeneratorTest.BinaryOp_Mapping_Divide (0 ms)
+[ RUN      ] IRGeneratorTest.BinaryOp_Mapping_Equal
+[       OK ] IRGeneratorTest.BinaryOp_Mapping_Equal (0 ms)
+[ RUN      ] IRGeneratorTest.BinaryOp_Mapping_NotEqual
+[       OK ] IRGeneratorTest.BinaryOp_Mapping_NotEqual (0 ms)
+[ RUN      ] IRGeneratorTest.BinaryOp_Mapping_Less
+[       OK ] IRGeneratorTest.BinaryOp_Mapping_Less (0 ms)
+[ RUN      ] IRGeneratorTest.BinaryOp_Mapping_LogicalAnd
+[       OK ] IRGeneratorTest.BinaryOp_Mapping_LogicalAnd (0 ms)
+[ RUN      ] IRGeneratorTest.BinaryOp_Mapping_LogicalOr
+[       OK ] IRGeneratorTest.BinaryOp_Mapping_LogicalOr (0 ms)
+[ RUN      ] IRGeneratorTest.UnaryOp_Mapping_Negate
+[       OK ] IRGeneratorTest.UnaryOp_Mapping_Negate (0 ms)
+[ RUN      ] IRGeneratorTest.UnaryOp_Mapping_Not
+[       OK ] IRGeneratorTest.UnaryOp_Mapping_Not (0 ms)
+[ RUN      ] IRGeneratorTest.SymbolTable_Lookup_NotFound
+[       OK ] IRGeneratorTest.SymbolTable_Lookup_NotFound (0 ms)
+[ RUN      ] IRGeneratorTest.SymbolTable_DeclareAndLookup
+[       OK ] IRGeneratorTest.SymbolTable_DeclareAndLookup (0 ms)
+[ RUN      ] IRGeneratorTest.SymbolTable_NestedScopes
+[       OK ] IRGeneratorTest.SymbolTable_NestedScopes (0 ms)
+[ RUN      ] IRGeneratorTest.SymbolTable_LookupOuter
+[       OK ] IRGeneratorTest.SymbolTable_LookupOuter (0 ms)
+[ RUN      ] IRGeneratorTest.ErrorTracking_InitiallyNoErrors
+[       OK ] IRGeneratorTest.ErrorTracking_InitiallyNoErrors (0 ms)
+[ RUN      ] IRGeneratorTest.ErrorTracking_ReportError
+[       OK ] IRGeneratorTest.ErrorTracking_ReportError (0 ms)
+[ RUN      ] IRGeneratorTest.ErrorTracking_MultipleErrors
+[       OK ] IRGeneratorTest.ErrorTracking_MultipleErrors (0 ms)
+[ RUN      ] IRGeneratorTest.LoopTargets_InitiallyNull
+[       OK ] IRGeneratorTest.LoopTargets_InitiallyNull (0 ms)
+[ RUN      ] IRGeneratorTest.LoopTargets_SetAndGet
+[       OK ] IRGeneratorTest.LoopTargets_SetAndGet (0 ms)
+[ RUN      ] IRGeneratorTest.LoopTargets_Clear
+[       OK ] IRGeneratorTest.LoopTargets_Clear (0 ms)
+[ RUN      ] IRGeneratorTest.Integration_EmptyProgram
+[       OK ] IRGeneratorTest.Integration_EmptyProgram (0 ms)
+[ RUN      ] IRGeneratorTest.Integration_SimpleFunction
+[       OK ] IRGeneratorTest.Integration_SimpleFunction (0 ms)
+[ RUN      ] IRGeneratorTest.GetModule
+[       OK ] IRGeneratorTest.GetModule (0 ms)
+[ RUN      ] IRGeneratorTest.GetModule_Const
+[       OK ] IRGeneratorTest.GetModule_Const (0 ms)
+[ RUN      ] IRGeneratorTest.IsBlockTerminated_NoInsertionPoint
+[       OK ] IRGeneratorTest.IsBlockTerminated_NoInsertionPoint (0 ms)
+[ RUN      ] IRGeneratorTest.TypeLowering_IntType
+[       OK ] IRGeneratorTest.TypeLowering_IntType (0 ms)
+[ RUN      ] IRGeneratorTest.TypeLowering_FloatType
+[       OK ] IRGeneratorTest.TypeLowering_FloatType (0 ms)
+[ RUN      ] IRGeneratorTest.TypeLowering_BoolType
+[       OK ] IRGeneratorTest.TypeLowering_BoolType (0 ms)
+[ RUN      ] IRGeneratorTest.TypeLowering_StringType
+[       OK ] IRGeneratorTest.TypeLowering_StringType (0 ms)
+[ RUN      ] IRGeneratorTest.TypeLowering_VoidType
+[       OK ] IRGeneratorTest.TypeLowering_VoidType (0 ms)
+[ RUN      ] IRGeneratorTest.ArrayLiteral_Empty
+[       OK ] IRGeneratorTest.ArrayLiteral_Empty (0 ms)
+[ RUN      ] IRGeneratorTest.ArrayLiteral_WithElements
+[       OK ] IRGeneratorTest.ArrayLiteral_WithElements (0 ms)
+[ RUN      ] IRGeneratorTest.Integration_ArithmeticExpression
+[       OK ] IRGeneratorTest.Integration_ArithmeticExpression (0 ms)
+[ RUN      ] IRGeneratorTest.Integration_NestedArithmetic
+[       OK ] IRGeneratorTest.Integration_NestedArithmetic (0 ms)
+[ RUN      ] IRGeneratorTest.Integration_UnaryNegation
+[       OK ] IRGeneratorTest.Integration_UnaryNegation (0 ms)
+[ RUN      ] IRGeneratorTest.Integration_LogicalNot
+[       OK ] IRGeneratorTest.Integration_LogicalNot (0 ms)
+[ RUN      ] IRGeneratorTest.Integration_Comparison
+[       OK ] IRGeneratorTest.Integration_Comparison (0 ms)
+[ RUN      ] IRGeneratorTest.ReturnStatement_WithValue
+[       OK ] IRGeneratorTest.ReturnStatement_WithValue (0 ms)
+[ RUN      ] IRGeneratorTest.ReturnStatement_Void
+[       OK ] IRGeneratorTest.ReturnStatement_Void (0 ms)
+[ RUN      ] IRGeneratorTest.ExpressionStatement
+[       OK ] IRGeneratorTest.ExpressionStatement (0 ms)
+[ RUN      ] IRGeneratorTest.Block_Empty
+[       OK ] IRGeneratorTest.Block_Empty (0 ms)
+[ RUN      ] IRGeneratorTest.Block_WithStatements
+[       OK ] IRGeneratorTest.Block_WithStatements (0 ms)
+[----------] 49 tests from IRGeneratorTest (4 ms total)
+
+[----------] 8 tests from InstructionTest
+[ RUN      ] InstructionTest.OpcodeNames_Arithmetic
+[       OK ] InstructionTest.OpcodeNames_Arithmetic (0 ms)
+[ RUN      ] InstructionTest.OpcodeNames_Comparison
+[       OK ] InstructionTest.OpcodeNames_Comparison (0 ms)
+[ RUN      ] InstructionTest.OpcodeNames_Logical
+[       OK ] InstructionTest.OpcodeNames_Logical (0 ms)
+[ RUN      ] InstructionTest.OpcodeNames_Memory
+[       OK ] InstructionTest.OpcodeNames_Memory (0 ms)
+[ RUN      ] InstructionTest.OpcodeNames_Array
+[       OK ] InstructionTest.OpcodeNames_Array (0 ms)
+[ RUN      ] InstructionTest.OpcodeNames_ControlFlow
+[       OK ] InstructionTest.OpcodeNames_ControlFlow (0 ms)
+[ RUN      ] InstructionTest.OpcodeNames_Call
+[       OK ] InstructionTest.OpcodeNames_Call (0 ms)
+[ RUN      ] InstructionTest.OpcodeNames_SSA
+[       OK ] InstructionTest.OpcodeNames_SSA (0 ms)
+[----------] 8 tests from InstructionTest (0 ms total)
+
+[----------] 4 tests from BinaryOperatorTest
+[ RUN      ] BinaryOperatorTest.Creation_Add
+[       OK ] BinaryOperatorTest.Creation_Add (0 ms)
+[ RUN      ] BinaryOperatorTest.TypeQueries
+[       OK ] BinaryOperatorTest.TypeQueries (0 ms)
+[ RUN      ] BinaryOperatorTest.AllArithmeticOpcodes
+[       OK ] BinaryOperatorTest.AllArithmeticOpcodes (0 ms)
+[ RUN      ] BinaryOperatorTest.OperandModification
+[       OK ] BinaryOperatorTest.OperandModification (0 ms)
+[----------] 4 tests from BinaryOperatorTest (0 ms total)
+
+[----------] 3 tests from UnaryOperatorTest
+[ RUN      ] UnaryOperatorTest.Creation_Neg
+[       OK ] UnaryOperatorTest.Creation_Neg (0 ms)
+[ RUN      ] UnaryOperatorTest.TypeQueries
+[       OK ] UnaryOperatorTest.TypeQueries (0 ms)
+[ RUN      ] UnaryOperatorTest.Not
+[       OK ] UnaryOperatorTest.Not (0 ms)
+[----------] 3 tests from UnaryOperatorTest (0 ms total)
+
+[----------] 3 tests from ComparisonTest
+[ RUN      ] ComparisonTest.Creation_Eq
+[       OK ] ComparisonTest.Creation_Eq (0 ms)
+[ RUN      ] ComparisonTest.TypeQueries
+[       OK ] ComparisonTest.TypeQueries (0 ms)
+[ RUN      ] ComparisonTest.AllComparisonOpcodes
+[       OK ] ComparisonTest.AllComparisonOpcodes (0 ms)
+[----------] 3 tests from ComparisonTest (0 ms total)
+
+[----------] 4 tests from MemoryTest
+[ RUN      ] MemoryTest.AllocaInst
+[       OK ] MemoryTest.AllocaInst (0 ms)
+[ RUN      ] MemoryTest.LoadInst
+[       OK ] MemoryTest.LoadInst (0 ms)
+[ RUN      ] MemoryTest.StoreInst
+[       OK ] MemoryTest.StoreInst (0 ms)
+[ RUN      ] MemoryTest.GCAllocInst
+[       OK ] MemoryTest.GCAllocInst (0 ms)
+[----------] 4 tests from MemoryTest (0 ms total)
+
+[----------] 5 tests from ArrayTest
+[ RUN      ] ArrayTest.ArrayNewInst
+[       OK ] ArrayTest.ArrayNewInst (0 ms)
+[ RUN      ] ArrayTest.ArrayGetInst
+[       OK ] ArrayTest.ArrayGetInst (0 ms)
+[ RUN      ] ArrayTest.ArraySetInst
+[       OK ] ArrayTest.ArraySetInst (0 ms)
+[ RUN      ] ArrayTest.ArrayLenInst
+[       OK ] ArrayTest.ArrayLenInst (0 ms)
+[ RUN      ] ArrayTest.ArraySliceInst
+[       OK ] ArrayTest.ArraySliceInst (0 ms)
+[----------] 5 tests from ArrayTest (0 ms total)
+
+[----------] 1 test from TypeTest
+[ RUN      ] TypeTest.CastInst
+[       OK ] TypeTest.CastInst (0 ms)
+[----------] 1 test from TypeTest (0 ms total)
+
+[----------] 2 tests from ControlFlowTest
+[ RUN      ] ControlFlowTest.ReturnInst_WithValue
+[       OK ] ControlFlowTest.ReturnInst_WithValue (0 ms)
+[ RUN      ] ControlFlowTest.ReturnInst_Void
+[       OK ] ControlFlowTest.ReturnInst_Void (0 ms)
+[----------] 2 tests from ControlFlowTest (0 ms total)
+
+[----------] 1 test from PhiNodeTest
+[ RUN      ] PhiNodeTest.Creation
+[       OK ] PhiNodeTest.Creation (0 ms)
+[----------] 1 test from PhiNodeTest (0 ms total)
+
+[----------] 5 tests from InstructionQueryTest
+[ RUN      ] InstructionQueryTest.BinaryOperator
+[       OK ] InstructionQueryTest.BinaryOperator (0 ms)
+[ RUN      ] InstructionQueryTest.Comparison
+[       OK ] InstructionQueryTest.Comparison (0 ms)
+[ RUN      ] InstructionQueryTest.MemoryOp
+[       OK ] InstructionQueryTest.MemoryOp (0 ms)
+[ RUN      ] InstructionQueryTest.ArrayOp
+[       OK ] InstructionQueryTest.ArrayOp (0 ms)
+[ RUN      ] InstructionQueryTest.Terminator
+[       OK ] InstructionQueryTest.Terminator (0 ms)
+[----------] 5 tests from InstructionQueryTest (0 ms total)
+
+[----------] 3 tests from UseDefChainTest
+[ RUN      ] UseDefChainTest.InitialUses
+[       OK ] UseDefChainTest.InitialUses (0 ms)
+[ RUN      ] UseDefChainTest.SingleUse
+[       OK ] UseDefChainTest.SingleUse (0 ms)
+[ RUN      ] UseDefChainTest.MultipleUses
+[       OK ] UseDefChainTest.MultipleUses (0 ms)
+[----------] 3 tests from UseDefChainTest (0 ms total)
+
+[----------] 1 test from ToStringTest
+[ RUN      ] ToStringTest.BinaryOperator
+[       OK ] ToStringTest.BinaryOperator (0 ms)
+[----------] 1 test from ToStringTest (0 ms total)
+
+[----------] 12 tests from IntegrationTest
+[ RUN      ] IntegrationTest.SimpleAdditionProgram
+[       OK ] IntegrationTest.SimpleAdditionProgram (0 ms)
+[ RUN      ] IntegrationTest.ComplexArithmeticProgram
+[       OK ] IntegrationTest.ComplexArithmeticProgram (0 ms)
+[ RUN      ] IntegrationTest.IfElseProgram
+[       OK ] IntegrationTest.IfElseProgram (0 ms)
+[ RUN      ] IntegrationTest.WhileLoopProgram
+[       OK ] IntegrationTest.WhileLoopProgram (0 ms)
+[ RUN      ] IntegrationTest.FunctionCallProgram
+[       OK ] IntegrationTest.FunctionCallProgram (0 ms)
+[ RUN      ] IntegrationTest.RecursiveFunctionProgram
+[       OK ] IntegrationTest.RecursiveFunctionProgram (0 ms)
+[ RUN      ] IntegrationTest.FibonacciProgram
+[       OK ] IntegrationTest.FibonacciProgram (0 ms)
+[ RUN      ] IntegrationTest.GCDProgram
+[       OK ] IntegrationTest.GCDProgram (0 ms)
+[ RUN      ] IntegrationTest.ConstantFoldingIntegration
+[       OK ] IntegrationTest.ConstantFoldingIntegration (0 ms)
+[ RUN      ] IntegrationTest.Mem2RegIntegration
+[       OK ] IntegrationTest.Mem2RegIntegration (0 ms)
+[ RUN      ] IntegrationTest.FullOptimizationPipeline
+[       OK ] IntegrationTest.FullOptimizationPipeline (0 ms)
+[ RUN      ] IntegrationTest.PhiNodeCorrectness
+[       OK ] IntegrationTest.PhiNodeCorrectness (0 ms)
+[----------] 12 tests from IntegrationTest (1 ms total)
+
+[----------] 14 tests from ArenaTest
+[ RUN      ] ArenaTest.BasicAllocation
+[       OK ] ArenaTest.BasicAllocation (0 ms)
+[ RUN      ] ArenaTest.MultipleAllocations
+[       OK ] ArenaTest.MultipleAllocations (0 ms)
+[ RUN      ] ArenaTest.Alignment
+[       OK ] ArenaTest.Alignment (0 ms)
+[ RUN      ] ArenaTest.LargeAllocation
+[       OK ] ArenaTest.LargeAllocation (0 ms)
+[ RUN      ] ArenaTest.Reset
+[       OK ] ArenaTest.Reset (0 ms)
+[ RUN      ] ArenaTest.Statistics
+[       OK ] ArenaTest.Statistics (0 ms)
+[ RUN      ] ArenaTest.ZeroSizeAllocation
+[       OK ] ArenaTest.ZeroSizeAllocation (0 ms)
+[ RUN      ] ArenaTest.HighAlignmentRequirement
+[       OK ] ArenaTest.HighAlignmentRequirement (0 ms)
+[ RUN      ] ArenaTest.MixedSizeAllocations
+[       OK ] ArenaTest.MixedSizeAllocations (0 ms)
+[ RUN      ] ArenaTest.ResetMultipleTimes
+[       OK ] ArenaTest.ResetMultipleTimes (0 ms)
+[ RUN      ] ArenaTest.MultipleVeryLargeAllocations
+[       OK ] ArenaTest.MultipleVeryLargeAllocations (0 ms)
+[ RUN      ] ArenaTest.MoveConstructor
+[       OK ] ArenaTest.MoveConstructor (0 ms)
+[ RUN      ] ArenaTest.MoveAssignment
+[       OK ] ArenaTest.MoveAssignment (0 ms)
+[ RUN      ] ArenaTest.StructAllocation
+[       OK ] ArenaTest.StructAllocation (0 ms)
+[----------] 14 tests from ArenaTest (1 ms total)
+
+[----------] 21 tests from ModuleTest
+[ RUN      ] ModuleTest.CreateModule
+[       OK ] ModuleTest.CreateModule (0 ms)
+[ RUN      ] ModuleTest.ModuleName
+[       OK ] ModuleTest.ModuleName (0 ms)
+[ RUN      ] ModuleTest.CreateFunction
+[       OK ] ModuleTest.CreateFunction (0 ms)
+[ RUN      ] ModuleTest.GetFunction
+[       OK ] ModuleTest.GetFunction (0 ms)
+[ RUN      ] ModuleTest.MultipleFunctions
+[       OK ] ModuleTest.MultipleFunctions (0 ms)
+[ RUN      ] ModuleTest.GetOrInsertFunction
+[       OK ] ModuleTest.GetOrInsertFunction (0 ms)
+[ RUN      ] ModuleTest.RemoveFunction
+[       OK ] ModuleTest.RemoveFunction (0 ms)
+[ RUN      ] ModuleTest.CreateGlobal
+[       OK ] ModuleTest.CreateGlobal (0 ms)
+[ RUN      ] ModuleTest.GetGlobal
+[       OK ] ModuleTest.GetGlobal (0 ms)
+[ RUN      ] ModuleTest.PrimitiveTypeCaching
+[       OK ] ModuleTest.PrimitiveTypeCaching (0 ms)
+[ RUN      ] ModuleTest.PointerTypeCaching
+[       OK ] ModuleTest.PointerTypeCaching (0 ms)
+[ RUN      ] ModuleTest.CreateBasicBlock
+[       OK ] ModuleTest.CreateBasicBlock (0 ms)
+[ RUN      ] ModuleTest.CreateInstruction
+[       OK ] ModuleTest.CreateInstruction (0 ms)
+[ RUN      ] ModuleTest.BuildSimpleFunction
+[       OK ] ModuleTest.BuildSimpleFunction (0 ms)
+[ RUN      ] ModuleTest.BuildFibonacci
+[       OK ] ModuleTest.BuildFibonacci (0 ms)
+[ RUN      ] ModuleTest.VerifyValid
+[       OK ] ModuleTest.VerifyValid (0 ms)
+[ RUN      ] ModuleTest.VerifyInvalidFunction
+[       OK ] ModuleTest.VerifyInvalidFunction (0 ms)
+[ RUN      ] ModuleTest.ToString
+[       OK ] ModuleTest.ToString (0 ms)
+[ RUN      ] ModuleTest.ToStringDetailed
+[       OK ] ModuleTest.ToStringDetailed (0 ms)
+[ RUN      ] ModuleTest.Statistics
+[       OK ] ModuleTest.Statistics (0 ms)
+[ RUN      ] ModuleTest.NoCrashOnDestruction
+[       OK ] ModuleTest.NoCrashOnDestruction (0 ms)
+[----------] 21 tests from ModuleTest (2 ms total)
+
+[----------] 22 tests from OptimizationPassTest
+[ RUN      ] OptimizationPassTest.DCE_RemovesUnusedAdd
+[       OK ] OptimizationPassTest.DCE_RemovesUnusedAdd (0 ms)
+[ RUN      ] OptimizationPassTest.DCE_KeepsUsedInstructions
+[       OK ] OptimizationPassTest.DCE_KeepsUsedInstructions (0 ms)
+[ RUN      ] OptimizationPassTest.DCE_RemovesDeadChain
+[       OK ] OptimizationPassTest.DCE_RemovesDeadChain (0 ms)
+[ RUN      ] OptimizationPassTest.DCE_KeepsStoreInstruction
+[       OK ] OptimizationPassTest.DCE_KeepsStoreInstruction (0 ms)
+[ RUN      ] OptimizationPassTest.ConstFold_FoldsAddition
+[       OK ] OptimizationPassTest.ConstFold_FoldsAddition (0 ms)
+[ RUN      ] OptimizationPassTest.ConstFold_FoldsMultiplication
+[       OK ] OptimizationPassTest.ConstFold_FoldsMultiplication (0 ms)
+[ RUN      ] OptimizationPassTest.ConstFold_FoldsComparison
+[       OK ] OptimizationPassTest.ConstFold_FoldsComparison (0 ms)
+[ RUN      ] OptimizationPassTest.ConstFold_FoldsNegation
+[       OK ] OptimizationPassTest.ConstFold_FoldsNegation (0 ms)
+[ RUN      ] OptimizationPassTest.ConstFold_DoesNotFoldVariables
+[       OK ] OptimizationPassTest.ConstFold_DoesNotFoldVariables (0 ms)
+[ RUN      ] OptimizationPassTest.ConstFold_FoldsFloatOps
+[       OK ] OptimizationPassTest.ConstFold_FoldsFloatOps (0 ms)
+[ RUN      ] OptimizationPassTest.ConstProp_PropagatesSimpleConstant
+[       OK ] OptimizationPassTest.ConstProp_PropagatesSimpleConstant (0 ms)
+[ RUN      ] OptimizationPassTest.ConstProp_PropagatesAcrossLoad
+[       OK ] OptimizationPassTest.ConstProp_PropagatesAcrossLoad (0 ms)
+[ RUN      ] OptimizationPassTest.Mem2Reg_PromotesSimpleAlloca
+[       OK ] OptimizationPassTest.Mem2Reg_PromotesSimpleAlloca (0 ms)
+[ RUN      ] OptimizationPassTest.Mem2Reg_InsertsPhiNode
+[       OK ] OptimizationPassTest.Mem2Reg_InsertsPhiNode (0 ms)
+[ RUN      ] OptimizationPassTest.Mem2Reg_DoesNotPromoteAddressTaken
+[       OK ] OptimizationPassTest.Mem2Reg_DoesNotPromoteAddressTaken (0 ms)
+[ RUN      ] OptimizationPassTest.PassManager_RunsMultiplePasses
+[       OK ] OptimizationPassTest.PassManager_RunsMultiplePasses (0 ms)
+[ RUN      ] OptimizationPassTest.PassManager_EmptyManager
+[       OK ] OptimizationPassTest.PassManager_EmptyManager (0 ms)
+[ RUN      ] OptimizationPassTest.PassManager_IterativeOptimization
+[       OK ] OptimizationPassTest.PassManager_IterativeOptimization (0 ms)
+[ RUN      ] OptimizationPassTest.Integration_FullPipeline
+[       OK ] OptimizationPassTest.Integration_FullPipeline (0 ms)
+[ RUN      ] OptimizationPassTest.EdgeCase_EmptyFunction
+[       OK ] OptimizationPassTest.EdgeCase_EmptyFunction (0 ms)
+[ RUN      ] OptimizationPassTest.EdgeCase_OnlyTerminator
+[       OK ] OptimizationPassTest.EdgeCase_OnlyTerminator (0 ms)
+[ RUN      ] OptimizationPassTest.EdgeCase_MultipleBlocks
+[       OK ] OptimizationPassTest.EdgeCase_MultipleBlocks (0 ms)
+[----------] 22 tests from OptimizationPassTest (2 ms total)
+
+[----------] 32 tests from IRPrinterTest
+[ RUN      ] IRPrinterTest.PrintType_Int
+[       OK ] IRPrinterTest.PrintType_Int (0 ms)
+[ RUN      ] IRPrinterTest.PrintType_Float
+[       OK ] IRPrinterTest.PrintType_Float (0 ms)
+[ RUN      ] IRPrinterTest.PrintType_Bool
+[       OK ] IRPrinterTest.PrintType_Bool (0 ms)
+[ RUN      ] IRPrinterTest.PrintType_Void
+[       OK ] IRPrinterTest.PrintType_Void (0 ms)
+[ RUN      ] IRPrinterTest.PrintType_Pointer
+[       OK ] IRPrinterTest.PrintType_Pointer (0 ms)
+[ RUN      ] IRPrinterTest.PrintType_Array
+[       OK ] IRPrinterTest.PrintType_Array (0 ms)
+[ RUN      ] IRPrinterTest.PrintValue_ConstantInt
+[       OK ] IRPrinterTest.PrintValue_ConstantInt (0 ms)
+[ RUN      ] IRPrinterTest.PrintValue_ConstantFloat
+[       OK ] IRPrinterTest.PrintValue_ConstantFloat (0 ms)
+[ RUN      ] IRPrinterTest.PrintValue_ConstantBool_True
+[       OK ] IRPrinterTest.PrintValue_ConstantBool_True (0 ms)
+[ RUN      ] IRPrinterTest.PrintValue_ConstantBool_False
+[       OK ] IRPrinterTest.PrintValue_ConstantBool_False (0 ms)
+[ RUN      ] IRPrinterTest.PrintValue_NamedArgument
+[       OK ] IRPrinterTest.PrintValue_NamedArgument (0 ms)
+[ RUN      ] IRPrinterTest.PrintValue_UnnamedValue_GetsSSANumber
+[       OK ] IRPrinterTest.PrintValue_UnnamedValue_GetsSSANumber (0 ms)
+[ RUN      ] IRPrinterTest.PrintValue_MultipleUnnamedValues_IncrementSSANumber
+[       OK ] IRPrinterTest.PrintValue_MultipleUnnamedValues_IncrementSSANumber (0 ms)
+[ RUN      ] IRPrinterTest.PrintValue_Reset_ClearsSSANumbering
+[       OK ] IRPrinterTest.PrintValue_Reset_ClearsSSANumbering (0 ms)
+[ RUN      ] IRPrinterTest.PrintInstruction_Add
+[       OK ] IRPrinterTest.PrintInstruction_Add (0 ms)
+[ RUN      ] IRPrinterTest.PrintInstruction_Return
+[       OK ] IRPrinterTest.PrintInstruction_Return (0 ms)
+[ RUN      ] IRPrinterTest.PrintInstruction_ReturnVoid
+[       OK ] IRPrinterTest.PrintInstruction_ReturnVoid (0 ms)
+[ RUN      ] IRPrinterTest.PrintBasicBlock_Empty
+[       OK ] IRPrinterTest.PrintBasicBlock_Empty (0 ms)
+[ RUN      ] IRPrinterTest.PrintBasicBlock_WithInstructions
+[       OK ] IRPrinterTest.PrintBasicBlock_WithInstructions (0 ms)
+[ RUN      ] IRPrinterTest.PrintBasicBlock_WithPredecessors
+[       OK ] IRPrinterTest.PrintBasicBlock_WithPredecessors (0 ms)
+[ RUN      ] IRPrinterTest.PrintFunction_EmptyVoid
+[       OK ] IRPrinterTest.PrintFunction_EmptyVoid (0 ms)
+[ RUN      ] IRPrinterTest.PrintFunction_WithParameters
+[       OK ] IRPrinterTest.PrintFunction_WithParameters (0 ms)
+[ RUN      ] IRPrinterTest.PrintFunction_WithBody
+[       OK ] IRPrinterTest.PrintFunction_WithBody (0 ms)
+[ RUN      ] IRPrinterTest.PrintModule_Empty
+[       OK ] IRPrinterTest.PrintModule_Empty (0 ms)
+[ RUN      ] IRPrinterTest.PrintModule_WithFunction
+[       OK ] IRPrinterTest.PrintModule_WithFunction (0 ms)
+[ RUN      ] IRPrinterTest.PrintModule_WithGlobal
+[       OK ] IRPrinterTest.PrintModule_WithGlobal (0 ms)
+[ RUN      ] IRPrinterTest.ShowTypes_Enabled
+[       OK ] IRPrinterTest.ShowTypes_Enabled (0 ms)
+[ RUN      ] IRPrinterTest.ShowTypes_Disabled
+[       OK ] IRPrinterTest.ShowTypes_Disabled (0 ms)
+[ RUN      ] IRPrinterTest.ShowCFG_Enabled
+[       OK ] IRPrinterTest.ShowCFG_Enabled (0 ms)
+[ RUN      ] IRPrinterTest.ShowCFG_Disabled
+[       OK ] IRPrinterTest.ShowCFG_Disabled (0 ms)
+[ RUN      ] IRPrinterTest.Integration_SimpleFunction
+[       OK ] IRPrinterTest.Integration_SimpleFunction (0 ms)
+[ RUN      ] IRPrinterTest.Integration_IfThenElse
+[       OK ] IRPrinterTest.Integration_IfThenElse (0 ms)
+[----------] 32 tests from IRPrinterTest (3 ms total)
+
+[----------] 41 tests from ValueTest
+[ RUN      ] ValueTest.ConstantIntCreation
+[       OK ] ValueTest.ConstantIntCreation (0 ms)
+[ RUN      ] ValueTest.ConstantIntNegativeValue
+[       OK ] ValueTest.ConstantIntNegativeValue (0 ms)
+[ RUN      ] ValueTest.ConstantIntZero
+[       OK ] ValueTest.ConstantIntZero (0 ms)
+[ RUN      ] ValueTest.ConstantIntToString
+[       OK ] ValueTest.ConstantIntToString (0 ms)
+[ RUN      ] ValueTest.ConstantIntClassof
+[       OK ] ValueTest.ConstantIntClassof (0 ms)
+[ RUN      ] ValueTest.ConstantFloatCreation
+[       OK ] ValueTest.ConstantFloatCreation (0 ms)
+[ RUN      ] ValueTest.ConstantFloatNegative
+[       OK ] ValueTest.ConstantFloatNegative (0 ms)
+[ RUN      ] ValueTest.ConstantFloatZero
+[       OK ] ValueTest.ConstantFloatZero (0 ms)
+[ RUN      ] ValueTest.ConstantFloatToString
+[       OK ] ValueTest.ConstantFloatToString (0 ms)
+[ RUN      ] ValueTest.ConstantFloatClassof
+[       OK ] ValueTest.ConstantFloatClassof (0 ms)
+[ RUN      ] ValueTest.ConstantBoolTrue
+[       OK ] ValueTest.ConstantBoolTrue (0 ms)
+[ RUN      ] ValueTest.ConstantBoolFalse
+[       OK ] ValueTest.ConstantBoolFalse (0 ms)
+[ RUN      ] ValueTest.ConstantBoolGetTrue
+[       OK ] ValueTest.ConstantBoolGetTrue (0 ms)
+[ RUN      ] ValueTest.ConstantBoolGetFalse
+[       OK ] ValueTest.ConstantBoolGetFalse (0 ms)
+[ RUN      ] ValueTest.ConstantBoolToString
+[       OK ] ValueTest.ConstantBoolToString (0 ms)
+[ RUN      ] ValueTest.ConstantBoolClassof
+[       OK ] ValueTest.ConstantBoolClassof (0 ms)
+[ RUN      ] ValueTest.UndefValueCreation
+[       OK ] ValueTest.UndefValueCreation (0 ms)
+[ RUN      ] ValueTest.UndefValueToString
+[       OK ] ValueTest.UndefValueToString (0 ms)
+[ RUN      ] ValueTest.UndefValueClassof
+[       OK ] ValueTest.UndefValueClassof (0 ms)
+[ RUN      ] ValueTest.ArgumentCreation
+[       OK ] ValueTest.ArgumentCreation (0 ms)
+[ RUN      ] ValueTest.ArgumentWithoutName
+[       OK ] ValueTest.ArgumentWithoutName (0 ms)
+[ RUN      ] ValueTest.ArgumentToString
+[       OK ] ValueTest.ArgumentToString (0 ms)
+[ RUN      ] ValueTest.ArgumentClassof
+[       OK ] ValueTest.ArgumentClassof (0 ms)
+[ RUN      ] ValueTest.GlobalVariableCreation
+[       OK ] ValueTest.GlobalVariableCreation (0 ms)
+[ RUN      ] ValueTest.GlobalVariableWithInitializer
+[       OK ] ValueTest.GlobalVariableWithInitializer (0 ms)
+[ RUN      ] ValueTest.GlobalVariableConstant
+[       OK ] ValueTest.GlobalVariableConstant (0 ms)
+[ RUN      ] ValueTest.GlobalVariableToString
+[       OK ] ValueTest.GlobalVariableToString (0 ms)
+[ RUN      ] ValueTest.GlobalVariableClassof
+[       OK ] ValueTest.GlobalVariableClassof (0 ms)
+[ RUN      ] ValueTest.ValueNaming
+[       OK ] ValueTest.ValueNaming (0 ms)
+[ RUN      ] ValueTest.ValueUniqueID
+[       OK ] ValueTest.ValueUniqueID (0 ms)
+[ RUN      ] ValueTest.ValueTypeChecking
+[       OK ] ValueTest.ValueTypeChecking (0 ms)
+[ RUN      ] ValueTest.ArgumentTypeChecking
+[       OK ] ValueTest.ArgumentTypeChecking (0 ms)
+[ RUN      ] ValueTest.GlobalVariableTypeChecking
+[       OK ] ValueTest.GlobalVariableTypeChecking (0 ms)
+[ RUN      ] ValueTest.DynCastConstantInt
+[       OK ] ValueTest.DynCastConstantInt (0 ms)
+[ RUN      ] ValueTest.DynCastFailure
+[       OK ] ValueTest.DynCastFailure (0 ms)
+[ RUN      ] ValueTest.IsaConstant
+[       OK ] ValueTest.IsaConstant (0 ms)
+[ RUN      ] ValueTest.IsaArgument
+[       OK ] ValueTest.IsaArgument (0 ms)
+[ RUN      ] ValueTest.ValueUsesEmpty
+[       OK ] ValueTest.ValueUsesEmpty (0 ms)
+[ RUN      ] ValueTest.ValueUsesAPIExists
+[       OK ] ValueTest.ValueUsesAPIExists (0 ms)
+[ RUN      ] ValueTest.MultipleConstantTypes
+[       OK ] ValueTest.MultipleConstantTypes (0 ms)
+[ RUN      ] ValueTest.ConstantPolymorphism
+[       OK ] ValueTest.ConstantPolymorphism (0 ms)
+[----------] 41 tests from ValueTest (4 ms total)
+
+[----------] 5 tests from VerifierTest
+[ RUN      ] VerifierTest.EmptyModule_IsValid
+[       OK ] VerifierTest.EmptyModule_IsValid (0 ms)
+[ RUN      ] VerifierTest.ValidFunction_Passes
+[       OK ] VerifierTest.ValidFunction_Passes (0 ms)
+[ RUN      ] VerifierTest.MissingTerminator_Fails
+[       OK ] VerifierTest.MissingTerminator_Fails (0 ms)
+[ RUN      ] VerifierTest.WrongReturnType_Fails
+[       OK ] VerifierTest.WrongReturnType_Fails (0 ms)
+[ RUN      ] VerifierTest.CFGConsistency_ValidBranch
+[       OK ] VerifierTest.CFGConsistency_ValidBranch (0 ms)
+[----------] 5 tests from VerifierTest (0 ms total)
+
+[----------] 16 tests from LexerTest
+[ RUN      ] LexerTest.SimpleTokens
+[       OK ] LexerTest.SimpleTokens (0 ms)
+[ RUN      ] LexerTest.Keywords
+[       OK ] LexerTest.Keywords (0 ms)
+[ RUN      ] LexerTest.Identifiers
+[       OK ] LexerTest.Identifiers (0 ms)
+[ RUN      ] LexerTest.Strings
+[       OK ] LexerTest.Strings (0 ms)
+[ RUN      ] LexerTest.Integers
+[       OK ] LexerTest.Integers (0 ms)
+[ RUN      ] LexerTest.RealNumbers
+[       OK ] LexerTest.RealNumbers (0 ms)
+[ RUN      ] LexerTest.ScientificNotation
+[       OK ] LexerTest.ScientificNotation (0 ms)
+[ RUN      ] LexerTest.Operators
+[       OK ] LexerTest.Operators (0 ms)
+[ RUN      ] LexerTest.AssignmentOperators
+[       OK ] LexerTest.AssignmentOperators (0 ms)
+[ RUN      ] LexerTest.Delimiters
+[       OK ] LexerTest.Delimiters (0 ms)
+[ RUN      ] LexerTest.Arrows
+[       OK ] LexerTest.Arrows (0 ms)
+[ RUN      ] LexerTest.Comments
+[       OK ] LexerTest.Comments (0 ms)
+[ RUN      ] LexerTest.LineAndColumnTracking
+[       OK ] LexerTest.LineAndColumnTracking (0 ms)
+[ RUN      ] LexerTest.ComplexExpression
+[       OK ] LexerTest.ComplexExpression (0 ms)
+[ RUN      ] LexerTest.UnterminatedString
+[       OK ] LexerTest.UnterminatedString (0 ms)
+[ RUN      ] LexerTest.InvalidScientificNotation
+[       OK ] LexerTest.InvalidScientificNotation (0 ms)
+[----------] 16 tests from LexerTest (0 ms total)
+
+[----------] 52 tests from ParserTest
+[ RUN      ] ParserTest.ParseEmptyProgram
+[       OK ] ParserTest.ParseEmptyProgram (0 ms)
+[ RUN      ] ParserTest.ParseSimpleProgram
+[       OK ] ParserTest.ParseSimpleProgram (0 ms)
+[ RUN      ] ParserTest.ParseIntegerLiteral
+[       OK ] ParserTest.ParseIntegerLiteral (0 ms)
+[ RUN      ] ParserTest.ParseFloatLiteral
+[       OK ] ParserTest.ParseFloatLiteral (0 ms)
+[ RUN      ] ParserTest.ParseStringLiteral
+[       OK ] ParserTest.ParseStringLiteral (0 ms)
+[ RUN      ] ParserTest.ParseBooleanLiteral
+[       OK ] ParserTest.ParseBooleanLiteral (0 ms)
+[ RUN      ] ParserTest.ParseIdentifier
+[       OK ] ParserTest.ParseIdentifier (0 ms)
+[ RUN      ] ParserTest.ParseBinaryExpression
+[       OK ] ParserTest.ParseBinaryExpression (0 ms)
+[ RUN      ] ParserTest.ParseComplexBinaryExpression
+[       OK ] ParserTest.ParseComplexBinaryExpression (0 ms)
+[ RUN      ] ParserTest.ParseUnaryExpression
+[       OK ] ParserTest.ParseUnaryExpression (0 ms)
+[ RUN      ] ParserTest.ParseLogicalExpression
+[       OK ] ParserTest.ParseLogicalExpression (0 ms)
+[ RUN      ] ParserTest.ParseComparisonExpression
+[       OK ] ParserTest.ParseComparisonExpression (0 ms)
+[ RUN      ] ParserTest.ParseRangeExpression
+[       OK ] ParserTest.ParseRangeExpression (0 ms)
+[ RUN      ] ParserTest.ParseInclusiveRangeExpression
+[       OK ] ParserTest.ParseInclusiveRangeExpression (0 ms)
+[ RUN      ] ParserTest.ParseCallExpression
+[       OK ] ParserTest.ParseCallExpression (0 ms)
+[ RUN      ] ParserTest.ParseIndexExpression
+[       OK ] ParserTest.ParseIndexExpression (0 ms)
+[ RUN      ] ParserTest.ParseSliceExpression
+[       OK ] ParserTest.ParseSliceExpression (0 ms)
+[ RUN      ] ParserTest.ParseMemberExpression
+[       OK ] ParserTest.ParseMemberExpression (0 ms)
+[ RUN      ] ParserTest.ParseMethodCallExpression
+[       OK ] ParserTest.ParseMethodCallExpression (0 ms)
+[ RUN      ] ParserTest.ParseArrayLiteral
+[       OK ] ParserTest.ParseArrayLiteral (0 ms)
+[ RUN      ] ParserTest.ParseTupleLiteral
+[       OK ] ParserTest.ParseTupleLiteral (0 ms)
+[ RUN      ] ParserTest.ParseStructLiteral
+[       OK ] ParserTest.ParseStructLiteral (0 ms)
+[ RUN      ] ParserTest.ParseExpressionStatement
+[       OK ] ParserTest.ParseExpressionStatement (0 ms)
+[ RUN      ] ParserTest.ParseBlock
+[       OK ] ParserTest.ParseBlock (0 ms)
+[ RUN      ] ParserTest.ParseIfStatement
+[       OK ] ParserTest.ParseIfStatement (0 ms)
+[ RUN      ] ParserTest.ParseIfElseStatement
+[       OK ] ParserTest.ParseIfElseStatement (0 ms)
+[ RUN      ] ParserTest.ParseIfElseIfElseStatement
+[       OK ] ParserTest.ParseIfElseIfElseStatement (0 ms)
+[ RUN      ] ParserTest.ParseWhileStatement
+[       OK ] ParserTest.ParseWhileStatement (0 ms)
+[ RUN      ] ParserTest.ParseForStatement
+[       OK ] ParserTest.ParseForStatement (0 ms)
+[ RUN      ] ParserTest.ParseReturnStatement
+[       OK ] ParserTest.ParseReturnStatement (0 ms)
+[ RUN      ] ParserTest.ParseReturnStatementEmpty
+[       OK ] ParserTest.ParseReturnStatementEmpty (0 ms)
+[ RUN      ] ParserTest.ParseImportStatement
+[       OK ] ParserTest.ParseImportStatement (0 ms)
+[ RUN      ] ParserTest.ParseVarDeclarationWithType
+[       OK ] ParserTest.ParseVarDeclarationWithType (0 ms)
+[ RUN      ] ParserTest.ParseVarDeclarationInferred
+[       OK ] ParserTest.ParseVarDeclarationInferred (0 ms)
+[ RUN      ] ParserTest.ParseVarDeclarationMutable
+[       OK ] ParserTest.ParseVarDeclarationMutable (0 ms)
+[ RUN      ] ParserTest.ParseFnDeclarationSimple
+[       OK ] ParserTest.ParseFnDeclarationSimple (0 ms)
+[ RUN      ] ParserTest.ParseStructDeclaration
+[       OK ] ParserTest.ParseStructDeclaration (0 ms)
+[ RUN      ] ParserTest.ParseStructDeclarationEmpty
+[       OK ] ParserTest.ParseStructDeclarationEmpty (0 ms)
+[ RUN      ] ParserTest.ParsePrimitiveType
+[       OK ] ParserTest.ParsePrimitiveType (0 ms)
+[ RUN      ] ParserTest.ParseArrayType
+[       OK ] ParserTest.ParseArrayType (0 ms)
+[ RUN      ] ParserTest.ParseTupleType
+[       OK ] ParserTest.ParseTupleType (0 ms)
+[ RUN      ] ParserTest.ParseFunctionType
+[       OK ] ParserTest.ParseFunctionType (0 ms)
+[ RUN      ] ParserTest.ParseGenericType
+[       OK ] ParserTest.ParseGenericType (0 ms)
+[ RUN      ] ParserTest.ParseTypeAnnotation
+[       OK ] ParserTest.ParseTypeAnnotation (0 ms)
+[ RUN      ] ParserTest.ParseLiteralPattern
+[       OK ] ParserTest.ParseLiteralPattern (0 ms)
+[ RUN      ] ParserTest.ParseIdentifierPattern
+[       OK ] ParserTest.ParseIdentifierPattern (0 ms)
+[ RUN      ] ParserTest.ParseWildcardPattern
+[       OK ] ParserTest.ParseWildcardPattern (0 ms)
+[ RUN      ] ParserTest.ParseTuplePattern
+[       OK ] ParserTest.ParseTuplePattern (0 ms)
+[ RUN      ] ParserTest.ParseConstructorPattern
+[       OK ] ParserTest.ParseConstructorPattern (0 ms)
+[ RUN      ] ParserTest.ParseComplexProgram
+[       OK ] ParserTest.ParseComplexProgram (0 ms)
+[ RUN      ] ParserTest.ParseNestedExpressions
+[       OK ] ParserTest.ParseNestedExpressions (0 ms)
+[ RUN      ] ParserTest.ParseChainedMethodCalls
+[       OK ] ParserTest.ParseChainedMethodCalls (0 ms)
+[----------] 52 tests from ParserTest (0 ms total)
+
+[----------] 42 tests from SemanticAnalyzerTest
+[ RUN      ] SemanticAnalyzerTest.PrimitiveTypeEquality
+[       OK ] SemanticAnalyzerTest.PrimitiveTypeEquality (0 ms)
+[ RUN      ] SemanticAnalyzerTest.ArrayTypeEquality
+[       OK ] SemanticAnalyzerTest.ArrayTypeEquality (0 ms)
+[ RUN      ] SemanticAnalyzerTest.FunctionTypeEquality
+[       OK ] SemanticAnalyzerTest.FunctionTypeEquality (0 ms)
+[ RUN      ] SemanticAnalyzerTest.SimpleVariableDeclaration
+[       OK ] SemanticAnalyzerTest.SimpleVariableDeclaration (0 ms)
+[ RUN      ] SemanticAnalyzerTest.TypeInference
+[       OK ] SemanticAnalyzerTest.TypeInference (0 ms)
+[ RUN      ] SemanticAnalyzerTest.TypeMismatch
+[       OK ] SemanticAnalyzerTest.TypeMismatch (0 ms)
+[ RUN      ] SemanticAnalyzerTest.MutableVariable
+[       OK ] SemanticAnalyzerTest.MutableVariable (0 ms)
+[ RUN      ] SemanticAnalyzerTest.ImmutableVariableAssignment
+[       OK ] SemanticAnalyzerTest.ImmutableVariableAssignment (0 ms)
+[ RUN      ] SemanticAnalyzerTest.UndefinedVariable
+[       OK ] SemanticAnalyzerTest.UndefinedVariable (0 ms)
+[ RUN      ] SemanticAnalyzerTest.VariableRedeclaration
+[       OK ] SemanticAnalyzerTest.VariableRedeclaration (0 ms)
+[ RUN      ] SemanticAnalyzerTest.SimpleFunctionDeclaration
+[       OK ] SemanticAnalyzerTest.SimpleFunctionDeclaration (0 ms)
+[ RUN      ] SemanticAnalyzerTest.FunctionWithExpressionBody
+[       OK ] SemanticAnalyzerTest.FunctionWithExpressionBody (0 ms)
+[ RUN      ] SemanticAnalyzerTest.FunctionReturnTypeMismatch
+[       OK ] SemanticAnalyzerTest.FunctionReturnTypeMismatch (0 ms)
+[ RUN      ] SemanticAnalyzerTest.FunctionCallWithCorrectArgs
+[       OK ] SemanticAnalyzerTest.FunctionCallWithCorrectArgs (0 ms)
+[ RUN      ] SemanticAnalyzerTest.FunctionCallWrongArgCount
+[       OK ] SemanticAnalyzerTest.FunctionCallWrongArgCount (0 ms)
+[ RUN      ] SemanticAnalyzerTest.FunctionCallWrongArgType
+[       OK ] SemanticAnalyzerTest.FunctionCallWrongArgType (0 ms)
+[ RUN      ] SemanticAnalyzerTest.ForwardFunctionReference
+[       OK ] SemanticAnalyzerTest.ForwardFunctionReference (0 ms)
+[ RUN      ] SemanticAnalyzerTest.RecursiveFunction
+[       OK ] SemanticAnalyzerTest.RecursiveFunction (0 ms)
+[ RUN      ] SemanticAnalyzerTest.IfStatementWithBoolCondition
+[       OK ] SemanticAnalyzerTest.IfStatementWithBoolCondition (0 ms)
+[ RUN      ] SemanticAnalyzerTest.IfStatementNonBoolCondition
+[       OK ] SemanticAnalyzerTest.IfStatementNonBoolCondition (0 ms)
+[ RUN      ] SemanticAnalyzerTest.IfElseStatement
+[       OK ] SemanticAnalyzerTest.IfElseStatement (0 ms)
+[ RUN      ] SemanticAnalyzerTest.WhileLoop
+[       OK ] SemanticAnalyzerTest.WhileLoop (0 ms)
+[ RUN      ] SemanticAnalyzerTest.WhileLoopNonBoolCondition
+[       OK ] SemanticAnalyzerTest.WhileLoopNonBoolCondition (0 ms)
+[ RUN      ] SemanticAnalyzerTest.ForLoopWithArray
+[       OK ] SemanticAnalyzerTest.ForLoopWithArray (0 ms)
+[ RUN      ] SemanticAnalyzerTest.ForLoopWithRange
+[       OK ] SemanticAnalyzerTest.ForLoopWithRange (0 ms)
+[ RUN      ] SemanticAnalyzerTest.ArithmeticOperations
+[       OK ] SemanticAnalyzerTest.ArithmeticOperations (0 ms)
+[ RUN      ] SemanticAnalyzerTest.ComparisonOperations
+[       OK ] SemanticAnalyzerTest.ComparisonOperations (0 ms)
+[ RUN      ] SemanticAnalyzerTest.LogicalOperations
+[       OK ] SemanticAnalyzerTest.LogicalOperations (0 ms)
+[ RUN      ] SemanticAnalyzerTest.UnaryNegation
+[       OK ] SemanticAnalyzerTest.UnaryNegation (0 ms)
+[ RUN      ] SemanticAnalyzerTest.NestedScopes
+[       OK ] SemanticAnalyzerTest.NestedScopes (0 ms)
+[ RUN      ] SemanticAnalyzerTest.VariableOutOfScope
+[       OK ] SemanticAnalyzerTest.VariableOutOfScope (0 ms)
+[ RUN      ] SemanticAnalyzerTest.VariableShadowing
+[       OK ] SemanticAnalyzerTest.VariableShadowing (0 ms)
+[ RUN      ] SemanticAnalyzerTest.FunctionParameterScope
+[       OK ] SemanticAnalyzerTest.FunctionParameterScope (0 ms)
+[ RUN      ] SemanticAnalyzerTest.ReturnOutsideFunction
+[       OK ] SemanticAnalyzerTest.ReturnOutsideFunction (0 ms)
+[ RUN      ] SemanticAnalyzerTest.ReturnCorrectType
+[       OK ] SemanticAnalyzerTest.ReturnCorrectType (0 ms)
+[ RUN      ] SemanticAnalyzerTest.ReturnWrongType
+[       OK ] SemanticAnalyzerTest.ReturnWrongType (0 ms)
+[ RUN      ] SemanticAnalyzerTest.StructDeclaration
+[       OK ] SemanticAnalyzerTest.StructDeclaration (0 ms)
+[ RUN      ] SemanticAnalyzerTest.ArrayLiteral
+[       OK ] SemanticAnalyzerTest.ArrayLiteral (0 ms)
+[ RUN      ] SemanticAnalyzerTest.EmptyArray
+[       OK ] SemanticAnalyzerTest.EmptyArray (0 ms)
+[ RUN      ] SemanticAnalyzerTest.ComplexProgramWithMultipleFunctions
+[       OK ] SemanticAnalyzerTest.ComplexProgramWithMultipleFunctions (0 ms)
+[ RUN      ] SemanticAnalyzerTest.VariablesAndFunctionsInteraction
+[       OK ] SemanticAnalyzerTest.VariablesAndFunctionsInteraction (0 ms)
+[ RUN      ] SemanticAnalyzerTest.NestedControlFlow
+[       OK ] SemanticAnalyzerTest.NestedControlFlow (0 ms)
+[----------] 42 tests from SemanticAnalyzerTest (1 ms total)
+
+[----------] Global test environment tear-down
+[==========] 502 tests from 30 test suites ran. (48 ms total)
+[  PASSED  ] 491 tests.
+[  FAILED  ] 11 tests, listed below:
+[  FAILED  ] EndToEndIRTest.IfElseStatement
+[  FAILED  ] EndToEndIRTest.WhileLoop
+[  FAILED  ] EndToEndIRTest.NestedIfStatements
+[  FAILED  ] EndToEndIRTest.MultipleFunctions
+[  FAILED  ] EndToEndIRTest.RecursiveFunction
+[  FAILED  ] EndToEndIRTest.BooleanTypes
+[  FAILED  ] EndToEndIRTest.MixedTypes
+[  FAILED  ] EndToEndIRTest.FibonacciIterative
+[  FAILED  ] EndToEndIRTest.GCDAlgorithm
+[  FAILED  ] EndToEndIRTest.VerifyControlFlow
+[  FAILED  ] EndToEndIRTest.IROutputFormat
+
+11 FAILED TESTS
+
+=================================================================
+==35359==ERROR: LeakSanitizer: detected memory leaks
+
+Direct leak of 10272 byte(s) in 321 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba28139e in volta::ir::BasicBlock::BasicBlock(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, volta::ir::Function*) (/home/quantum/coding/Volta/bin/test_volta+0x2b439e) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 3616 byte(s) in 113 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba296d61 in volta::ir::TypePromotion::promote(std::shared_ptr<volta::ir::IRType>, std::shared_ptr<volta::ir::IRType>) (/home/quantum/coding/Volta/bin/test_volta+0x2c9d61) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 3200 byte(s) in 100 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba296017 in volta::ir::ReturnInst::ReturnInst(volta::ir::Value*) (/home/quantum/coding/Volta/bin/test_volta+0x2c9017) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 2720 byte(s) in 68 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba293102 in volta::ir::AllocaInst::AllocaInst(std::shared_ptr<volta::ir::IRType>, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) (/home/quantum/coding/Volta/bin/test_volta+0x2c6102) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 2720 byte(s) in 85 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba277bd1 in volta::ir::Module::getIntType() (/home/quantum/coding/Volta/bin/test_volta+0x2aabd1) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 2336 byte(s) in 73 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba293444 in volta::ir::BranchInst::BranchInst(volta::ir::BasicBlock*) (/home/quantum/coding/Volta/bin/test_volta+0x2c6444) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 2336 byte(s) in 73 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba294bb9 in volta::ir::StoreInst::StoreInst(volta::ir::Value*, volta::ir::Value*) (/home/quantum/coding/Volta/bin/test_volta+0x2c7bb9) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 1632 byte(s) in 51 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba277a81 in volta::ir::Module::getVoidType() (/home/quantum/coding/Volta/bin/test_volta+0x2aaa81) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 864 byte(s) in 27 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba19eead in makeIntType() (/home/quantum/coding/Volta/bin/test_volta+0x1d1ead) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 832 byte(s) in 26 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba29472e in volta::ir::CmpInst::CmpInst(volta::ir::Instruction::Opcode, volta::ir::Value*, volta::ir::Value*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) (/home/quantum/coding/Volta/bin/test_volta+0x2c772e) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 800 byte(s) in 25 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba2961fa in volta::ir::CondBranchInst::CondBranchInst(volta::ir::Value*, volta::ir::BasicBlock*, volta::ir::BasicBlock*) (/home/quantum/coding/Volta/bin/test_volta+0x2c91fa) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 640 byte(s) in 20 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba2091d8 in ValueTest::SetUp() (/home/quantum/coding/Volta/bin/test_volta+0x23c1d8) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 608 byte(s) in 19 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba277e71 in volta::ir::Module::getBoolType() (/home/quantum/coding/Volta/bin/test_volta+0x2aae71) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 608 byte(s) in 19 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1be1f1 in makeIntType() (/home/quantum/coding/Volta/bin/test_volta+0x1f11f1) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 224 byte(s) in 7 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba209215 in ValueTest::SetUp() (/home/quantum/coding/Volta/bin/test_volta+0x23c215) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 224 byte(s) in 7 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba20924b in ValueTest::SetUp() (/home/quantum/coding/Volta/bin/test_volta+0x23c24b) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 160 byte(s) in 5 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba277d21 in volta::ir::Module::getFloatType() (/home/quantum/coding/Volta/bin/test_volta+0x2aad21) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 128 byte(s) in 4 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba19eead in makeIntType() (/home/quantum/coding/Volta/bin/test_volta+0x1d1ead) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+    #2 0xb762a0b8c2b0c2ff  (<unknown module>)
+
+Direct leak of 80 byte(s) in 2 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba293292 in volta::ir::GCAllocInst::GCAllocInst(std::shared_ptr<volta::ir::IRType>, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) (/home/quantum/coding/Volta/bin/test_volta+0x2c6292) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 80 byte(s) in 2 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba27c144 in volta::ir::Module::getOptionType(std::shared_ptr<volta::ir::IRType>) (/home/quantum/coding/Volta/bin/test_volta+0x2af144) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 64 byte(s) in 2 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba19ee5d in makeVoidType() (/home/quantum/coding/Volta/bin/test_volta+0x1d1e5d) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 64 byte(s) in 2 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba296d01 in volta::ir::TypePromotion::promote(std::shared_ptr<volta::ir::IRType>, std::shared_ptr<volta::ir::IRType>) (/home/quantum/coding/Volta/bin/test_volta+0x2c9d01) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 64 byte(s) in 2 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba295412 in volta::ir::ArrayLenInst::ArrayLenInst(volta::ir::Value*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) (/home/quantum/coding/Volta/bin/test_volta+0x2c8412) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 64 byte(s) in 2 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba29525b in volta::ir::ArraySetInst::ArraySetInst(volta::ir::Value*, volta::ir::Value*, volta::ir::Value*) (/home/quantum/coding/Volta/bin/test_volta+0x2c825b) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 64 byte(s) in 2 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba294591 in volta::ir::UnaryOperator::UnaryOperator(volta::ir::Instruction::Opcode, volta::ir::Value*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) (/home/quantum/coding/Volta/bin/test_volta+0x2c7591) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 64 byte(s) in 2 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba294109 in volta::ir::BinaryOperator::BinaryOperator(volta::ir::Instruction::Opcode, volta::ir::Value*, volta::ir::Value*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) (/home/quantum/coding/Volta/bin/test_volta+0x2c7109) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 64 byte(s) in 2 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba277931 in volta::ir::Module::getStringType() (/home/quantum/coding/Volta/bin/test_volta+0x2aa931) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 40 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba294d75 in volta::ir::ArrayNewInst::ArrayNewInst(std::shared_ptr<volta::ir::IRType>, volta::ir::Value*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) (/home/quantum/coding/Volta/bin/test_volta+0x2c7d75) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+    #2 0x503000048dbf  (<unknown module>)
+
+Direct leak of 40 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba294d75 in volta::ir::ArrayNewInst::ArrayNewInst(std::shared_ptr<volta::ir::IRType>, volta::ir::Value*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) (/home/quantum/coding/Volta/bin/test_volta+0x2c7d75) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+    #2 0x50300004941f  (<unknown module>)
+
+Direct leak of 40 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba294d75 in volta::ir::ArrayNewInst::ArrayNewInst(std::shared_ptr<volta::ir::IRType>, volta::ir::Value*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) (/home/quantum/coding/Volta/bin/test_volta+0x2c7d75) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+    #2 0x503000048cff  (<unknown module>)
+
+Direct leak of 40 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba294d75 in volta::ir::ArrayNewInst::ArrayNewInst(std::shared_ptr<volta::ir::IRType>, volta::ir::Value*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) (/home/quantum/coding/Volta/bin/test_volta+0x2c7d75) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+    #2 0x50300004155f  (<unknown module>)
+
+Direct leak of 40 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba294d75 in volta::ir::ArrayNewInst::ArrayNewInst(std::shared_ptr<volta::ir::IRType>, volta::ir::Value*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) (/home/quantum/coding/Volta/bin/test_volta+0x2c7d75) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+    #2 0x50300004107f  (<unknown module>)
+
+Direct leak of 40 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba294d75 in volta::ir::ArrayNewInst::ArrayNewInst(std::shared_ptr<volta::ir::IRType>, volta::ir::Value*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) (/home/quantum/coding/Volta/bin/test_volta+0x2c7d75) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+    #2 0x5030000411ff  (<unknown module>)
+
+Direct leak of 40 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba294d75 in volta::ir::ArrayNewInst::ArrayNewInst(std::shared_ptr<volta::ir::IRType>, volta::ir::Value*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) (/home/quantum/coding/Volta/bin/test_volta+0x2c7d75) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+    #2 0x503000040f5f  (<unknown module>)
+
+Direct leak of 40 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba294d75 in volta::ir::ArrayNewInst::ArrayNewInst(std::shared_ptr<volta::ir::IRType>, volta::ir::Value*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) (/home/quantum/coding/Volta/bin/test_volta+0x2c7d75) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+    #2 0x503000048b7f  (<unknown module>)
+
+Direct leak of 40 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba294d75 in volta::ir::ArrayNewInst::ArrayNewInst(std::shared_ptr<volta::ir::IRType>, volta::ir::Value*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) (/home/quantum/coding/Volta/bin/test_volta+0x2c7d75) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+    #2 0x5030000489ff  (<unknown module>)
+
+Direct leak of 40 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba27cae4 in volta::ir::Module::getPointerType(std::shared_ptr<volta::ir::IRType>) (/home/quantum/coding/Volta/bin/test_volta+0x2afae4) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 40 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba294d75 in volta::ir::ArrayNewInst::ArrayNewInst(std::shared_ptr<volta::ir::IRType>, volta::ir::Value*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) (/home/quantum/coding/Volta/bin/test_volta+0x2c7d75) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+    #2 0x50300004140f  (<unknown module>)
+
+Direct leak of 40 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba294d75 in volta::ir::ArrayNewInst::ArrayNewInst(std::shared_ptr<volta::ir::IRType>, volta::ir::Value*, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) (/home/quantum/coding/Volta/bin/test_volta+0x2c7d75) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+    #2 0x503000048a8f  (<unknown module>)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1e49a8 in ModuleTest_MultipleFunctions_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x2179a8) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1fbc5c in IRPrinterTest_PrintValue_ConstantBool_True_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x22ec5c) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1e6a06 in ModuleTest_CreateGlobal_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x219a06) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1fc4e2 in IRPrinterTest_PrintValue_ConstantBool_False_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x22f4e2) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1b6a15 in IRGeneratorTest_SymbolTable_NestedScopes_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x1e9a15) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1b6950 in IRGeneratorTest_SymbolTable_NestedScopes_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x1e9950) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1fb00e in IRPrinterTest_PrintValue_UnnamedValue_GetsSSANumber_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x22e00e) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1fb70e in IRPrinterTest_PrintValue_Reset_ClearsSSANumbering_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x22e70e) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba19ee0d in makeBoolType() (/home/quantum/coding/Volta/bin/test_volta+0x1d1e0d) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1fb2d4 in IRPrinterTest_PrintValue_MultipleUnnamedValues_IncrementSSANumber_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x22e2d4) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1f5f9e in IRPrinterTest_PrintBasicBlock_WithInstructions_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x228f9e) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1fa13e in IRPrinterTest_PrintInstruction_Add_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x22d13e) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1f6364 in IRPrinterTest_PrintFunction_EmptyVoid_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x229364) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba19ee5d in makeVoidType() (/home/quantum/coding/Volta/bin/test_volta+0x1d1e5d) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+    #2 0xb762a0b8c2b0c2ff  (<unknown module>)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1b6710 in IRGeneratorTest_SymbolTable_DeclareAndLookup_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x1e9710) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1f6881 in IRPrinterTest_PrintFunction_WithParameters_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x229881) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1f6d64 in IRPrinterTest_PrintFunction_WithBody_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x229d64) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1b6d70 in IRGeneratorTest_SymbolTable_LookupOuter_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x1e9d70) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1f8d5c in IRPrinterTest_PrintInstruction_Return_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x22bd5c) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1e5790 in ModuleTest_GetFunction_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x218790) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1be291 in makeBoolType() (/home/quantum/coding/Volta/bin/test_volta+0x1f1291) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+    #2 0xb762a0b8c2b0c2ff  (<unknown module>)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1be241 in makeFloatType() (/home/quantum/coding/Volta/bin/test_volta+0x1f1241) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1fadec in IRPrinterTest_PrintValue_ConstantInt_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x22ddec) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1f9dc4 in IRPrinterTest_PrintModule_WithFunction_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x22cdc4) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1f97de in IRPrinterTest_PrintModule_WithGlobal_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x22c7de) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1e7983 in ModuleTest_CreateFunction_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x21a983) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1f9ac4 in IRPrinterTest_ShowTypes_Enabled_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x22cac4) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1f5d74 in IRPrinterTest_ShowTypes_Disabled_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x228d74) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1f7354 in IRPrinterTest_Integration_SimpleFunction_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x22a354) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1f7b02 in IRPrinterTest_Integration_IfThenElse_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x22ab02) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1e4970 in ModuleTest_MultipleFunctions_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x217970) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba287161 in volta::ir::ConstantFoldingPass::foldComparison(volta::ir::Instruction*) (/home/quantum/coding/Volta/bin/test_volta+0x2ba161) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+    #2 0x51500000197f  (<unknown module>)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1f880c in IRPrinterTest_PrintValue_ConstantFloat_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x22b80c) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1e5f7e in ModuleTest_GetOrInsertFunction_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x218f7e) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1e521a in ModuleTest_RemoveFunction_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x21821a) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Direct leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1e6510 in ModuleTest_GetGlobal_Test::TestBody() (/home/quantum/coding/Volta/bin/test_volta+0x219510) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Indirect leak of 864 byte(s) in 27 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba277bd1 in volta::ir::Module::getIntType() (/home/quantum/coding/Volta/bin/test_volta+0x2aabd1) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Indirect leak of 320 byte(s) in 10 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1be1f1 in makeIntType() (/home/quantum/coding/Volta/bin/test_volta+0x1f11f1) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+
+Indirect leak of 32 byte(s) in 1 object(s) allocated from:
+    #0 0x7f0dffa81548 in operator new(unsigned long) ../../../../src/libsanitizer/asan/asan_new_delete.cpp:95
+    #1 0x55e4ba1be1f1 in makeIntType() (/home/quantum/coding/Volta/bin/test_volta+0x1f11f1) (BuildId: 6f3c74efb9c33e1e69a0ba4b7fdd0d55080fbc05)
+    #2 0xb762a0b8c2b0c2ff  (<unknown module>)
+
+-----------------------------------------------------
+Suppressions used:
+  count      bytes template
+     62       1984 std::_Sp_counted_ptr_inplace
+   1507      25328 std::vector
+-----------------------------------------------------
+
+SUMMARY: AddressSanitizer: 37376 byte(s) leaked in 1147 allocation(s).
+make: *** [Makefile:88: test] Error 1

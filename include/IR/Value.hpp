@@ -115,6 +115,9 @@ class Use {
 public:
     Use(Value* value, Instruction* user);
 
+    // Destructor - clean up use-def chain
+    ~Use();
+
     // Disable copy to prevent use-def chain corruption
     Use(const Use&) = delete;
     Use& operator=(const Use&) = delete;
@@ -158,7 +161,7 @@ protected:
  */
 class ConstantInt : public Constant {
 public:
-    static ConstantInt* get(int64_t value, std::shared_ptr<IRType> type);
+    // REMOVED: get() - Use Module::getConstantInt() instead
 
     int64_t getValue() const { return value_; }
 
@@ -181,7 +184,7 @@ private:
  */
 class ConstantFloat : public Constant {
 public:
-    static ConstantFloat* get(double value, std::shared_ptr<IRType> type);
+    // REMOVED: get() - Use Module::getConstantFloat() instead
 
     double getValue() const { return value_; }
 
@@ -204,9 +207,7 @@ private:
  */
 class ConstantBool : public Constant {
 public:
-    static ConstantBool* get(bool value, std::shared_ptr<IRType> type);
-    static ConstantBool* getTrue(std::shared_ptr<IRType> type);
-    static ConstantBool* getFalse(std::shared_ptr<IRType> type);
+    // REMOVED: get(), getTrue(), getFalse() - Use Module::getConstantBool() instead
 
     bool getValue() const { return value_; }
 
@@ -230,7 +231,7 @@ private:
  */
 class ConstantString : public Constant {
 public:
-    static ConstantString* get(const std::string& value, std::shared_ptr<IRType> type);
+    // REMOVED: get() - Use Module::getConstantString() instead
 
     const std::string& getValue() const { return value_; }
 
@@ -253,13 +254,15 @@ private:
  */
 class ConstantNone : public Constant {
 public:
-    static ConstantNone* get(std::shared_ptr<IRType> optionType);
+    // REMOVED: get() - Allocate through Module/Arena instead
 
     std::string toString() const override;
 
     static bool classof(const Value* V) {
         return V->getKind() == ValueKind::ConstantNone;
     }
+
+    friend class Arena;
 
 private:
     ConstantNone(std::shared_ptr<IRType> optionType);
@@ -271,13 +274,15 @@ private:
  */
 class UndefValue : public Constant {
 public:
-    static UndefValue* get(std::shared_ptr<IRType> type);
+    // REMOVED: get() - Allocate through Module/Arena instead
 
     std::string toString() const override;
 
     static bool classof(const Value* V) {
         return V->getKind() == ValueKind::UndefValue;
     }
+
+    friend class Arena;
 
 private:
     UndefValue(std::shared_ptr<IRType> type);

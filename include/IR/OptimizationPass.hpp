@@ -107,7 +107,9 @@ private:
     bool runOnFunction(Function* func);
     Value* foldBinaryOp(BinaryOperator* binOp);
     Value* foldUnaryOp(UnaryOperator* unOp);
-    Value* foldComparison(BinaryOperator* cmp);
+    Value* foldComparison(Instruction* cmp);
+
+    Module* module_ = nullptr;  // Module pointer for constant creation
 };
 
 // ============================================================================

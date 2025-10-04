@@ -125,35 +125,35 @@ BasicBlock* IRBuilder::createBasicBlock(const std::string& name,
 // ============================================================================
 
 ConstantInt* IRBuilder::getInt(int64_t value) {
-    return ConstantInt::get(value, getIntType());
+    return module_.getConstantInt(value, getIntType());
 }
 
 ConstantFloat* IRBuilder::getFloat(double value) {
-    return ConstantFloat::get(value, getFloatType());
+    return module_.getConstantFloat(value, getFloatType());
 }
 
 ConstantBool* IRBuilder::getBool(bool value) {
-    return ConstantBool::get(value, getBoolType());
+    return module_.getConstantBool(value, getBoolType());
 }
 
 ConstantBool* IRBuilder::getTrue() {
-    return ConstantBool::getTrue(getBoolType());
+    return module_.getConstantBool(true, getBoolType());
 }
 
 ConstantBool* IRBuilder::getFalse() {
-    return ConstantBool::getFalse(getBoolType());
+    return module_.getConstantBool(false, getBoolType());
 }
 
 ConstantString* IRBuilder::getString(const std::string& value) {
-    return ConstantString::get(value, getStringType());
+    return module_.getConstantString(value, getStringType());
 }
 
 ConstantNone* IRBuilder::getNone(std::shared_ptr<IRType> optionType) {
-    return ConstantNone::get(optionType);
+    return module_.getArena().allocate<ConstantNone>(optionType);
 }
 
 UndefValue* IRBuilder::getUndef(std::shared_ptr<IRType> type) {
-    return UndefValue::get(type);
+    return module_.getArena().allocate<UndefValue>(type);
 }
 
 // ============================================================================
@@ -161,8 +161,15 @@ UndefValue* IRBuilder::getUndef(std::shared_ptr<IRType> type) {
 // ============================================================================
 
 Value* IRBuilder::createAdd(Value* lhs, Value* rhs, const std::string& name) {
-    if (lhs->getType() != rhs->getType()) {
-        return nullptr;
+    auto promotedType = TypePromotion::promote(lhs->getType(), rhs->getType());
+    if (!promotedType) return nullptr;
+
+    // Insert casts if needed (compare types by value, not pointer)
+    if (!lhs->getType()->equals(promotedType.get())) {
+        lhs = createCast(lhs, promotedType);
+    }
+    if (!rhs->getType()->equals(promotedType.get())) {
+        rhs = createCast(rhs, promotedType);
     }
 
     BinaryOperator* opr = module_.createBinaryOp(Instruction::Opcode::Add, lhs, rhs, name);
@@ -172,8 +179,15 @@ Value* IRBuilder::createAdd(Value* lhs, Value* rhs, const std::string& name) {
 }
 
 Value* IRBuilder::createSub(Value* lhs, Value* rhs, const std::string& name) {
-    if (lhs->getType() != rhs->getType()) {
-        return nullptr;
+    auto promotedType = TypePromotion::promote(lhs->getType(), rhs->getType());
+    if (!promotedType) return nullptr;
+
+    // Insert casts if needed (compare types by value, not pointer)
+    if (!lhs->getType()->equals(promotedType.get())) {
+        lhs = createCast(lhs, promotedType);
+    }
+    if (!rhs->getType()->equals(promotedType.get())) {
+        rhs = createCast(rhs, promotedType);
     }
 
     BinaryOperator* opr = module_.createBinaryOp(Instruction::Opcode::Sub, lhs, rhs, name);
@@ -183,8 +197,15 @@ Value* IRBuilder::createSub(Value* lhs, Value* rhs, const std::string& name) {
 }
 
 Value* IRBuilder::createMul(Value* lhs, Value* rhs, const std::string& name) {
-    if (lhs->getType() != rhs->getType()) {
-        return nullptr;
+    auto promotedType = TypePromotion::promote(lhs->getType(), rhs->getType());
+    if (!promotedType) return nullptr;
+
+    // Insert casts if needed (compare types by value, not pointer)
+    if (!lhs->getType()->equals(promotedType.get())) {
+        lhs = createCast(lhs, promotedType);
+    }
+    if (!rhs->getType()->equals(promotedType.get())) {
+        rhs = createCast(rhs, promotedType);
     }
 
     BinaryOperator* opr = module_.createBinaryOp(Instruction::Opcode::Mul, lhs, rhs, name);
@@ -194,8 +215,15 @@ Value* IRBuilder::createMul(Value* lhs, Value* rhs, const std::string& name) {
 }
 
 Value* IRBuilder::createDiv(Value* lhs, Value* rhs, const std::string& name) {
-    if (lhs->getType() != rhs->getType()) {
-        return nullptr;
+    auto promotedType = TypePromotion::promote(lhs->getType(), rhs->getType());
+    if (!promotedType) return nullptr;
+
+    // Insert casts if needed (compare types by value, not pointer)
+    if (!lhs->getType()->equals(promotedType.get())) {
+        lhs = createCast(lhs, promotedType);
+    }
+    if (!rhs->getType()->equals(promotedType.get())) {
+        rhs = createCast(rhs, promotedType);
     }
 
     BinaryOperator* opr = module_.createBinaryOp(Instruction::Opcode::Div, lhs, rhs, name);
@@ -205,8 +233,15 @@ Value* IRBuilder::createDiv(Value* lhs, Value* rhs, const std::string& name) {
 }
 
 Value* IRBuilder::createRem(Value* lhs, Value* rhs, const std::string& name) {
-    if (lhs->getType() != rhs->getType()) {
-        return nullptr;
+    auto promotedType = TypePromotion::promote(lhs->getType(), rhs->getType());
+    if (!promotedType) return nullptr;
+
+    // Insert casts if needed (compare types by value, not pointer)
+    if (!lhs->getType()->equals(promotedType.get())) {
+        lhs = createCast(lhs, promotedType);
+    }
+    if (!rhs->getType()->equals(promotedType.get())) {
+        rhs = createCast(rhs, promotedType);
     }
 
     BinaryOperator* opr = module_.createBinaryOp(Instruction::Opcode::Rem, lhs, rhs, name);
@@ -216,8 +251,15 @@ Value* IRBuilder::createRem(Value* lhs, Value* rhs, const std::string& name) {
 }
 
 Value* IRBuilder::createPow(Value* lhs, Value* rhs, const std::string& name) {
-    if (lhs->getType() != rhs->getType()) {
-        return nullptr;
+    auto promotedType = TypePromotion::promote(lhs->getType(), rhs->getType());
+    if (!promotedType) return nullptr;
+
+    // Insert casts if needed (compare types by value, not pointer)
+    if (!lhs->getType()->equals(promotedType.get())) {
+        lhs = createCast(lhs, promotedType);
+    }
+    if (!rhs->getType()->equals(promotedType.get())) {
+        rhs = createCast(rhs, promotedType);
     }
 
     BinaryOperator* opr = module_.createBinaryOp(Instruction::Opcode::Pow, lhs, rhs, name);
@@ -238,66 +280,66 @@ Value* IRBuilder::createNeg(Value* operand, const std::string& name) {
 // ============================================================================
 
 Value* IRBuilder::createEq(Value* lhs, Value* rhs, const std::string& name) {
-    if (lhs->getType() != rhs->getType()) {
+    if (!lhs->getType()->equals(rhs->getType().get())) {
         return nullptr;
     }
 
-    BinaryOperator* opr = module_.createBinaryOp(Instruction::Opcode::Eq, lhs, rhs, name);
+    CmpInst* opr = module_.createCmp(Instruction::Opcode::Eq, lhs, rhs, name);
     insert(opr);
 
     return opr;
 }
 
 Value* IRBuilder::createNe(Value* lhs, Value* rhs, const std::string& name) {
-    if (lhs->getType() != rhs->getType()) {
+    if (!lhs->getType()->equals(rhs->getType().get())) {
         return nullptr;
     }
 
-    BinaryOperator* opr = module_.createBinaryOp(Instruction::Opcode::Ne, lhs, rhs, name);
+    CmpInst* opr = module_.createCmp(Instruction::Opcode::Ne, lhs, rhs, name);
     insert(opr);
 
     return opr;
 }
 
 Value* IRBuilder::createLt(Value* lhs, Value* rhs, const std::string& name) {
-    if (lhs->getType() != rhs->getType()) {
+    if (!lhs->getType()->equals(rhs->getType().get())) {
         return nullptr;
     }
 
-    BinaryOperator* opr = module_.createBinaryOp(Instruction::Opcode::Lt, lhs, rhs, name);
+    CmpInst* opr = module_.createCmp(Instruction::Opcode::Lt, lhs, rhs, name);
     insert(opr);
 
     return opr;
 }
 
 Value* IRBuilder::createLe(Value* lhs, Value* rhs, const std::string& name) {
-    if (lhs->getType() != rhs->getType()) {
+    if (!lhs->getType()->equals(rhs->getType().get())) {
         return nullptr;
     }
 
-    BinaryOperator* opr = module_.createBinaryOp(Instruction::Opcode::Le, lhs, rhs, name);
+    CmpInst* opr = module_.createCmp(Instruction::Opcode::Le, lhs, rhs, name);
     insert(opr);
 
     return opr;
 }
 
 Value* IRBuilder::createGt(Value* lhs, Value* rhs, const std::string& name) {
-    if (lhs->getType() != rhs->getType()) {
+    if (!lhs->getType()->equals(rhs->getType().get())) {
         return nullptr;
     }
 
-    BinaryOperator* opr = module_.createBinaryOp(Instruction::Opcode::Gt, lhs, rhs, name);
+    CmpInst* opr = module_.createCmp(Instruction::Opcode::Gt, lhs, rhs, name);
     insert(opr);
 
     return opr;
 }
 
 Value* IRBuilder::createGe(Value* lhs, Value* rhs, const std::string& name) {
-    if (lhs->getType() != rhs->getType()) {
+    if (!lhs->getType()->equals(rhs->getType().get())) {
         return nullptr;
     }
 
-    BinaryOperator* opr = module_.createBinaryOp(Instruction::Opcode::Ge, lhs, rhs, name);
+    CmpInst* opr = module_.createCmp(Instruction::Opcode::Ge, lhs, rhs, name);
     insert(opr);
 
     return opr;
@@ -308,7 +350,7 @@ Value* IRBuilder::createGe(Value* lhs, Value* rhs, const std::string& name) {
 // ============================================================================
 
 Value* IRBuilder::createAnd(Value* lhs, Value* rhs, const std::string& name) {
-    if (lhs->getType() != rhs->getType()) {
+    if (!lhs->getType()->equals(rhs->getType().get())) {
         return nullptr;
     }
 
@@ -319,7 +361,7 @@ Value* IRBuilder::createAnd(Value* lhs, Value* rhs, const std::string& name) {
 }
 
 Value* IRBuilder::createOr(Value* lhs, Value* rhs, const std::string& name) {
-    if (lhs->getType() != rhs->getType()) {
+    if (!lhs->getType()->equals(rhs->getType().get())) {
         return nullptr;
     }
 
@@ -445,7 +487,7 @@ void IRBuilder::createRet(Value* value) {
 void IRBuilder::createBr(BasicBlock* dest) {
     auto* br = module_.createBranch(dest);
     insert(br);
-    dest->addPredecessor(insertionBlock_);
+    // CFG edges are automatically added when the branch is inserted
     clearInsertionPoint();
 }
 
@@ -454,8 +496,7 @@ void IRBuilder::createCondBr(Value* condition, BasicBlock* trueBlock, BasicBlock
 
     insert(condBr);
 
-    trueBlock->addPredecessor(insertionBlock_);
-    falseBlock->addPredecessor(insertionBlock_);
+    // CFG edges are automatically added when the conditional branch is inserted
 
     clearInsertionPoint();
 }

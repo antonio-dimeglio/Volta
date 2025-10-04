@@ -72,6 +72,13 @@ Use::Use(Value* value, Instruction* user)
     }
 }
 
+Use::~Use() {
+    // Clean up use-def chain when this Use is destroyed
+    if (value_) {
+        value_->removeUse(this);
+    }
+}
+
 Use::Use(Use&& other) noexcept
     : value_(other.value_), user_(other.user_) {
     // Transfer ownership - remove from old location, add to new
@@ -131,10 +138,7 @@ ConstantInt::ConstantInt(int64_t value, std::shared_ptr<IRType> type)
     : Constant(ValueKind::ConstantInt, type), value_(value) {
 }
 
-ConstantInt* ConstantInt::get(int64_t value, std::shared_ptr<IRType> type) {
-    // TODO: Implement interning.
-    return new ConstantInt(value, type);
-}
+// REMOVED: ConstantInt::get() - Use Module::getConstantInt() instead for proper arena allocation and interning
 
 std::string ConstantInt::toString() const {
     return "i64 " + std::to_string(value_);
@@ -148,10 +152,7 @@ ConstantFloat::ConstantFloat(double value, std::shared_ptr<IRType> type)
     : Constant(ValueKind::ConstantFloat, type), value_(value) {
 }
 
-ConstantFloat* ConstantFloat::get(double value, std::shared_ptr<IRType> type) {
-    // TODO: Implement interning.
-    return new ConstantFloat(value, type);
-}
+// REMOVED: ConstantFloat::get() - Use Module::getConstantFloat() instead for proper arena allocation and interning
 
 std::string ConstantFloat::toString() const {
     return "f64 " + std::to_string(value_);
@@ -165,18 +166,7 @@ ConstantBool::ConstantBool(bool value, std::shared_ptr<IRType> type)
     : Constant(ValueKind::ConstantBool, type), value_(value) {
 }
 
-ConstantBool* ConstantBool::get(bool value, std::shared_ptr<IRType> type) {
-    // TODO: Implement interning.
-    return new ConstantBool(value, type);
-}
-
-ConstantBool* ConstantBool::getTrue(std::shared_ptr<IRType> type) {
-    return new ConstantBool(true, type);
-}
-
-ConstantBool* ConstantBool::getFalse(std::shared_ptr<IRType> type) {
-    return new ConstantBool(false, type);
-}
+// REMOVED: ConstantBool::get(), getTrue(), getFalse() - Use Module::getConstantBool() instead for proper arena allocation and interning
 
 std::string ConstantBool::toString() const {
     return value_ ? "true" : "false";
@@ -190,10 +180,7 @@ ConstantString::ConstantString(const std::string& value, std::shared_ptr<IRType>
     : Constant(ValueKind::ConstantString, type), value_(value) {
 }
 
-ConstantString* ConstantString::get(const std::string& value, std::shared_ptr<IRType> type) {
-    // TODO: Later, implement string interning for memory efficiency
-    return new ConstantString(value, type);
-}
+// REMOVED: ConstantString::get() - Use Module::getConstantString() instead for proper arena allocation and interning
 
 std::string ConstantString::toString() const {
     return "\"" + value_ + "\"";
@@ -207,10 +194,7 @@ ConstantNone::ConstantNone(std::shared_ptr<IRType> optionType)
     : Constant(ValueKind::ConstantNone, optionType) {
 }
 
-ConstantNone* ConstantNone::get(std::shared_ptr<IRType> optionType) {
-    // TODO: Implement interning.
-    return new ConstantNone(optionType);
-}
+// REMOVED: ConstantNone::get() - Use arena allocation through Module instead
 
 std::string ConstantNone::toString() const {
     return "None";
@@ -224,10 +208,7 @@ UndefValue::UndefValue(std::shared_ptr<IRType> type)
     : Constant(ValueKind::UndefValue, type) {
 }
 
-UndefValue* UndefValue::get(std::shared_ptr<IRType> type) {
-    // TODO: Implement interning
-    return new UndefValue(type);
-}
+// REMOVED: UndefValue::get() - Use arena allocation through Module instead
 
 std::string UndefValue::toString() const {
     return "undef";

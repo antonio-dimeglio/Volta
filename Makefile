@@ -85,7 +85,7 @@ endif
 .PHONY: test
 test: $(TEST_TARGET)
 	@echo "Running tests..."
-	@$(TEST_TARGET)
+	@LSAN_OPTIONS=suppressions=.asan-suppressions $(TEST_TARGET)
 
 .PHONY: run-tests
 run-tests: test

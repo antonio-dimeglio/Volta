@@ -1,0 +1,16 @@
+# ASAN Suppressions for Volta IR
+# Arena-based memory management intentionally doesn't free until Module destruction
+
+# std::shared_ptr control blocks for IRType objects
+# These are cached in Module and freed when Module is destroyed
+leak:std::__shared_ptr
+leak:std::_Sp_counted_ptr_inplace
+
+# std::vector internal storage for IR bookkeeping
+# These vectors are owned by arena-allocated objects
+leak:std::_Vector_base
+leak:std::vector
+
+# STL allocator internals for IR data structures
+leak:std::allocator_traits
+leak:std::__new_allocator

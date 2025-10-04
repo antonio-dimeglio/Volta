@@ -108,17 +108,17 @@ std::string IRPrinter::printInstruction(const Instruction* inst) {
     // Special handling for different instruction types
 
     // Phi nodes
-    if (auto* phi = dynamic_cast<const PhiNode*>(inst)) {
+    if (auto* phi = dyn_cast<PhiNode>(inst)) {
         return printPhi(phi);
     }
 
     // Call instructions
-    if (auto* call = dynamic_cast<const CallInst*>(inst)) {
+    if (auto* call = dyn_cast<CallInst>(inst)) {
         return printCall(call);
     }
 
     // Return instruction
-    if (auto* ret = dynamic_cast<const ReturnInst*>(inst)) {
+    if (auto* ret = dyn_cast<ReturnInst>(inst)) {
         return printReturn(ret);
     }
 
@@ -132,7 +132,7 @@ std::string IRPrinter::printInstruction(const Instruction* inst) {
     std::stringstream ss;
 
     // Store instruction (no result value)
-    if (auto* store = dynamic_cast<const StoreInst*>(inst)) {
+    if (auto* store = dyn_cast<StoreInst>(inst)) {
         ss << "store ";
         if (showTypes_) {
             ss << printType(store->getValue()->getType()) << " ";
@@ -153,7 +153,7 @@ std::string IRPrinter::printInstruction(const Instruction* inst) {
     ss << Instruction::getOpcodeName(inst->getOpcode());
 
     // Binary operations
-    if (auto* binOp = dynamic_cast<const BinaryOperator*>(inst)) {
+    if (auto* binOp = dyn_cast<BinaryOperator>(inst)) {
         if (showTypes_) {
             ss << " " << printType(binOp->getType());
         }
@@ -163,7 +163,7 @@ std::string IRPrinter::printInstruction(const Instruction* inst) {
     }
 
     // Unary operations
-    if (auto* unOp = dynamic_cast<const UnaryOperator*>(inst)) {
+    if (auto* unOp = dyn_cast<UnaryOperator>(inst)) {
         if (showTypes_) {
             ss << " " << printType(unOp->getType());
         }
@@ -172,7 +172,7 @@ std::string IRPrinter::printInstruction(const Instruction* inst) {
     }
 
     // Comparison operations
-    if (auto* cmp = dynamic_cast<const CmpInst*>(inst)) {
+    if (auto* cmp = dyn_cast<CmpInst>(inst)) {
         if (showTypes_) {
             // Show operand type, not result type (result is always bool)
             ss << " " << printType(cmp->getLHS()->getType());
@@ -183,13 +183,13 @@ std::string IRPrinter::printInstruction(const Instruction* inst) {
     }
 
     // Alloca
-    if (auto* alloca = dynamic_cast<const AllocaInst*>(inst)) {
+    if (auto* alloca = dyn_cast<AllocaInst>(inst)) {
         ss << " " << printType(alloca->getAllocatedType());
         return ss.str();
     }
 
     // Load
-    if (auto* load = dynamic_cast<const LoadInst*>(inst)) {
+    if (auto* load = dyn_cast<LoadInst>(inst)) {
         if (showTypes_) {
             ss << " " << printType(load->getType()) << ", ";
         }
@@ -198,19 +198,19 @@ std::string IRPrinter::printInstruction(const Instruction* inst) {
     }
 
     // GCAlloc
-    if (auto* gcAlloc = dynamic_cast<const GCAllocInst*>(inst)) {
+    if (auto* gcAlloc = dyn_cast<GCAllocInst>(inst)) {
         ss << " " << printType(gcAlloc->getAllocatedType());
         return ss.str();
     }
 
     // Array operations
-    if (auto* arrayNew = dynamic_cast<const ArrayNewInst*>(inst)) {
+    if (auto* arrayNew = dyn_cast<ArrayNewInst>(inst)) {
         ss << " " << printType(arrayNew->getElementType());
         ss << ", " << printValue(arrayNew->getSize());
         return ss.str();
     }
 
-    if (auto* arrayGet = dynamic_cast<const ArrayGetInst*>(inst)) {
+    if (auto* arrayGet = dyn_cast<ArrayGetInst>(inst)) {
         if (showTypes_) {
             ss << " " << printType(arrayGet->getType()) << ", ";
         }
@@ -219,7 +219,7 @@ std::string IRPrinter::printInstruction(const Instruction* inst) {
         return ss.str();
     }
 
-    if (auto* arraySet = dynamic_cast<const ArraySetInst*>(inst)) {
+    if (auto* arraySet = dyn_cast<ArraySetInst>(inst)) {
         if (showTypes_) {
             ss << " " << printType(arraySet->getValue()->getType()) << " ";
         }
@@ -229,12 +229,12 @@ std::string IRPrinter::printInstruction(const Instruction* inst) {
         return ss.str();
     }
 
-    if (auto* arrayLen = dynamic_cast<const ArrayLenInst*>(inst)) {
+    if (auto* arrayLen = dyn_cast<ArrayLenInst>(inst)) {
         ss << " " << printValue(arrayLen->getArray());
         return ss.str();
     }
 
-    if (auto* arraySlice = dynamic_cast<const ArraySliceInst*>(inst)) {
+    if (auto* arraySlice = dyn_cast<ArraySliceInst>(inst)) {
         ss << " " << printValue(arraySlice->getArray());
         ss << "[" << printValue(arraySlice->getStart());
         ss << ":" << printValue(arraySlice->getEnd()) << "]";
@@ -242,24 +242,24 @@ std::string IRPrinter::printInstruction(const Instruction* inst) {
     }
 
     // Cast
-    if (auto* cast = dynamic_cast<const CastInst*>(inst)) {
+    if (auto* cast = dyn_cast<CastInst>(inst)) {
         ss << " " << printValue(cast->getValue());
         ss << " to " << printType(cast->getDestType());
         return ss.str();
     }
 
     // Option operations
-    if (auto* optWrap = dynamic_cast<const OptionWrapInst*>(inst)) {
+    if (auto* optWrap = dyn_cast<OptionWrapInst>(inst)) {
         ss << " " << printValue(optWrap->getValue());
         return ss.str();
     }
 
-    if (auto* optUnwrap = dynamic_cast<const OptionUnwrapInst*>(inst)) {
+    if (auto* optUnwrap = dyn_cast<OptionUnwrapInst>(inst)) {
         ss << " " << printValue(optUnwrap->getOption());
         return ss.str();
     }
 
-    if (auto* optCheck = dynamic_cast<const OptionCheckInst*>(inst)) {
+    if (auto* optCheck = dyn_cast<OptionCheckInst>(inst)) {
         ss << " " << printValue(optCheck->getOption());
         return ss.str();
     }
@@ -273,27 +273,27 @@ std::string IRPrinter::printValue(const Value* value) {
     if (!value) return "<null>";
 
     // Constants print their literal values
-    if (auto* ci = dynamic_cast<const ConstantInt*>(value)) {
+    if (auto* ci = dyn_cast<ConstantInt>(value)) {
         return std::to_string(ci->getValue());
     }
-    if (auto* cf = dynamic_cast<const ConstantFloat*>(value)) {
+    if (auto* cf = dyn_cast<ConstantFloat>(value)) {
         return std::to_string(cf->getValue());
     }
-    if (auto* cb = dynamic_cast<const ConstantBool*>(value)) {
+    if (auto* cb = dyn_cast<ConstantBool>(value)) {
         return cb->getValue() ? "true" : "false";
     }
-    if (auto* cs = dynamic_cast<const ConstantString*>(value)) {
+    if (auto* cs = dyn_cast<ConstantString>(value)) {
         return "\"" + cs->getValue() + "\"";
     }
-    if (dynamic_cast<const ConstantNone*>(value)) {
+    if (dyn_cast<ConstantNone>(value)) {
         return "none";
     }
-    if (dynamic_cast<const UndefValue*>(value)) {
+    if (dyn_cast<UndefValue>(value)) {
         return "undef";
     }
 
     // Globals start with @
-    if (auto* global = dynamic_cast<const GlobalVariable*>(value)) {
+    if (auto* global = dyn_cast<GlobalVariable>(value)) {
         return "@" + global->getName();
     }
 
@@ -363,7 +363,7 @@ std::string IRPrinter::printFunctionSignature(const Function* func) {
 
     std::stringstream ss;
 
-    ss << "function @" << func->getName() << "(";
+    ss << "define @" << func->getName() << "(";
 
     // Parameters
     for (unsigned i = 0; i < func->getNumParams(); i++) {
@@ -451,13 +451,13 @@ std::string IRPrinter::printBranch(const Instruction* inst) {
     std::stringstream ss;
 
     // Unconditional branch
-    if (auto* br = dynamic_cast<const BranchInst*>(inst)) {
+    if (auto* br = dyn_cast<BranchInst>(inst)) {
         ss << "br label %" << br->getDestination()->getName();
         return ss.str();
     }
 
     // Conditional branch
-    if (auto* condBr = dynamic_cast<const CondBranchInst*>(inst)) {
+    if (auto* condBr = dyn_cast<CondBranchInst>(inst)) {
         ss << "br ";
         if (showTypes_) {
             ss << "bool ";
@@ -469,7 +469,7 @@ std::string IRPrinter::printBranch(const Instruction* inst) {
     }
 
     // Switch
-    if (auto* sw = dynamic_cast<const SwitchInst*>(inst)) {
+    if (auto* sw = dyn_cast<SwitchInst>(inst)) {
         ss << "switch ";
         if (showTypes_) {
             ss << printType(sw->getValue()->getType()) << " ";

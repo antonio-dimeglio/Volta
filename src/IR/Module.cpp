@@ -29,6 +29,15 @@ Module::Module(const std::string& name, size_t chunkSize)
     stringPool_ = std::make_unique<std::unordered_map<std::string, ConstantString*>>();
 }
 
+Module::~Module() {
+    // Clean up functions (arena-allocated)
+    // The arena will handle cleanup of arena-allocated objects
+    // But we need to manually clean up heap-allocated shared_ptrs
+
+    // Note: Arena destructor will handle cleanup of arena-allocated memory
+    // The shared_ptr types will be automatically cleaned up
+}
+
 Module::Module(Module&& other) noexcept
     : name_(std::move(other.name_)),
       arena_(std::move(other.arena_)),

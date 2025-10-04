@@ -59,6 +59,7 @@ public:
      * @param chunkSize Arena chunk size (default 1MB)
      */
     explicit Module(const std::string& name, size_t chunkSize = 1024 * 1024);
+    ~Module();
 
     // Disable copy (module owns unique resources)
     Module(const Module&) = delete;

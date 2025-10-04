@@ -11,6 +11,10 @@
 #include "ast/Expression.hpp"
 #include "semantic/Type.hpp"
 
+namespace volta::semantic {
+    class SemanticAnalyzer;
+}
+
 namespace volta::ir {
 
 /**
@@ -50,6 +54,13 @@ public:
      * @param module The module to generate IR into
      */
     explicit IRGenerator(Module& module);
+
+    /**
+     * Create IR generator with semantic analyzer (for type information)
+     * @param module The module to generate IR into
+     * @param analyzer Semantic analyzer with type information
+     */
+    IRGenerator(Module& module, const volta::semantic::SemanticAnalyzer* analyzer);
 
     // ========================================================================
     // Top-Level Generation
@@ -386,6 +397,26 @@ private:
 
     // Current function being generated
     Function* currentFunction_;
+
+    // Optional semantic analyzer (for type information)
+    const volta::semantic::SemanticAnalyzer* analyzer_;
 };
+
+// ========================================================================
+// Standalone API - Generate IR from AST + Semantic Analysis
+// ========================================================================
+
+/**
+ * Generate IR module from type-checked AST
+ * @param program The AST program
+ * @param analyzer Semantic analyzer with type information
+ * @param moduleName Name for the IR module
+ * @return IR Module (nullptr on error)
+ */
+std::unique_ptr<Module> generateIR(
+    const volta::ast::Program& program,
+    const volta::semantic::SemanticAnalyzer& analyzer,
+    const std::string& moduleName = "program"
+);
 
 } // namespace volta::ir

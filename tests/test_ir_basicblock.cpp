@@ -244,7 +244,9 @@ TEST(BasicBlockTest, AddPredecessor) {
     auto* bb1 = module.createBasicBlock("bb1");
     auto* bb2 = module.createBasicBlock("bb2");
 
-    bb2->addPredecessor(bb1);
+    // Use a branch instruction to create the CFG edge
+    auto* br = module.createBranch(bb2);
+    bb1->addInstruction(br);
 
     EXPECT_EQ(bb2->getNumPredecessors(), 1);
     EXPECT_TRUE(bb2->isPredecessor(bb1));
@@ -258,8 +260,11 @@ TEST(BasicBlockTest, AddMultiplePredecessors) {
     auto* bb2 = module.createBasicBlock("bb2");
     auto* bb3 = module.createBasicBlock("bb3");
 
-    bb3->addPredecessor(bb1);
-    bb3->addPredecessor(bb2);
+    // Use branch instructions to create the CFG edges
+    auto* br1 = module.createBranch(bb3);
+    bb1->addInstruction(br1);
+    auto* br2 = module.createBranch(bb3);
+    bb2->addInstruction(br2);
 
     EXPECT_EQ(bb3->getNumPredecessors(), 2);
     EXPECT_TRUE(bb3->hasMultiplePredecessors());
@@ -271,7 +276,9 @@ TEST(BasicBlockTest, RemovePredecessor) {
     auto* bb1 = module.createBasicBlock("bb1");
     auto* bb2 = module.createBasicBlock("bb2");
 
-    bb2->addPredecessor(bb1);
+    // Use a branch instruction to create the CFG edge
+    auto* br = module.createBranch(bb2);
+    bb1->addInstruction(br);
     EXPECT_EQ(bb2->getNumPredecessors(), 1);
 
     bb2->removePredecessor(bb1);
@@ -284,8 +291,14 @@ TEST(BasicBlockTest, NoDuplicatePredecessors) {
     auto* bb1 = module.createBasicBlock("bb1");
     auto* bb2 = module.createBasicBlock("bb2");
 
-    bb2->addPredecessor(bb1);
-    bb2->addPredecessor(bb1); // Try to add again
+    // Use a branch instruction to create the CFG edge
+    auto* br1 = module.createBranch(bb2);
+    bb1->addInstruction(br1);
+
+    // Try to add again via another branch (should not create duplicate)
+    bb1->removeInstruction(br1);
+    auto* br2 = module.createBranch(bb2);
+    bb1->addInstruction(br2);
 
     // Should still have only 1 predecessor
     EXPECT_EQ(bb2->getNumPredecessors(), 1);
@@ -500,7 +513,9 @@ TEST(BasicBlockTest, ToStringWithPredecessors) {
     auto* bb1 = module.createBasicBlock("bb1");
     auto* bb2 = module.createBasicBlock("bb2");
 
-    bb2->addPredecessor(bb1);
+    // Use a branch instruction to create the CFG edge
+    auto* br = module.createBranch(bb2);
+    bb1->addInstruction(br);
 
     std::string str = bb2->toString();
     EXPECT_NE(str.find("preds"), std::string::npos);
@@ -686,8 +701,9 @@ TEST(BasicBlockTest, IsReachable) {
     // Initially unreachable (no predecessors)
     EXPECT_FALSE(bb2->isReachable());
 
-    // Add predecessor
-    bb2->addPredecessor(bb1);
+    // Add predecessor using a branch instruction
+    auto* br = module.createBranch(bb2);
+    bb1->addInstruction(br);
 
     // Now reachable
     EXPECT_TRUE(bb2->isReachable());

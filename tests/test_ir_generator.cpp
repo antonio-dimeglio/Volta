@@ -177,7 +177,7 @@ TEST_F(IRGeneratorTest, SymbolTable_DeclareAndLookup) {
     generator->enterScope();
 
     // Create a dummy value (in real code, this would be an alloca)
-    auto* dummyValue = ConstantInt::get(42, std::make_shared<IRPrimitiveType>(IRType::Kind::I64));
+    auto* dummyValue = module->getConstantInt(42, std::make_shared<IRPrimitiveType>(IRType::Kind::I64));
 
     generator->declareVariable("x", dummyValue);
     auto* result = generator->lookupVariable("x");
@@ -189,11 +189,11 @@ TEST_F(IRGeneratorTest, SymbolTable_DeclareAndLookup) {
 
 TEST_F(IRGeneratorTest, SymbolTable_NestedScopes) {
     generator->enterScope();
-    auto* outer = ConstantInt::get(1, std::make_shared<IRPrimitiveType>(IRType::Kind::I64));
+    auto* outer = module->getConstantInt(1, std::make_shared<IRPrimitiveType>(IRType::Kind::I64));
     generator->declareVariable("x", outer);
 
     generator->enterScope();
-    auto* inner = ConstantInt::get(2, std::make_shared<IRPrimitiveType>(IRType::Kind::I64));
+    auto* inner = module->getConstantInt(2, std::make_shared<IRPrimitiveType>(IRType::Kind::I64));
     generator->declareVariable("x", inner);
 
     // Inner scope should shadow outer
@@ -209,7 +209,7 @@ TEST_F(IRGeneratorTest, SymbolTable_NestedScopes) {
 
 TEST_F(IRGeneratorTest, SymbolTable_LookupOuter) {
     generator->enterScope();
-    auto* outer = ConstantInt::get(1, std::make_shared<IRPrimitiveType>(IRType::Kind::I64));
+    auto* outer = module->getConstantInt(1, std::make_shared<IRPrimitiveType>(IRType::Kind::I64));
     generator->declareVariable("x", outer);
 
     generator->enterScope();
