@@ -14,6 +14,7 @@ using namespace volta::ir;
 // ============================================================================
 
 TEST(ArenaTest, BasicAllocation) {
+    Module module("test");
     Arena arena(1024);
 
     int* i = arena.allocate<int>(42);
@@ -26,6 +27,7 @@ TEST(ArenaTest, BasicAllocation) {
 }
 
 TEST(ArenaTest, MultipleAllocations) {
+    Module module("test");
     Arena arena(1024);
 
     std::vector<int*> pointers;
@@ -43,6 +45,7 @@ TEST(ArenaTest, MultipleAllocations) {
 }
 
 TEST(ArenaTest, Alignment) {
+    Module module("test");
     Arena arena(1024);
 
     // Allocate types with different alignment requirements
@@ -61,6 +64,7 @@ TEST(ArenaTest, Alignment) {
 }
 
 TEST(ArenaTest, LargeAllocation) {
+    Module module("test");
     Arena arena(512);  // Small chunks
 
     // Allocate something larger than a chunk
@@ -77,6 +81,7 @@ TEST(ArenaTest, LargeAllocation) {
 }
 
 TEST(ArenaTest, Reset) {
+    Module module("test");
     Arena arena(1024);
 
     int* i1 = arena.allocate<int>(42);
@@ -95,6 +100,7 @@ TEST(ArenaTest, Reset) {
 }
 
 TEST(ArenaTest, Statistics) {
+    Module module("test");
     Arena arena(1024);
 
     EXPECT_EQ(arena.getNumChunks(), 1);  // Initial chunk
@@ -108,6 +114,7 @@ TEST(ArenaTest, Statistics) {
 }
 
 TEST(ArenaTest, ZeroSizeAllocation) {
+    Module module("test");
     Arena arena(1024);
 
     // Allocating zero bytes should still return valid pointer
@@ -116,6 +123,7 @@ TEST(ArenaTest, ZeroSizeAllocation) {
 }
 
 TEST(ArenaTest, HighAlignmentRequirement) {
+    Module module("test");
     Arena arena(1024);
 
     // Allocate with 64-byte alignment
@@ -125,6 +133,7 @@ TEST(ArenaTest, HighAlignmentRequirement) {
 }
 
 TEST(ArenaTest, MixedSizeAllocations) {
+    Module module("test");
     Arena arena(512);
 
     // Mix small and medium allocations
@@ -140,6 +149,7 @@ TEST(ArenaTest, MixedSizeAllocations) {
 }
 
 TEST(ArenaTest, ResetMultipleTimes) {
+    Module module("test");
     Arena arena(1024);
 
     for (int round = 0; round < 3; ++round) {
@@ -154,6 +164,7 @@ TEST(ArenaTest, ResetMultipleTimes) {
 }
 
 TEST(ArenaTest, MultipleVeryLargeAllocations) {
+    Module module("test");
     Arena arena(256);  // Small chunk size
 
     // Allocate multiple items larger than chunk size
@@ -176,6 +187,7 @@ TEST(ArenaTest, MultipleVeryLargeAllocations) {
 }
 
 TEST(ArenaTest, MoveConstructor) {
+    Module module("test");
     Arena arena1(1024);
     int* ptr1 = arena1.allocate<int>(42);
     EXPECT_EQ(*ptr1, 42);
@@ -194,6 +206,7 @@ TEST(ArenaTest, MoveConstructor) {
 }
 
 TEST(ArenaTest, MoveAssignment) {
+    Module module("test");
     Arena arena1(1024);
     int* ptr1 = arena1.allocate<int>(99);
     EXPECT_EQ(*ptr1, 99);
@@ -212,6 +225,7 @@ TEST(ArenaTest, MoveAssignment) {
 }
 
 TEST(ArenaTest, StructAllocation) {
+    Module module("test");
     struct TestStruct {
         int a;
         double b;
@@ -335,7 +349,7 @@ TEST(ModuleTest, CreateGlobal) {
     Module module("test");
 
     auto intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
-    auto* initializer = ConstantInt::get(42, intType);
+    auto* initializer = module.getConstantInt(42, intType);
 
     auto* global = module.createGlobalVariable("counter", intType, initializer, false);
 
@@ -343,7 +357,6 @@ TEST(ModuleTest, CreateGlobal) {
     EXPECT_EQ(global->getName(), "counter");
     EXPECT_EQ(module.getNumGlobals(), 1);
 
-    delete initializer;
 }
 
 TEST(ModuleTest, GetGlobal) {
@@ -410,19 +423,16 @@ TEST(ModuleTest, CreateInstruction) {
     Module module("test");
 
     auto intType = module.getIntType();
-    auto* lhs = ConstantInt::get(10, intType);
-    auto* rhs = ConstantInt::get(20, intType);
+    auto* lhs = module.getConstantInt(10, intType);
+    auto* rhs = module.getConstantInt(20, intType);
 
-    auto* add = BinaryOperator::create(
+    auto* add = module.createBinaryOp(
         Instruction::Opcode::Add, lhs, rhs, "sum"
     );
 
     ASSERT_NE(add, nullptr);
     EXPECT_EQ(add->getOpcode(), Instruction::Opcode::Add);
 
-    delete add;
-    delete lhs;
-    delete rhs;
 }
 
 // ============================================================================
@@ -445,13 +455,13 @@ TEST(ModuleTest, BuildSimpleFunction) {
     auto* b = func->getParam(1);
 
     // Create add instruction
-    auto* sum = BinaryOperator::create(
+    auto* sum = module.createBinaryOp(
         Instruction::Opcode::Add, a, b, "sum"
     );
     entry->addInstruction(sum);
 
     // Create return
-    auto* ret = ReturnInst::create(sum);
+    auto* ret = module.createReturn(sum);
     entry->addInstruction(ret);
 
     // Verify
@@ -477,22 +487,22 @@ TEST(ModuleTest, BuildFibonacci) {
 
     // Entry block
     auto* n = func->getParam(0);
-    auto* one = ConstantInt::get(1, intType);
-    auto* cond = CmpInst::create(
+    auto* one = module.getConstantInt(1, intType);
+    auto* cond = module.createCmp(
         Instruction::Opcode::Le, n, one, "cond"
     );
     entry->addInstruction(cond);
 
-    auto* condBr = CondBranchInst::create(cond, baseCase, recursiveCase);
+    auto* condBr = module.createCondBranch(cond, baseCase, recursiveCase);
     entry->addInstruction(condBr);
 
     // Base case
-    auto* retOne = ReturnInst::create(one);
+    auto* retOne = module.createReturn(one);
     baseCase->addInstruction(retOne);
 
     // Recursive case (simplified - just return 0 for now)
-    auto* zero = ConstantInt::get(0, intType);
-    auto* retZero = ReturnInst::create(zero);
+    auto* zero = module.getConstantInt(0, intType);
+    auto* retZero = module.createReturn(zero);
     recursiveCase->addInstruction(retZero);
 
     // Update CFG edges
@@ -508,8 +518,6 @@ TEST(ModuleTest, BuildFibonacci) {
     EXPECT_EQ(func->getExitBlocks().size(), 2);
 
     // Cleanup standalone constants
-    delete one;
-    delete zero;
 }
 
 // ============================================================================
@@ -525,14 +533,13 @@ TEST(ModuleTest, VerifyValid) {
     auto* entry = module.createBasicBlock("entry", func);
     // Note: createBasicBlock already adds block to function
 
-    auto* constant = ConstantInt::get(42, intType);
-    auto* ret = ReturnInst::create(constant);
+    auto* constant = module.getConstantInt(42, intType);
+    auto* ret = module.createReturn(constant);
     entry->addInstruction(ret);
 
     std::string error;
     EXPECT_TRUE(module.verify(&error)) << "Error: " << error;
 
-    delete constant;
 }
 
 TEST(ModuleTest, VerifyInvalidFunction) {
@@ -593,9 +600,9 @@ TEST(ModuleTest, Statistics) {
     auto* bb2 = module.createBasicBlock("bb2", func);
     // Note: createBasicBlock already adds blocks to function
 
-    auto* c1 = ConstantInt::get(1, intType);
-    auto* c2 = ConstantInt::get(2, intType);
-    auto* inst1 = BinaryOperator::create(
+    auto* c1 = module.getConstantInt(1, intType);
+    auto* c2 = module.getConstantInt(2, intType);
+    auto* inst1 = module.createBinaryOp(
         Instruction::Opcode::Add, c1, c2
     );
     bb1->addInstruction(inst1);
@@ -604,8 +611,6 @@ TEST(ModuleTest, Statistics) {
     EXPECT_EQ(module.getTotalInstructions(), 1);
     EXPECT_GT(module.getArenaUsage(), 0);
 
-    delete c1;
-    delete c2;
 }
 
 // ============================================================================
@@ -613,6 +618,7 @@ TEST(ModuleTest, Statistics) {
 // ============================================================================
 
 TEST(ModuleTest, NoCrashOnDestruction) {
+    Module module("test");
     // This test demonstrates arena allocation benefits
     // Even with complex cross-references, no use-after-free!
 
@@ -629,13 +635,13 @@ TEST(ModuleTest, NoCrashOnDestruction) {
         auto* arg = func->getParam(0);
 
         // bb1 creates instruction
-        auto* inst1 = BinaryOperator::create(
+        auto* inst1 = module.createBinaryOp(
             Instruction::Opcode::Add, arg, arg
         );
         bb1->addInstruction(inst1);
 
         // bb2 uses instruction from bb1 (cross-block reference)
-        auto* ret = ReturnInst::create(inst1);
+        auto* ret = module.createReturn(inst1);
         bb2->addInstruction(ret);
 
         // When module goes out of scope, EVERYTHING is freed safely

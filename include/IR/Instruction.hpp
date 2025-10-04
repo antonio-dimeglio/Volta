@@ -146,6 +146,9 @@ public:
         return V->getKind() == ValueKind::Instruction;
     }
 
+    // Allow Module to create instructions via arena allocation
+    friend class Arena;
+
 protected:
     Instruction(Opcode opcode,
                 std::shared_ptr<IRType> type,
@@ -173,8 +176,6 @@ private:
  */
 class BinaryOperator : public Instruction {
 public:
-    static BinaryOperator* create(Opcode op, Value* lhs, Value* rhs,
-                                  const std::string& name = "");
 
     Value* getLHS() const { return getOperand(0); }
     Value* getRHS() const { return getOperand(1); }
@@ -183,6 +184,9 @@ public:
 
     static bool classof(const Instruction* I);
 
+    friend class Arena;
+
+    friend class Arena;
 private:
     BinaryOperator(Opcode op, Value* lhs, Value* rhs, const std::string& name);
 };
@@ -196,13 +200,13 @@ private:
  */
 class UnaryOperator : public Instruction {
 public:
-    static UnaryOperator* create(Opcode op, Value* operand,
-                                 const std::string& name = "");
 
     Value* getOperand() const { return Instruction::getOperand(0); }
     void setOperand(Value* val) { Instruction::setOperand(0, val); }
 
     static bool classof(const Instruction* I);
+
+    friend class Arena;
 
 private:
     UnaryOperator(Opcode op, Value* operand, const std::string& name);
@@ -217,13 +221,13 @@ private:
  */
 class CmpInst : public Instruction {
 public:
-    static CmpInst* create(Opcode op, Value* lhs, Value* rhs,
-                          const std::string& name = "");
 
     Value* getLHS() const { return getOperand(0); }
     Value* getRHS() const { return getOperand(1); }
 
     static bool classof(const Instruction* I);
+
+    friend class Arena;
 
 private:
     CmpInst(Opcode op, Value* lhs, Value* rhs, const std::string& name);
@@ -239,13 +243,12 @@ private:
  */
 class AllocaInst : public Instruction {
 public:
-    static AllocaInst* create(std::shared_ptr<IRType> allocatedType,
-                              const std::string& name = "");
 
     std::shared_ptr<IRType> getAllocatedType() const {
         return getType()->asPointer()->pointeeType();
     }
 
+    friend class Arena;
     static bool classof(const Instruction* I) {
         return I->getOpcode() == Opcode::Alloca;
     }
@@ -259,10 +262,9 @@ private:
  */
 class LoadInst : public Instruction {
 public:
-    static LoadInst* create(Value* ptr, const std::string& name = "");
-
     Value* getPointer() const { return getOperand(0); }
 
+    friend class Arena;
     static bool classof(const Instruction* I) {
         return I->getOpcode() == Opcode::Load;
     }
@@ -276,11 +278,10 @@ private:
  */
 class StoreInst : public Instruction {
 public:
-    static StoreInst* create(Value* value, Value* ptr);
-
     Value* getValue() const { return getOperand(0); }
     Value* getPointer() const { return getOperand(1); }
 
+    friend class Arena;
     static bool classof(const Instruction* I) {
         return I->getOpcode() == Opcode::Store;
     }
@@ -294,13 +295,12 @@ private:
  */
 class GCAllocInst : public Instruction {
 public:
-    static GCAllocInst* create(std::shared_ptr<IRType> allocatedType,
-                               const std::string& name = "");
 
     std::shared_ptr<IRType> getAllocatedType() const {
         return getType()->asPointer()->pointeeType();
     }
 
+    friend class Arena;
     static bool classof(const Instruction* I) {
         return I->getOpcode() == Opcode::GCAlloc;
     }
@@ -318,15 +318,13 @@ private:
  */
 class ArrayNewInst : public Instruction {
 public:
-    static ArrayNewInst* create(std::shared_ptr<IRType> elementType,
-                                Value* size,
-                                const std::string& name = "");
 
     std::shared_ptr<IRType> getElementType() const {
         return getType()->asPointer()->pointeeType();
     }
     Value* getSize() const { return getOperand(0); }
 
+    friend class Arena;
     static bool classof(const Instruction* I) {
         return I->getOpcode() == Opcode::ArrayNew;
     }
@@ -342,12 +340,11 @@ private:
  */
 class ArrayGetInst : public Instruction {
 public:
-    static ArrayGetInst* create(Value* array, Value* index,
-                                const std::string& name = "");
 
     Value* getArray() const { return getOperand(0); }
     Value* getIndex() const { return getOperand(1); }
 
+    friend class Arena;
     static bool classof(const Instruction* I) {
         return I->getOpcode() == Opcode::ArrayGet;
     }
@@ -361,12 +358,11 @@ private:
  */
 class ArraySetInst : public Instruction {
 public:
-    static ArraySetInst* create(Value* array, Value* index, Value* value);
-
     Value* getArray() const { return getOperand(0); }
     Value* getIndex() const { return getOperand(1); }
     Value* getValue() const { return getOperand(2); }
 
+    friend class Arena;
     static bool classof(const Instruction* I) {
         return I->getOpcode() == Opcode::ArraySet;
     }
@@ -380,10 +376,9 @@ private:
  */
 class ArrayLenInst : public Instruction {
 public:
-    static ArrayLenInst* create(Value* array, const std::string& name = "");
-
     Value* getArray() const { return getOperand(0); }
 
+    friend class Arena;
     static bool classof(const Instruction* I) {
         return I->getOpcode() == Opcode::ArrayLen;
     }
@@ -397,13 +392,12 @@ private:
  */
 class ArraySliceInst : public Instruction {
 public:
-    static ArraySliceInst* create(Value* array, Value* start, Value* end,
-                                  const std::string& name = "");
 
     Value* getArray() const { return getOperand(0); }
     Value* getStart() const { return getOperand(1); }
     Value* getEnd() const { return getOperand(2); }
 
+    friend class Arena;
     static bool classof(const Instruction* I) {
         return I->getOpcode() == Opcode::ArraySlice;
     }
@@ -421,13 +415,12 @@ private:
  */
 class CastInst : public Instruction {
 public:
-    static CastInst* create(Value* value, std::shared_ptr<IRType> destType,
-                           const std::string& name = "");
 
     Value* getValue() const { return getOperand(0); }
     std::shared_ptr<IRType> getDestType() const { return getType(); }
     std::shared_ptr<IRType> getSrcType() const { return getValue()->getType(); }
 
+    friend class Arena;
     static bool classof(const Instruction* I) {
         return I->getOpcode() == Opcode::Cast;
     }
@@ -441,11 +434,10 @@ private:
  */
 class OptionWrapInst : public Instruction {
 public:
-    static OptionWrapInst* create(Value* value, std::shared_ptr<IRType> optionType,
-                                  const std::string& name = "");
 
     Value* getValue() const { return getOperand(0); }
 
+    friend class Arena;
     static bool classof(const Instruction* I) {
         return I->getOpcode() == Opcode::OptionWrap;
     }
@@ -460,10 +452,9 @@ private:
  */
 class OptionUnwrapInst : public Instruction {
 public:
-    static OptionUnwrapInst* create(Value* option, const std::string& name = "");
-
     Value* getOption() const { return getOperand(0); }
 
+    friend class Arena;
     static bool classof(const Instruction* I) {
         return I->getOpcode() == Opcode::OptionUnwrap;
     }
@@ -477,10 +468,9 @@ private:
  */
 class OptionCheckInst : public Instruction {
 public:
-    static OptionCheckInst* create(Value* option, const std::string& name = "");
-
     Value* getOption() const { return getOperand(0); }
 
+    friend class Arena;
     static bool classof(const Instruction* I) {
         return I->getOpcode() == Opcode::OptionCheck;
     }
@@ -498,13 +488,12 @@ private:
  */
 class ReturnInst : public Instruction {
 public:
-    static ReturnInst* create(Value* returnValue = nullptr);
-
     bool hasReturnValue() const { return getNumOperands() > 0; }
     Value* getReturnValue() const {
         return hasReturnValue() ? getOperand(0) : nullptr;
     }
 
+    friend class Arena;
     static bool classof(const Instruction* I) {
         return I->getOpcode() == Opcode::Ret;
     }
@@ -518,11 +507,10 @@ private:
  */
 class BranchInst : public Instruction {
 public:
-    static BranchInst* create(BasicBlock* dest);
-
     BasicBlock* getDestination() const { return destination_; }
     void setDestination(BasicBlock* dest) { destination_ = dest; }
 
+    friend class Arena;
     static bool classof(const Instruction* I) {
         return I->getOpcode() == Opcode::Br;
     }
@@ -537,8 +525,6 @@ private:
  */
 class CondBranchInst : public Instruction {
 public:
-    static CondBranchInst* create(Value* condition, BasicBlock* trueDest,
-                                  BasicBlock* falseDest);
 
     Value* getCondition() const { return getOperand(0); }
     BasicBlock* getTrueDest() const { return trueDest_; }
@@ -547,6 +533,7 @@ public:
     void setTrueDest(BasicBlock* dest) { trueDest_ = dest; }
     void setFalseDest(BasicBlock* dest) { falseDest_ = dest; }
 
+    friend class Arena;
     static bool classof(const Instruction* I) {
         return I->getOpcode() == Opcode::CondBr;
     }
@@ -567,8 +554,6 @@ public:
         BasicBlock* dest;
     };
 
-    static SwitchInst* create(Value* value, BasicBlock* defaultDest,
-                             const std::vector<CaseEntry>& cases = {});
 
     Value* getValue() const { return getOperand(0); }
     BasicBlock* getDefaultDest() const { return defaultDest_; }
@@ -576,6 +561,7 @@ public:
 
     void addCase(Constant* value, BasicBlock* dest);
 
+    friend class Arena;
     static bool classof(const Instruction* I) {
         return I->getOpcode() == Opcode::Switch;
     }
@@ -596,14 +582,12 @@ private:
  */
 class CallInst : public Instruction {
 public:
-    static CallInst* create(Function* callee,
-                           const std::vector<Value*>& args,
-                           const std::string& name = "");
 
     Function* getCallee() const { return callee_; }
     unsigned getNumArguments() const { return getNumOperands(); }
     Value* getArgument(unsigned idx) const { return getOperand(idx); }
 
+    friend class Arena;
     static bool classof(const Instruction* I) {
         return I->getOpcode() == Opcode::Call;
     }
@@ -618,14 +602,12 @@ private:
  */
 class CallIndirectInst : public Instruction {
 public:
-    static CallIndirectInst* create(Value* callee,
-                                    const std::vector<Value*>& args,
-                                    const std::string& name = "");
 
     Value* getCallee() const { return getOperand(0); }
     unsigned getNumArguments() const { return getNumOperands() - 1; }
     Value* getArgument(unsigned idx) const { return getOperand(idx + 1); }
 
+    friend class Arena;
     static bool classof(const Instruction* I) {
         return I->getOpcode() == Opcode::CallIndirect;
     }
@@ -661,9 +643,6 @@ public:
         BasicBlock* block;
     };
 
-    static PhiNode* create(std::shared_ptr<IRType> type,
-                          const std::vector<IncomingValue>& incomingValues = {},
-                          const std::string& name = "");
 
     unsigned getNumIncomingValues() const { return incomingValues_.size(); }
     Value* getIncomingValue(unsigned idx) const;
@@ -676,6 +655,7 @@ public:
         return incomingValues_;
     }
 
+    friend class Arena;
     static bool classof(const Instruction* I) {
         return I->getOpcode() == Opcode::Phi;
     }

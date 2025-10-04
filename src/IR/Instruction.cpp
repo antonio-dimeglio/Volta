@@ -286,16 +286,9 @@ namespace {
 // BinaryOperator
 // ============================================================================
 
-BinaryOperator::BinaryOperator(Opcode op, Value* lhs, Value* rhs,
-                               const std::string& name)
-    : Instruction(op, computeBinaryOpType(op, lhs, rhs), {lhs, rhs}, name) {
-}
-
-BinaryOperator* BinaryOperator::create(Opcode op, Value* lhs, Value* rhs,
-                                       const std::string& name) {
-
+BinaryOperator::BinaryOperator(Opcode op, Value* lhs, Value* rhs, const std::string& name)
+    : Instruction(op, lhs->getType(), {lhs, rhs}, name) {
     assert(op >= Opcode::Add && op <= Opcode::Or);
-    return new BinaryOperator(op, lhs, rhs, name);
 }
 
 bool BinaryOperator::classof(const Instruction* I) {
@@ -317,12 +310,6 @@ UnaryOperator::UnaryOperator(Opcode op, Value* operand, const std::string& name)
     // For Not: result type = bool (i1)
 }
 
-UnaryOperator* UnaryOperator::create(Opcode op, Value* operand,
-                                     const std::string& name) {
-    assert(op == Opcode::Not || op == Opcode::Neg);
-    return new UnaryOperator(op, operand, name);
-}
-
 bool UnaryOperator::classof(const Instruction* I) {
     return I->isUnaryOp();
 }
@@ -336,11 +323,6 @@ CmpInst::CmpInst(Opcode op, Value* lhs, Value* rhs, const std::string& name)
     // Comparison always returns bool (i1)
 }
 
-CmpInst* CmpInst::create(Opcode op, Value* lhs, Value* rhs,
-                        const std::string& name) {
-    assert(op >= Opcode::Eq || op <= Opcode::Or);
-    return new CmpInst(op, lhs, rhs, name);
-}
 
 bool CmpInst::classof(const Instruction* I) {
     return I->isComparison();
@@ -358,12 +340,6 @@ AllocaInst::AllocaInst(std::shared_ptr<IRType> allocatedType,
                   name) {
 }
 
-AllocaInst* AllocaInst::create(std::shared_ptr<IRType> allocatedType,
-                               const std::string& name) {
-    assert(allocatedType && "AllocaInst requires valid type");
-    return new AllocaInst(allocatedType, name);
-}
-
 // ============================================================================
 // LoadInst
 // ============================================================================
@@ -375,11 +351,6 @@ LoadInst::LoadInst(Value* ptr, const std::string& name)
                   name) {
 }
 
-LoadInst* LoadInst::create(Value* ptr, const std::string& name) {
-    auto* ptrType = ptr->getType()->asPointer();
-    assert(ptrType && "Load instruction requires pointer operand");
-    return new LoadInst(ptr, name);
-}
 
 // ============================================================================
 // StoreInst
@@ -391,13 +362,6 @@ StoreInst::StoreInst(Value* value, Value* ptr)
                   {value, ptr}) {
 }
 
-StoreInst* StoreInst::create(Value* value, Value* ptr) {
-    auto* ptrType = ptr->getType()->asPointer();
-    assert(ptrType && "Store instruction requires pointer operand");
-    assert(value->getType()->equals(ptrType->pointeeType().get()) &&
-           "Store value type must match pointer pointee type");
-    return new StoreInst(value, ptr);
-}
 
 // ============================================================================
 // GCAllocInst
@@ -411,11 +375,6 @@ GCAllocInst::GCAllocInst(std::shared_ptr<IRType> allocatedType,
                   name) {
 }
 
-GCAllocInst* GCAllocInst::create(std::shared_ptr<IRType> allocatedType,
-                                 const std::string& name) {
-    assert(allocatedType && "GCAllocInst requires valid type");
-    return new GCAllocInst(allocatedType, name);
-}
 
 // ============================================================================
 // ArrayNewInst
@@ -430,15 +389,6 @@ ArrayNewInst::ArrayNewInst(std::shared_ptr<IRType> elementType,
                   name) {
 }
 
-ArrayNewInst* ArrayNewInst::create(std::shared_ptr<IRType> elementType,
-                                   Value* size,
-                                   const std::string& name) {
-    auto* sizeType = size->getType()->asPrimitive();
-    assert(sizeType && sizeType->kind() == IRType::Kind::I64 &&
-           "ArrayNew size must be i64");
-    return new ArrayNewInst(elementType, size, name);
-}
-
 // ============================================================================
 // ArrayGetInst
 // ============================================================================
@@ -450,17 +400,6 @@ ArrayGetInst::ArrayGetInst(Value* array, Value* index, const std::string& name)
                   name) {
 }
 
-ArrayGetInst* ArrayGetInst::create(Value* array, Value* index,
-                                   const std::string& name) {
-    auto* arrayPtrType = array->getType()->asPointer();
-    assert(arrayPtrType && "ArrayGet requires pointer type (dynamic array)");
-
-    auto* indexType = index->getType()->asPrimitive();
-    assert(indexType && indexType->kind() == IRType::Kind::I64 &&
-           "ArrayGet index must be i64");
-
-    return new ArrayGetInst(array, index, name);
-}
 
 // ============================================================================
 // ArraySetInst
@@ -472,19 +411,6 @@ ArraySetInst::ArraySetInst(Value* array, Value* index, Value* value)
                   {array, index, value}) {
 }
 
-ArraySetInst* ArraySetInst::create(Value* array, Value* index, Value* value) {
-    auto* arrayPtrType = array->getType()->asPointer();
-    assert(arrayPtrType && "ArraySet requires pointer type (dynamic array)");
-
-    auto* indexType = index->getType()->asPrimitive();
-    assert(indexType && indexType->kind() == IRType::Kind::I64 &&
-           "ArraySet index must be i64");
-
-    assert(value->getType()->equals(arrayPtrType->pointeeType().get()) &&
-           "ArraySet value type must match array element type");
-
-    return new ArraySetInst(array, index, value);
-}
 
 // ============================================================================
 // ArrayLenInst
@@ -495,12 +421,6 @@ ArrayLenInst::ArrayLenInst(Value* array, const std::string& name)
                   std::make_shared<IRPrimitiveType>(IRType::Kind::I64),
                   {array},
                   name) {
-}
-
-ArrayLenInst* ArrayLenInst::create(Value* array, const std::string& name) {
-    auto* arrayPtrType = array->getType()->asPointer();
-    assert(arrayPtrType && "ArrayLen requires pointer type (dynamic array)");
-    return new ArrayLenInst(array, name);
 }
 
 // ============================================================================
@@ -516,21 +436,6 @@ ArraySliceInst::ArraySliceInst(Value* array, Value* start, Value* end,
     // Returns same type as input (ptr<T>)
 }
 
-ArraySliceInst* ArraySliceInst::create(Value* array, Value* start, Value* end,
-                                       const std::string& name) {
-    auto* arrayPtrType = array->getType()->asPointer();
-    assert(arrayPtrType && "ArraySlice requires pointer type (dynamic array)");
-
-    auto* startType = start->getType()->asPrimitive();
-    assert(startType && startType->kind() == IRType::Kind::I64 &&
-           "ArraySlice start must be i64");
-
-    auto* endType = end->getType()->asPrimitive();
-    assert(endType && endType->kind() == IRType::Kind::I64 &&
-           "ArraySlice end must be i64");
-
-    return new ArraySliceInst(array, start, end, name);
-}
 
 // ============================================================================
 // CastInst
@@ -541,17 +446,7 @@ CastInst::CastInst(Value* value, std::shared_ptr<IRType> destType,
     : Instruction(Opcode::Cast, destType, {value}, name) {
 }
 
-CastInst* CastInst::create(Value* value, std::shared_ptr<IRType> destType,
-                          const std::string& name) {
-    auto* srcPrim = value->getType()->asPrimitive();
-    auto* destPrim = destType->asPrimitive();
 
-    // Validate cast is legal (numeric types can be cast to each other)
-    assert(srcPrim && destPrim && srcPrim->isNumeric() && destPrim->isNumeric() &&
-           "Cast only supports numeric type conversions");
-
-    return new CastInst(value, destType, name);
-}
 
 // ============================================================================
 // OptionWrapInst
@@ -563,15 +458,6 @@ OptionWrapInst::OptionWrapInst(Value* value,
     : Instruction(Opcode::OptionWrap, optionType, {value}, name) {
 }
 
-OptionWrapInst* OptionWrapInst::create(Value* value,
-                                       std::shared_ptr<IRType> optionType,
-                                       const std::string& name) {
-    auto* optType = optionType->asOption();
-    assert(optType && "OptionWrap requires Option type");
-    assert(value->getType()->equals(optType->innerType().get()) &&
-           "OptionWrap value type must match Option inner type");
-    return new OptionWrapInst(value, optionType, name);
-}
 
 // ============================================================================
 // OptionUnwrapInst
@@ -584,11 +470,6 @@ OptionUnwrapInst::OptionUnwrapInst(Value* option, const std::string& name)
                   name) {
 }
 
-OptionUnwrapInst* OptionUnwrapInst::create(Value* option, const std::string& name) {
-    auto* optType = option->getType()->asOption();
-    assert(optType && "OptionUnwrap requires Option type");
-    return new OptionUnwrapInst(option, name);
-}
 
 // ============================================================================
 // OptionCheckInst
@@ -601,12 +482,6 @@ OptionCheckInst::OptionCheckInst(Value* option, const std::string& name)
                   name) {
 }
 
-OptionCheckInst* OptionCheckInst::create(Value* option, const std::string& name) {
-    auto* optType = option->getType()->asOption();
-    assert(optType && "OptionCheck requires Option type");
-    return new OptionCheckInst(option, name);
-}
-
 // ============================================================================
 // ReturnInst
 // ============================================================================
@@ -615,10 +490,6 @@ ReturnInst::ReturnInst(Value* returnValue)
     : Instruction(Opcode::Ret,
                   std::make_shared<IRPrimitiveType>(IRType::Kind::Void),
                   returnValue ? std::vector<Value*>{returnValue} : std::vector<Value*>{}) {
-}
-
-ReturnInst* ReturnInst::create(Value* returnValue) {
-    return new ReturnInst(returnValue);
 }
 
 // ============================================================================
@@ -632,10 +503,6 @@ BranchInst::BranchInst(BasicBlock* dest)
       destination_(dest) {
 }
 
-BranchInst* BranchInst::create(BasicBlock* dest) {
-    assert(dest && "BranchInst requires valid destination");
-    return new BranchInst(dest);
-}
 
 // ============================================================================
 // CondBranchInst
@@ -650,15 +517,6 @@ CondBranchInst::CondBranchInst(Value* condition, BasicBlock* trueDest,
       falseDest_(falseDest) {
 }
 
-CondBranchInst* CondBranchInst::create(Value* condition, BasicBlock* trueDest,
-                                       BasicBlock* falseDest) {
-    auto* condType = condition->getType()->asPrimitive();
-    assert(condType && condType->kind() == IRType::Kind::I1 &&
-           "CondBranch condition must be i1 (bool)");
-    assert(trueDest && falseDest && "CondBranch requires valid destinations");
-    return new CondBranchInst(condition, trueDest, falseDest);
-}
-
 // ============================================================================
 // SwitchInst
 // ============================================================================
@@ -670,12 +528,6 @@ SwitchInst::SwitchInst(Value* value, BasicBlock* defaultDest,
                   {value}),
       defaultDest_(defaultDest),
       cases_(cases) {
-}
-
-SwitchInst* SwitchInst::create(Value* value, BasicBlock* defaultDest,
-                               const std::vector<CaseEntry>& cases) {
-    assert(defaultDest && "SwitchInst requires valid default destination");
-    return new SwitchInst(value, defaultDest, cases);
 }
 
 void SwitchInst::addCase(Constant* value, BasicBlock* dest) {
@@ -695,15 +547,6 @@ CallInst::CallInst(Function* callee, const std::vector<Value*>& args,
       callee_(callee) {
     // TODO: Once Function class is implemented, set type:
     //   type_ = callee->getReturnType();
-}
-
-CallInst* CallInst::create(Function* callee, const std::vector<Value*>& args,
-                           const std::string& name) {
-    assert(callee && "CallInst requires valid callee");
-    // TODO: Once Function class is implemented, validate:
-    //   - callee->getNumParams() == args.size()
-    //   - Each arg type matches corresponding param type
-    return new CallInst(callee, args, name);
 }
 
 // ============================================================================
@@ -727,16 +570,6 @@ CallIndirectInst::CallIndirectInst(Value* callee, const std::vector<Value*>& arg
     //   type_ = fnType->getReturnType();
 }
 
-CallIndirectInst* CallIndirectInst::create(Value* callee,
-                                           const std::vector<Value*>& args,
-                                           const std::string& name) {
-    assert(callee && "CallIndirectInst requires valid callee");
-    // TODO: Once IRFunctionType is implemented, validate:
-    //   auto* fnType = callee->getType()->asFunctionType();
-    //   assert(fnType && "CallIndirect callee must have function type");
-    //   assert(fnType->getNumParams() == args.size());
-    return new CallIndirectInst(callee, args, name);
-}
 
 // ============================================================================
 // PhiNode
@@ -751,13 +584,6 @@ PhiNode::PhiNode(std::shared_ptr<IRType> type,
     for (const auto& incoming : incomingValues) {
         addOperand(incoming.value);
     }
-}
-
-PhiNode* PhiNode::create(std::shared_ptr<IRType> type,
-                         const std::vector<IncomingValue>& incomingValues,
-                         const std::string& name) {
-    assert(type && "PhiNode requires valid type");
-    return new PhiNode(type, incomingValues, name);
 }
 
 Value* PhiNode::getIncomingValue(unsigned idx) const {

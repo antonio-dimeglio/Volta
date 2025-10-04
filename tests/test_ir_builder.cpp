@@ -60,7 +60,7 @@ TEST_F(IRBuilderTest, InsertionPoint_Clear) {
 TEST_F(IRBuilderTest, InsertionPoint_Before) {
     auto* func = builder->createFunction("test", builder->getVoidType(), {});
     auto* intVal = builder->getInt(42);
-    auto* inst1 = BinaryOperator::create(Instruction::Opcode::Add, intVal, intVal);
+    auto* inst1 = module->createBinaryOp(Instruction::Opcode::Add, intVal, intVal);
     builder->getInsertionBlock()->addInstruction(inst1);
 
     builder->setInsertionPointBefore(inst1);
@@ -72,7 +72,7 @@ TEST_F(IRBuilderTest, InsertionPoint_Before) {
 TEST_F(IRBuilderTest, InsertionPoint_After) {
     auto* func = builder->createFunction("test", builder->getVoidType(), {});
     auto* intVal = builder->getInt(42);
-    auto* inst1 = BinaryOperator::create(Instruction::Opcode::Add, intVal, intVal);
+    auto* inst1 = module->createBinaryOp(Instruction::Opcode::Add, intVal, intVal);
     builder->getInsertionBlock()->addInstruction(inst1);
 
     builder->setInsertionPointAfter(inst1);

@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <memory>
+#include "IR/Module.hpp"
 #include "IR/BasicBlock.hpp"
 #include "IR/Instruction.hpp"
 #include "IR/Value.hpp"
@@ -7,49 +8,39 @@
 
 using namespace volta::ir;
 
-// Test helpers
-static std::shared_ptr<IRType> makeIntType() {
-    return std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
-}
-
-static std::shared_ptr<IRType> makeBoolType() {
-    return std::make_shared<IRPrimitiveType>(IRType::Kind::I1);
-}
-
 // ============================================================================
 // Basic Block Creation Tests
 // ============================================================================
 
 TEST(BasicBlockTest, CreateBasicBlock) {
-    auto* bb = BasicBlock::create("entry");
+    Module module("test");
+    auto* bb = module.createBasicBlock("entry");
 
     ASSERT_NE(bb, nullptr);
     EXPECT_EQ(bb->getName(), "entry");
     EXPECT_TRUE(bb->empty());
     EXPECT_EQ(bb->getNumInstructions(), 0);
     EXPECT_FALSE(bb->hasTerminator());
-
-    delete bb;
 }
 
 TEST(BasicBlockTest, CreateUnnamedBlock) {
-    auto* bb = BasicBlock::create();
+    Module module("test");
+    auto* bb = module.createBasicBlock();
 
     ASSERT_NE(bb, nullptr);
     EXPECT_TRUE(bb->getName().empty() || bb->getName().find("bb") != std::string::npos);
     EXPECT_TRUE(bb->empty());
 
-    delete bb;
 }
 
 TEST(BasicBlockTest, CreateWithParent) {
+    Module module("test");
     // Note: We'll need Function class for this, so parent might be nullptr for now
-    auto* bb = BasicBlock::create("test", nullptr);
+    auto* bb = module.createBasicBlock("test", nullptr);
 
     ASSERT_NE(bb, nullptr);
     EXPECT_EQ(bb->getParent(), nullptr);
 
-    delete bb;
 }
 
 // ============================================================================
@@ -57,11 +48,12 @@ TEST(BasicBlockTest, CreateWithParent) {
 // ============================================================================
 
 TEST(BasicBlockTest, AddSingleInstruction) {
-    auto* bb = BasicBlock::create("test");
-    auto intType = makeIntType();
-    auto lhs = ConstantInt::get(10, intType);
-    auto rhs = ConstantInt::get(20, intType);
-    auto add = BinaryOperator::create(Instruction::Opcode::Add, lhs, rhs);
+    Module module("test");
+    auto* bb = module.createBasicBlock("test");
+    auto intType = module.getIntType();
+    auto lhs = module.getConstantInt(10, intType);
+    auto rhs = module.getConstantInt(20, intType);
+    auto add = module.createBinaryOp(Instruction::Opcode::Add, lhs, rhs);
 
     bb->addInstruction(add);
 
@@ -70,18 +62,18 @@ TEST(BasicBlockTest, AddSingleInstruction) {
     EXPECT_EQ(bb->getFirstInstruction(), add);
     EXPECT_EQ(add->getParent(), bb);
 
-    delete bb;
 }
 
 TEST(BasicBlockTest, AddMultipleInstructions) {
-    auto* bb = BasicBlock::create("test");
-    auto intType = makeIntType();
-    auto v1 = ConstantInt::get(10, intType);
-    auto v2 = ConstantInt::get(20, intType);
+    Module module("test");
+    auto* bb = module.createBasicBlock("test");
+    auto intType = module.getIntType();
+    auto v1 = module.getConstantInt(10, intType);
+    auto v2 = module.getConstantInt(20, intType);
 
-    auto add = BinaryOperator::create(Instruction::Opcode::Add, v1, v2);
-    auto sub = BinaryOperator::create(Instruction::Opcode::Sub, v1, v2);
-    auto mul = BinaryOperator::create(Instruction::Opcode::Mul, v1, v2);
+    auto add = module.createBinaryOp(Instruction::Opcode::Add, v1, v2);
+    auto sub = module.createBinaryOp(Instruction::Opcode::Sub, v1, v2);
+    auto mul = module.createBinaryOp(Instruction::Opcode::Mul, v1, v2);
 
     bb->addInstruction(add);
     bb->addInstruction(sub);
@@ -95,14 +87,14 @@ TEST(BasicBlockTest, AddMultipleInstructions) {
     EXPECT_EQ(insts[1], sub);
     EXPECT_EQ(insts[2], mul);
 
-    delete bb;
 }
 
 TEST(BasicBlockTest, AddTerminator) {
-    auto* bb = BasicBlock::create("test");
-    auto intType = makeIntType();
-    auto retVal = ConstantInt::get(42, intType);
-    auto ret = ReturnInst::create(retVal);
+    Module module("test");
+    auto* bb = module.createBasicBlock("test");
+    auto intType = module.getIntType();
+    auto retVal = module.getConstantInt(42, intType);
+    auto ret = module.createReturn(retVal);
 
     bb->addInstruction(ret);
 
@@ -110,19 +102,19 @@ TEST(BasicBlockTest, AddTerminator) {
     EXPECT_EQ(bb->getTerminator(), ret);
     EXPECT_EQ(bb->getNumInstructions(), 1);
 
-    delete bb;
 }
 
 TEST(BasicBlockTest, CannotAddInstructionAfterTerminator) {
-    auto* bb = BasicBlock::create("test");
-    auto intType = makeIntType();
+    Module module("test");
+    auto* bb = module.createBasicBlock("test");
+    auto intType = module.getIntType();
 
-    auto ret = ReturnInst::create(nullptr);
+    auto ret = module.createReturn(nullptr);
     bb->addInstruction(ret);
 
-    auto add = BinaryOperator::create(Instruction::Opcode::Add,
-                                     ConstantInt::get(1, intType),
-                                     ConstantInt::get(2, intType));
+    auto add = module.createBinaryOp(Instruction::Opcode::Add,
+                                     module.getConstantInt(1, intType),
+                                     module.getConstantInt(2, intType));
 
     // This should fail or throw
     // HINT: Your implementation should detect that a terminator exists
@@ -133,42 +125,41 @@ TEST(BasicBlockTest, CannotAddInstructionAfterTerminator) {
     EXPECT_EQ(bb->getNumInstructions(), 1);
     EXPECT_EQ(bb->getTerminator(), ret);
 
-    delete bb;
-    delete add; // Clean up since it wasn't added
 }
 
 TEST(BasicBlockTest, GetFirstInstruction) {
-    auto* bb = BasicBlock::create("test");
-    auto intType = makeIntType();
+    Module module("test");
+    auto* bb = module.createBasicBlock("test");
+    auto intType = module.getIntType();
 
     // Empty block
     EXPECT_EQ(bb->getFirstInstruction(), nullptr);
 
-    auto inst1 = BinaryOperator::create(Instruction::Opcode::Add,
-                                       ConstantInt::get(1, intType),
-                                       ConstantInt::get(2, intType));
-    auto inst2 = BinaryOperator::create(Instruction::Opcode::Sub,
-                                       ConstantInt::get(3, intType),
-                                       ConstantInt::get(4, intType));
+    auto inst1 = module.createBinaryOp(Instruction::Opcode::Add,
+                                       module.getConstantInt(1, intType),
+                                       module.getConstantInt(2, intType));
+    auto inst2 = module.createBinaryOp(Instruction::Opcode::Sub,
+                                       module.getConstantInt(3, intType),
+                                       module.getConstantInt(4, intType));
 
     bb->addInstruction(inst1);
     bb->addInstruction(inst2);
 
     EXPECT_EQ(bb->getFirstInstruction(), inst1);
 
-    delete bb;
 }
 
 TEST(BasicBlockTest, RemoveInstruction) {
-    auto* bb = BasicBlock::create("test");
-    auto intType = makeIntType();
+    Module module("test");
+    auto* bb = module.createBasicBlock("test");
+    auto intType = module.getIntType();
 
-    auto inst1 = BinaryOperator::create(Instruction::Opcode::Add,
-                                       ConstantInt::get(1, intType),
-                                       ConstantInt::get(2, intType));
-    auto inst2 = BinaryOperator::create(Instruction::Opcode::Sub,
-                                       ConstantInt::get(3, intType),
-                                       ConstantInt::get(4, intType));
+    auto inst1 = module.createBinaryOp(Instruction::Opcode::Add,
+                                       module.getConstantInt(1, intType),
+                                       module.getConstantInt(2, intType));
+    auto inst2 = module.createBinaryOp(Instruction::Opcode::Sub,
+                                       module.getConstantInt(3, intType),
+                                       module.getConstantInt(4, intType));
 
     bb->addInstruction(inst1);
     bb->addInstruction(inst2);
@@ -181,20 +172,19 @@ TEST(BasicBlockTest, RemoveInstruction) {
     EXPECT_EQ(bb->getFirstInstruction(), inst2);
     EXPECT_EQ(inst1->getParent(), nullptr);
 
-    delete bb;
-    delete inst1; // We removed it, so we own it
 }
 
 TEST(BasicBlockTest, EraseInstruction) {
-    auto* bb = BasicBlock::create("test");
-    auto intType = makeIntType();
+    Module module("test");
+    auto* bb = module.createBasicBlock("test");
+    auto intType = module.getIntType();
 
-    auto inst1 = BinaryOperator::create(Instruction::Opcode::Add,
-                                       ConstantInt::get(1, intType),
-                                       ConstantInt::get(2, intType));
-    auto inst2 = BinaryOperator::create(Instruction::Opcode::Sub,
-                                       ConstantInt::get(3, intType),
-                                       ConstantInt::get(4, intType));
+    auto inst1 = module.createBinaryOp(Instruction::Opcode::Add,
+                                       module.getConstantInt(1, intType),
+                                       module.getConstantInt(2, intType));
+    auto inst2 = module.createBinaryOp(Instruction::Opcode::Sub,
+                                       module.getConstantInt(3, intType),
+                                       module.getConstantInt(4, intType));
 
     bb->addInstruction(inst1);
     bb->addInstruction(inst2);
@@ -205,22 +195,22 @@ TEST(BasicBlockTest, EraseInstruction) {
     EXPECT_EQ(bb->getFirstInstruction(), inst2);
     // inst1 is deleted, don't access it!
 
-    delete bb;
 }
 
 TEST(BasicBlockTest, InsertBefore) {
-    auto* bb = BasicBlock::create("test");
-    auto intType = makeIntType();
+    Module module("test");
+    auto* bb = module.createBasicBlock("test");
+    auto intType = module.getIntType();
 
-    auto inst1 = BinaryOperator::create(Instruction::Opcode::Add,
-                                       ConstantInt::get(1, intType),
-                                       ConstantInt::get(2, intType));
-    auto inst2 = BinaryOperator::create(Instruction::Opcode::Sub,
-                                       ConstantInt::get(3, intType),
-                                       ConstantInt::get(4, intType));
-    auto instMiddle = BinaryOperator::create(Instruction::Opcode::Mul,
-                                            ConstantInt::get(5, intType),
-                                            ConstantInt::get(6, intType));
+    auto inst1 = module.createBinaryOp(Instruction::Opcode::Add,
+                                       module.getConstantInt(1, intType),
+                                       module.getConstantInt(2, intType));
+    auto inst2 = module.createBinaryOp(Instruction::Opcode::Sub,
+                                       module.getConstantInt(3, intType),
+                                       module.getConstantInt(4, intType));
+    auto instMiddle = module.createBinaryOp(Instruction::Opcode::Mul,
+                                            module.getConstantInt(5, intType),
+                                            module.getConstantInt(6, intType));
 
     bb->addInstruction(inst1);
     bb->addInstruction(inst2);
@@ -234,7 +224,6 @@ TEST(BasicBlockTest, InsertBefore) {
     EXPECT_EQ(insts[1], instMiddle);
     EXPECT_EQ(insts[2], inst2);
 
-    delete bb;
 }
 
 // ============================================================================
@@ -242,17 +231,18 @@ TEST(BasicBlockTest, InsertBefore) {
 // ============================================================================
 
 TEST(BasicBlockTest, InitiallyNoPredecessors) {
-    auto* bb = BasicBlock::create("test");
+    Module module("test");
+    auto* bb = module.createBasicBlock("test");
 
     EXPECT_EQ(bb->getNumPredecessors(), 0);
     EXPECT_TRUE(bb->getPredecessors().empty());
 
-    delete bb;
 }
 
 TEST(BasicBlockTest, AddPredecessor) {
-    auto* bb1 = BasicBlock::create("bb1");
-    auto* bb2 = BasicBlock::create("bb2");
+    Module module("test");
+    auto* bb1 = module.createBasicBlock("bb1");
+    auto* bb2 = module.createBasicBlock("bb2");
 
     bb2->addPredecessor(bb1);
 
@@ -260,14 +250,13 @@ TEST(BasicBlockTest, AddPredecessor) {
     EXPECT_TRUE(bb2->isPredecessor(bb1));
     EXPECT_FALSE(bb1->isPredecessor(bb2));
 
-    delete bb1;
-    delete bb2;
 }
 
 TEST(BasicBlockTest, AddMultiplePredecessors) {
-    auto* bb1 = BasicBlock::create("bb1");
-    auto* bb2 = BasicBlock::create("bb2");
-    auto* bb3 = BasicBlock::create("bb3");
+    Module module("test");
+    auto* bb1 = module.createBasicBlock("bb1");
+    auto* bb2 = module.createBasicBlock("bb2");
+    auto* bb3 = module.createBasicBlock("bb3");
 
     bb3->addPredecessor(bb1);
     bb3->addPredecessor(bb2);
@@ -275,14 +264,12 @@ TEST(BasicBlockTest, AddMultiplePredecessors) {
     EXPECT_EQ(bb3->getNumPredecessors(), 2);
     EXPECT_TRUE(bb3->hasMultiplePredecessors());
 
-    delete bb1;
-    delete bb2;
-    delete bb3;
 }
 
 TEST(BasicBlockTest, RemovePredecessor) {
-    auto* bb1 = BasicBlock::create("bb1");
-    auto* bb2 = BasicBlock::create("bb2");
+    Module module("test");
+    auto* bb1 = module.createBasicBlock("bb1");
+    auto* bb2 = module.createBasicBlock("bb2");
 
     bb2->addPredecessor(bb1);
     EXPECT_EQ(bb2->getNumPredecessors(), 1);
@@ -290,13 +277,12 @@ TEST(BasicBlockTest, RemovePredecessor) {
     bb2->removePredecessor(bb1);
     EXPECT_EQ(bb2->getNumPredecessors(), 0);
 
-    delete bb1;
-    delete bb2;
 }
 
 TEST(BasicBlockTest, NoDuplicatePredecessors) {
-    auto* bb1 = BasicBlock::create("bb1");
-    auto* bb2 = BasicBlock::create("bb2");
+    Module module("test");
+    auto* bb1 = module.createBasicBlock("bb1");
+    auto* bb2 = module.createBasicBlock("bb2");
 
     bb2->addPredecessor(bb1);
     bb2->addPredecessor(bb1); // Try to add again
@@ -304,28 +290,27 @@ TEST(BasicBlockTest, NoDuplicatePredecessors) {
     // Should still have only 1 predecessor
     EXPECT_EQ(bb2->getNumPredecessors(), 1);
 
-    delete bb1;
-    delete bb2;
 }
 
 TEST(BasicBlockTest, GetSuccessors_ReturnInst) {
-    auto* bb = BasicBlock::create("test");
-    auto intType = makeIntType();
-    auto ret = ReturnInst::create(ConstantInt::get(42, intType));
+    Module module("test");
+    auto* bb = module.createBasicBlock("test");
+    auto intType = module.getIntType();
+    auto ret = module.createReturn(module.getConstantInt(42, intType));
 
     bb->addInstruction(ret);
 
     auto successors = bb->getSuccessors();
     EXPECT_EQ(successors.size(), 0); // Return has no successors
 
-    delete bb;
 }
 
 TEST(BasicBlockTest, GetSuccessors_BranchInst) {
-    auto* bb1 = BasicBlock::create("bb1");
-    auto* bb2 = BasicBlock::create("bb2");
+    Module module("test");
+    auto* bb1 = module.createBasicBlock("bb1");
+    auto* bb2 = module.createBasicBlock("bb2");
 
-    auto br = BranchInst::create(bb2);
+    auto br = module.createBranch(bb2);
     bb1->addInstruction(br);
 
     auto successors = bb1->getSuccessors();
@@ -334,18 +319,17 @@ TEST(BasicBlockTest, GetSuccessors_BranchInst) {
 
     EXPECT_TRUE(bb1->isSuccessor(bb2));
 
-    delete bb1;
-    delete bb2;
 }
 
 TEST(BasicBlockTest, GetSuccessors_CondBranchInst) {
-    auto* bb1 = BasicBlock::create("entry");
-    auto* bb2 = BasicBlock::create("then");
-    auto* bb3 = BasicBlock::create("else");
+    Module module("test");
+    auto* bb1 = module.createBasicBlock("entry");
+    auto* bb2 = module.createBasicBlock("then");
+    auto* bb3 = module.createBasicBlock("else");
 
-    auto boolType = makeBoolType();
-    auto cond = ConstantBool::get(true, boolType);
-    auto condBr = CondBranchInst::create(cond, bb2, bb3);
+    auto boolType = module.getBoolType();
+    auto cond = module.getConstantBool(true, boolType);
+    auto condBr = module.createCondBranch(cond, bb2, bb3);
 
     bb1->addInstruction(condBr);
 
@@ -356,26 +340,21 @@ TEST(BasicBlockTest, GetSuccessors_CondBranchInst) {
     EXPECT_TRUE(bb1->isSuccessor(bb2));
     EXPECT_TRUE(bb1->isSuccessor(bb3));
 
-    delete bb1;
-    delete bb2;
-    delete bb3;
 }
 
 TEST(BasicBlockTest, GetNumSuccessors) {
-    auto* bb1 = BasicBlock::create("bb1");
-    auto* bb2 = BasicBlock::create("bb2");
-    auto* bb3 = BasicBlock::create("bb3");
+    Module module("test");
+    auto* bb1 = module.createBasicBlock("bb1");
+    auto* bb2 = module.createBasicBlock("bb2");
+    auto* bb3 = module.createBasicBlock("bb3");
 
     // No terminator = 0 successors
     EXPECT_EQ(bb1->getNumSuccessors(), 0);
 
     // Unconditional branch = 1 successor
-    bb1->addInstruction(BranchInst::create(bb2));
+    bb1->addInstruction(module.createBranch(bb2));
     EXPECT_EQ(bb1->getNumSuccessors(), 1);
 
-    delete bb1;
-    delete bb2;
-    delete bb3;
 }
 
 // ============================================================================
@@ -383,10 +362,11 @@ TEST(BasicBlockTest, GetNumSuccessors) {
 // ============================================================================
 
 TEST(CFGBuilderTest, ConnectBlocks) {
-    auto* bb1 = BasicBlock::create("bb1");
-    auto* bb2 = BasicBlock::create("bb2");
+    Module module("test");
+    auto* bb1 = module.createBasicBlock("bb1");
+    auto* bb2 = module.createBasicBlock("bb2");
 
-    cfg::connectBlocks(bb1, bb2);
+    cfg::connectBlocks(module, bb1, bb2);
 
     // bb1 should have a branch to bb2
     EXPECT_TRUE(bb1->hasTerminator());
@@ -397,19 +377,18 @@ TEST(CFGBuilderTest, ConnectBlocks) {
     // bb2 should have bb1 as predecessor
     EXPECT_TRUE(bb2->isPredecessor(bb1));
 
-    delete bb1;
-    delete bb2;
 }
 
 TEST(CFGBuilderTest, ConnectBlocksConditional) {
-    auto* bb1 = BasicBlock::create("entry");
-    auto* bb2 = BasicBlock::create("then");
-    auto* bb3 = BasicBlock::create("else");
+    Module module("test");
+    auto* bb1 = module.createBasicBlock("entry");
+    auto* bb2 = module.createBasicBlock("then");
+    auto* bb3 = module.createBasicBlock("else");
 
-    auto boolType = makeBoolType();
-    auto cond = ConstantBool::get(true, boolType);
+    auto boolType = module.getBoolType();
+    auto cond = module.getConstantBool(true, boolType);
 
-    cfg::connectBlocksConditional(bb1, cond, bb2, bb3);
+    cfg::connectBlocksConditional(module, bb1, cond, bb2, bb3);
 
     // bb1 should have conditional branch
     EXPECT_TRUE(bb1->hasTerminator());
@@ -420,9 +399,6 @@ TEST(CFGBuilderTest, ConnectBlocksConditional) {
     EXPECT_TRUE(bb2->isPredecessor(bb1));
     EXPECT_TRUE(bb3->isPredecessor(bb1));
 
-    delete bb1;
-    delete bb2;
-    delete bb3;
 }
 
 // ============================================================================
@@ -430,19 +406,20 @@ TEST(CFGBuilderTest, ConnectBlocksConditional) {
 // ============================================================================
 
 TEST(BasicBlockTest, InitiallyNoPhiNodes) {
-    auto* bb = BasicBlock::create("test");
+    Module module("test");
+    auto* bb = module.createBasicBlock("test");
 
     EXPECT_FALSE(bb->hasPhiNodes());
     EXPECT_TRUE(bb->getPhiNodes().empty());
 
-    delete bb;
 }
 
 TEST(BasicBlockTest, AddPhiNode) {
-    auto* bb = BasicBlock::create("merge");
-    auto intType = makeIntType();
+    Module module("test");
+    auto* bb = module.createBasicBlock("merge");
+    auto intType = module.getIntType();
 
-    auto phi = PhiNode::create(intType, {}, "merged_val");
+    auto phi = module.createPhi(intType, {}, "merged_val");
     bb->addPhiNode(phi);
 
     EXPECT_TRUE(bb->hasPhiNodes());
@@ -450,17 +427,17 @@ TEST(BasicBlockTest, AddPhiNode) {
     EXPECT_EQ(phis.size(), 1);
     EXPECT_EQ(phis[0], phi);
 
-    delete bb;
 }
 
 TEST(BasicBlockTest, PhiNodesBeforeRegularInstructions) {
-    auto* bb = BasicBlock::create("merge");
-    auto intType = makeIntType();
+    Module module("test");
+    auto* bb = module.createBasicBlock("merge");
+    auto intType = module.getIntType();
 
-    auto phi = PhiNode::create(intType, {}, "phi1");
-    auto add = BinaryOperator::create(Instruction::Opcode::Add,
-                                     ConstantInt::get(1, intType),
-                                     ConstantInt::get(2, intType));
+    auto phi = module.createPhi(intType, {}, "phi1");
+    auto add = module.createBinaryOp(Instruction::Opcode::Add,
+                                     module.getConstantInt(1, intType),
+                                     module.getConstantInt(2, intType));
 
     bb->addInstruction(add);
     bb->addPhiNode(phi);
@@ -470,15 +447,15 @@ TEST(BasicBlockTest, PhiNodesBeforeRegularInstructions) {
     EXPECT_EQ(insts[0], phi);
     EXPECT_EQ(insts[1], add);
 
-    delete bb;
 }
 
 TEST(BasicBlockTest, MultiplePhiNodes) {
-    auto* bb = BasicBlock::create("merge");
-    auto intType = makeIntType();
+    Module module("test");
+    auto* bb = module.createBasicBlock("merge");
+    auto intType = module.getIntType();
 
-    auto phi1 = PhiNode::create(intType, {}, "phi1");
-    auto phi2 = PhiNode::create(intType, {}, "phi2");
+    auto phi1 = module.createPhi(intType, {}, "phi1");
+    auto phi2 = module.createPhi(intType, {}, "phi2");
 
     bb->addPhiNode(phi1);
     bb->addPhiNode(phi2);
@@ -486,7 +463,6 @@ TEST(BasicBlockTest, MultiplePhiNodes) {
     auto phis = bb->getPhiNodes();
     EXPECT_EQ(phis.size(), 2);
 
-    delete bb;
 }
 
 // ============================================================================
@@ -494,42 +470,41 @@ TEST(BasicBlockTest, MultiplePhiNodes) {
 // ============================================================================
 
 TEST(BasicBlockTest, ToStringEmpty) {
-    auto* bb = BasicBlock::create("entry");
+    Module module("test");
+    auto* bb = module.createBasicBlock("entry");
 
     std::string str = bb->toString();
     EXPECT_FALSE(str.empty());
     EXPECT_NE(str.find("entry"), std::string::npos);
 
-    delete bb;
 }
 
 TEST(BasicBlockTest, ToStringWithInstructions) {
-    auto* bb = BasicBlock::create("test");
-    auto intType = makeIntType();
+    Module module("test");
+    auto* bb = module.createBasicBlock("test");
+    auto intType = module.getIntType();
 
-    auto add = BinaryOperator::create(Instruction::Opcode::Add,
-                                     ConstantInt::get(1, intType),
-                                     ConstantInt::get(2, intType));
+    auto add = module.createBinaryOp(Instruction::Opcode::Add,
+                                     module.getConstantInt(1, intType),
+                                     module.getConstantInt(2, intType));
     bb->addInstruction(add);
 
     std::string str = bb->toString();
     EXPECT_FALSE(str.empty());
     EXPECT_NE(str.find("test"), std::string::npos);
 
-    delete bb;
 }
 
 TEST(BasicBlockTest, ToStringWithPredecessors) {
-    auto* bb1 = BasicBlock::create("bb1");
-    auto* bb2 = BasicBlock::create("bb2");
+    Module module("test");
+    auto* bb1 = module.createBasicBlock("bb1");
+    auto* bb2 = module.createBasicBlock("bb2");
 
     bb2->addPredecessor(bb1);
 
     std::string str = bb2->toString();
     EXPECT_NE(str.find("preds"), std::string::npos);
 
-    delete bb1;
-    delete bb2;
 }
 
 // ============================================================================
@@ -537,6 +512,7 @@ TEST(BasicBlockTest, ToStringWithPredecessors) {
 // ============================================================================
 
 TEST(CFGTest, SimpleDiamondCFG) {
+    Module module("test");
     // entry
     //   |
     //   v
@@ -546,20 +522,20 @@ TEST(CFGTest, SimpleDiamondCFG) {
     //  \  /
     //   merge
 
-    auto* entry = BasicBlock::create("entry");
-    auto* cond = BasicBlock::create("cond");
-    auto* thenBlock = BasicBlock::create("then");
-    auto* elseBlock = BasicBlock::create("else");
-    auto* merge = BasicBlock::create("merge");
+    auto* entry = module.createBasicBlock("entry");
+    auto* cond = module.createBasicBlock("cond");
+    auto* thenBlock = module.createBasicBlock("then");
+    auto* elseBlock = module.createBasicBlock("else");
+    auto* merge = module.createBasicBlock("merge");
 
-    auto boolType = makeBoolType();
-    auto condVal = ConstantBool::get(true, boolType);
+    auto boolType = module.getBoolType();
+    auto condVal = module.getConstantBool(true, boolType);
 
     // Connect blocks
-    cfg::connectBlocks(entry, cond);
-    cfg::connectBlocksConditional(cond, condVal, thenBlock, elseBlock);
-    cfg::connectBlocks(thenBlock, merge);
-    cfg::connectBlocks(elseBlock, merge);
+    cfg::connectBlocks(module, entry, cond);
+    cfg::connectBlocksConditional(module, cond, condVal, thenBlock, elseBlock);
+    cfg::connectBlocks(module, thenBlock, merge);
+    cfg::connectBlocks(module, elseBlock, merge);
 
     // Verify structure
     EXPECT_EQ(cond->getNumPredecessors(), 1);
@@ -571,11 +547,6 @@ TEST(CFGTest, SimpleDiamondCFG) {
     EXPECT_TRUE(merge->isPredecessor(thenBlock));
     EXPECT_TRUE(merge->isPredecessor(elseBlock));
 
-    delete entry;
-    delete cond;
-    delete thenBlock;
-    delete elseBlock;
-    delete merge;
 }
 
 // ============================================================================
@@ -583,41 +554,39 @@ TEST(CFGTest, SimpleDiamondCFG) {
 // ============================================================================
 
 TEST(CFGUtilityTest, HasPath_DirectConnection) {
-    auto* bb1 = BasicBlock::create("bb1");
-    auto* bb2 = BasicBlock::create("bb2");
+    Module module("test");
+    auto* bb1 = module.createBasicBlock("bb1");
+    auto* bb2 = module.createBasicBlock("bb2");
 
-    cfg::connectBlocks(bb1, bb2);
+    cfg::connectBlocks(module, bb1, bb2);
 
     EXPECT_TRUE(cfg::hasPath(bb1, bb2));
     EXPECT_FALSE(cfg::hasPath(bb2, bb1)); // No path backwards
 
-    delete bb1;
-    delete bb2;
 }
 
 TEST(CFGUtilityTest, HasPath_IndirectConnection) {
-    auto* bb1 = BasicBlock::create("bb1");
-    auto* bb2 = BasicBlock::create("bb2");
-    auto* bb3 = BasicBlock::create("bb3");
+    Module module("test");
+    auto* bb1 = module.createBasicBlock("bb1");
+    auto* bb2 = module.createBasicBlock("bb2");
+    auto* bb3 = module.createBasicBlock("bb3");
 
-    cfg::connectBlocks(bb1, bb2);
-    cfg::connectBlocks(bb2, bb3);
+    cfg::connectBlocks(module, bb1, bb2);
+    cfg::connectBlocks(module, bb2, bb3);
 
     EXPECT_TRUE(cfg::hasPath(bb1, bb3));
     EXPECT_FALSE(cfg::hasPath(bb3, bb1));
 
-    delete bb1;
-    delete bb2;
-    delete bb3;
 }
 
 TEST(CFGUtilityTest, GetReachableBlocks) {
-    auto* entry = BasicBlock::create("entry");
-    auto* bb1 = BasicBlock::create("bb1");
-    auto* bb2 = BasicBlock::create("bb2");
+    Module module("test");
+    auto* entry = module.createBasicBlock("entry");
+    auto* bb1 = module.createBasicBlock("bb1");
+    auto* bb2 = module.createBasicBlock("bb2");
 
-    cfg::connectBlocks(entry, bb1);
-    cfg::connectBlocks(bb1, bb2);
+    cfg::connectBlocks(module, entry, bb1);
+    cfg::connectBlocks(module, bb1, bb2);
 
     auto reachable = cfg::getReachableBlocks(entry);
 
@@ -626,18 +595,16 @@ TEST(CFGUtilityTest, GetReachableBlocks) {
     EXPECT_NE(std::find(reachable.begin(), reachable.end(), bb1), reachable.end());
     EXPECT_NE(std::find(reachable.begin(), reachable.end(), bb2), reachable.end());
 
-    delete entry;
-    delete bb1;
-    delete bb2;
 }
 
 TEST(CFGUtilityTest, ReversePostorder) {
-    auto* entry = BasicBlock::create("entry");
-    auto* bb1 = BasicBlock::create("bb1");
-    auto* bb2 = BasicBlock::create("bb2");
+    Module module("test");
+    auto* entry = module.createBasicBlock("entry");
+    auto* bb1 = module.createBasicBlock("bb1");
+    auto* bb2 = module.createBasicBlock("bb2");
 
-    cfg::connectBlocks(entry, bb1);
-    cfg::connectBlocks(bb1, bb2);
+    cfg::connectBlocks(module, entry, bb1);
+    cfg::connectBlocks(module, bb1, bb2);
 
     auto rpo = cfg::reversePostorder(entry);
 
@@ -645,9 +612,6 @@ TEST(CFGUtilityTest, ReversePostorder) {
     // In reverse postorder, entry should come first
     EXPECT_EQ(rpo[0], entry);
 
-    delete entry;
-    delete bb1;
-    delete bb2;
 }
 
 // ============================================================================
@@ -655,25 +619,26 @@ TEST(CFGUtilityTest, ReversePostorder) {
 // ============================================================================
 
 TEST(BasicBlockTest, SplitAtInstruction) {
-    auto* bb = BasicBlock::create("original");
-    auto intType = makeIntType();
+    Module module("test");
+    auto* bb = module.createBasicBlock("original");
+    auto intType = module.getIntType();
 
-    auto inst1 = BinaryOperator::create(Instruction::Opcode::Add,
-                                       ConstantInt::get(1, intType),
-                                       ConstantInt::get(2, intType));
-    auto inst2 = BinaryOperator::create(Instruction::Opcode::Sub,
-                                       ConstantInt::get(3, intType),
-                                       ConstantInt::get(4, intType));
-    auto inst3 = BinaryOperator::create(Instruction::Opcode::Mul,
-                                       ConstantInt::get(5, intType),
-                                       ConstantInt::get(6, intType));
+    auto inst1 = module.createBinaryOp(Instruction::Opcode::Add,
+                                       module.getConstantInt(1, intType),
+                                       module.getConstantInt(2, intType));
+    auto inst2 = module.createBinaryOp(Instruction::Opcode::Sub,
+                                       module.getConstantInt(3, intType),
+                                       module.getConstantInt(4, intType));
+    auto inst3 = module.createBinaryOp(Instruction::Opcode::Mul,
+                                       module.getConstantInt(5, intType),
+                                       module.getConstantInt(6, intType));
 
     bb->addInstruction(inst1);
     bb->addInstruction(inst2);
     bb->addInstruction(inst3);
 
     // Split at inst2
-    auto* newBlock = bb->splitAt(inst2, "split");
+    auto* newBlock = bb->splitAt(module, inst2, "split");
 
     ASSERT_NE(newBlock, nullptr);
 
@@ -684,8 +649,6 @@ TEST(BasicBlockTest, SplitAtInstruction) {
     // New block should have inst2 and inst3
     EXPECT_EQ(newBlock->getNumInstructions(), 2);
 
-    delete bb;
-    delete newBlock;
 }
 
 // ============================================================================
@@ -693,17 +656,18 @@ TEST(BasicBlockTest, SplitAtInstruction) {
 // ============================================================================
 
 TEST(BasicBlockTest, EmptyBlockHasNoTerminator) {
-    auto* bb = BasicBlock::create("empty");
+    Module module("test");
+    auto* bb = module.createBasicBlock("empty");
 
     EXPECT_FALSE(bb->hasTerminator());
     EXPECT_EQ(bb->getTerminator(), nullptr);
 
-    delete bb;
 }
 
 TEST(BasicBlockTest, BlockWithOnlyTerminator) {
-    auto* bb = BasicBlock::create("ret_only");
-    auto ret = ReturnInst::create(nullptr);
+    Module module("test");
+    auto* bb = module.createBasicBlock("ret_only");
+    auto ret = module.createReturn(nullptr);
 
     bb->addInstruction(ret);
 
@@ -712,12 +676,12 @@ TEST(BasicBlockTest, BlockWithOnlyTerminator) {
     EXPECT_EQ(bb->getFirstInstruction(), ret);
     EXPECT_EQ(bb->getTerminator(), ret);
 
-    delete bb;
 }
 
 TEST(BasicBlockTest, IsReachable) {
-    auto* bb1 = BasicBlock::create("bb1");
-    auto* bb2 = BasicBlock::create("bb2");
+    Module module("test");
+    auto* bb1 = module.createBasicBlock("bb1");
+    auto* bb2 = module.createBasicBlock("bb2");
 
     // Initially unreachable (no predecessors)
     EXPECT_FALSE(bb2->isReachable());
@@ -728,6 +692,4 @@ TEST(BasicBlockTest, IsReachable) {
     // Now reachable
     EXPECT_TRUE(bb2->isReachable());
 
-    delete bb1;
-    delete bb2;
 }

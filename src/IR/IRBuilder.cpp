@@ -165,7 +165,7 @@ Value* IRBuilder::createAdd(Value* lhs, Value* rhs, const std::string& name) {
         return nullptr;
     }
 
-    BinaryOperator* opr = BinaryOperator::create(Instruction::Opcode::Add, lhs, rhs, name);
+    BinaryOperator* opr = module_.createBinaryOp(Instruction::Opcode::Add, lhs, rhs, name);
     insert(opr);
 
     return opr;
@@ -176,7 +176,7 @@ Value* IRBuilder::createSub(Value* lhs, Value* rhs, const std::string& name) {
         return nullptr;
     }
 
-    BinaryOperator* opr = BinaryOperator::create(Instruction::Opcode::Sub, lhs, rhs, name);
+    BinaryOperator* opr = module_.createBinaryOp(Instruction::Opcode::Sub, lhs, rhs, name);
     insert(opr);
 
     return opr;
@@ -187,7 +187,7 @@ Value* IRBuilder::createMul(Value* lhs, Value* rhs, const std::string& name) {
         return nullptr;
     }
 
-    BinaryOperator* opr = BinaryOperator::create(Instruction::Opcode::Mul, lhs, rhs, name);
+    BinaryOperator* opr = module_.createBinaryOp(Instruction::Opcode::Mul, lhs, rhs, name);
     insert(opr);
 
     return opr;
@@ -198,7 +198,7 @@ Value* IRBuilder::createDiv(Value* lhs, Value* rhs, const std::string& name) {
         return nullptr;
     }
 
-    BinaryOperator* opr = BinaryOperator::create(Instruction::Opcode::Div, lhs, rhs, name);
+    BinaryOperator* opr = module_.createBinaryOp(Instruction::Opcode::Div, lhs, rhs, name);
     insert(opr);
 
     return opr;
@@ -209,7 +209,7 @@ Value* IRBuilder::createRem(Value* lhs, Value* rhs, const std::string& name) {
         return nullptr;
     }
 
-    BinaryOperator* opr = BinaryOperator::create(Instruction::Opcode::Rem, lhs, rhs, name);
+    BinaryOperator* opr = module_.createBinaryOp(Instruction::Opcode::Rem, lhs, rhs, name);
     insert(opr);
 
     return opr;
@@ -220,14 +220,14 @@ Value* IRBuilder::createPow(Value* lhs, Value* rhs, const std::string& name) {
         return nullptr;
     }
 
-    BinaryOperator* opr = BinaryOperator::create(Instruction::Opcode::Pow, lhs, rhs, name);
+    BinaryOperator* opr = module_.createBinaryOp(Instruction::Opcode::Pow, lhs, rhs, name);
     insert(opr);
 
     return opr;
 }
 
 Value* IRBuilder::createNeg(Value* operand, const std::string& name) {
-    UnaryOperator* opr = UnaryOperator::create(Instruction::Opcode::Neg, operand, name);
+    UnaryOperator* opr = module_.createUnaryOp(Instruction::Opcode::Neg, operand, name);
     insert(opr);
 
     return opr;
@@ -242,7 +242,7 @@ Value* IRBuilder::createEq(Value* lhs, Value* rhs, const std::string& name) {
         return nullptr;
     }
 
-    BinaryOperator* opr = BinaryOperator::create(Instruction::Opcode::Eq, lhs, rhs, name);
+    BinaryOperator* opr = module_.createBinaryOp(Instruction::Opcode::Eq, lhs, rhs, name);
     insert(opr);
 
     return opr;
@@ -253,7 +253,7 @@ Value* IRBuilder::createNe(Value* lhs, Value* rhs, const std::string& name) {
         return nullptr;
     }
 
-    BinaryOperator* opr = BinaryOperator::create(Instruction::Opcode::Ne, lhs, rhs, name);
+    BinaryOperator* opr = module_.createBinaryOp(Instruction::Opcode::Ne, lhs, rhs, name);
     insert(opr);
 
     return opr;
@@ -264,7 +264,7 @@ Value* IRBuilder::createLt(Value* lhs, Value* rhs, const std::string& name) {
         return nullptr;
     }
 
-    BinaryOperator* opr = BinaryOperator::create(Instruction::Opcode::Lt, lhs, rhs, name);
+    BinaryOperator* opr = module_.createBinaryOp(Instruction::Opcode::Lt, lhs, rhs, name);
     insert(opr);
 
     return opr;
@@ -275,7 +275,7 @@ Value* IRBuilder::createLe(Value* lhs, Value* rhs, const std::string& name) {
         return nullptr;
     }
 
-    BinaryOperator* opr = BinaryOperator::create(Instruction::Opcode::Le, lhs, rhs, name);
+    BinaryOperator* opr = module_.createBinaryOp(Instruction::Opcode::Le, lhs, rhs, name);
     insert(opr);
 
     return opr;
@@ -286,7 +286,7 @@ Value* IRBuilder::createGt(Value* lhs, Value* rhs, const std::string& name) {
         return nullptr;
     }
 
-    BinaryOperator* opr = BinaryOperator::create(Instruction::Opcode::Gt, lhs, rhs, name);
+    BinaryOperator* opr = module_.createBinaryOp(Instruction::Opcode::Gt, lhs, rhs, name);
     insert(opr);
 
     return opr;
@@ -297,7 +297,7 @@ Value* IRBuilder::createGe(Value* lhs, Value* rhs, const std::string& name) {
         return nullptr;
     }
 
-    BinaryOperator* opr = BinaryOperator::create(Instruction::Opcode::Ge, lhs, rhs, name);
+    BinaryOperator* opr = module_.createBinaryOp(Instruction::Opcode::Ge, lhs, rhs, name);
     insert(opr);
 
     return opr;
@@ -312,7 +312,7 @@ Value* IRBuilder::createAnd(Value* lhs, Value* rhs, const std::string& name) {
         return nullptr;
     }
 
-    BinaryOperator* opr = BinaryOperator::create(Instruction::Opcode::And, lhs, rhs, name);
+    BinaryOperator* opr = module_.createBinaryOp(Instruction::Opcode::And, lhs, rhs, name);
     insert(opr);
 
     return opr;
@@ -323,14 +323,14 @@ Value* IRBuilder::createOr(Value* lhs, Value* rhs, const std::string& name) {
         return nullptr;
     }
 
-    BinaryOperator* opr = BinaryOperator::create(Instruction::Opcode::Or, lhs, rhs, name);
+    BinaryOperator* opr = module_.createBinaryOp(Instruction::Opcode::Or, lhs, rhs, name);
     insert(opr);
 
     return opr;
 }
 
 Value* IRBuilder::createNot(Value* operand, const std::string& name) {
-    UnaryOperator* opr = UnaryOperator::create(Instruction::Opcode::Not, operand, name);
+    UnaryOperator* opr = module_.createUnaryOp(Instruction::Opcode::Not, operand, name);
     insert(opr);
 
     return opr;
@@ -341,27 +341,26 @@ Value* IRBuilder::createNot(Value* operand, const std::string& name) {
 // ============================================================================
 
 Value* IRBuilder::createAlloca(std::shared_ptr<IRType> type, const std::string& name) {
-    auto* alloca = AllocaInst::create(type, name);
+    auto* alloca = module_.createAlloca(type, name);
     insert(alloca);
     return alloca;
 }
 
 Value* IRBuilder::createLoad(Value* ptr, const std::string& name) {
     // TODO: Validate ptr is actually a pointer type
-    auto* load = LoadInst::create(ptr, name);
+    auto* load = module_.createLoad(ptr, name);
     insert(load);
     return load;
 }
 
 void IRBuilder::createStore(Value* value, Value* ptr) {
     // TODO: Validate types match
-    auto* store = StoreInst::create(value, ptr);
+    auto* store = module_.createStore(value, ptr);
     insert(store);
 }
 
 Value* IRBuilder::createGCAlloc(std::shared_ptr<IRType> type, const std::string& name) {
-    // TODO: Implement
-    auto* alloc = GCAllocInst::create(type, name);
+    auto* alloc = module_.createGCAlloc(type, name);
     insert(alloc);
     return alloc;
 }
@@ -372,31 +371,31 @@ Value* IRBuilder::createGCAlloc(std::shared_ptr<IRType> type, const std::string&
 
 Value* IRBuilder::createArrayNew(std::shared_ptr<IRType> elementType, Value* size,
                                 const std::string& name) {
-    auto* arr = ArrayNewInst::create(elementType, size, name);
+    auto* arr = module_.createArrayNew(elementType, size, name);
     insert(arr);
     return arr;
 }
 
 Value* IRBuilder::createArrayGet(Value* array, Value* index, const std::string& name) {
-    auto* arr = ArrayGetInst::create(array, index, name);
+    auto* arr = module_.createArrayGet(array, index, name);
     insert(arr);
     return arr;
 }
 
 void IRBuilder::createArraySet(Value* array, Value* index, Value* value) {
-    auto* arr = ArraySetInst::create(array, index, value);
+    auto* arr = module_.createArraySet(array, index, value);
     insert(arr);
 }
 
 Value* IRBuilder::createArrayLen(Value* array, const std::string& name) {
-    auto* arr = ArrayLenInst::create(array, name);
+    auto* arr = module_.createArrayLen(array, name);
     insert(arr);
     return arr;
 }
 
 Value* IRBuilder::createArraySlice(Value* array, Value* start, Value* end,
                                   const std::string& name) {
-    auto* arr = ArraySliceInst::create(array, start, end, name);
+    auto* arr = module_.createArraySlice(array, start, end, name);
     insert(arr);
     return arr;
 }
@@ -407,26 +406,28 @@ Value* IRBuilder::createArraySlice(Value* array, Value* start, Value* end,
 
 Value* IRBuilder::createCast(Value* value, std::shared_ptr<IRType> destType,
                             const std::string& name) {
-    auto* cast = CastInst::create(value, destType, name);
+    auto* cast = module_.createCast(value, destType, name);
     insert(cast);
     return cast;
 }
 
 Value* IRBuilder::createOptionWrap(Value* value, std::shared_ptr<IRType> optionType,
                                   const std::string& name) {
-    auto* op = OptionWrapInst::create(value, optionType, name);
+    // Module.createOptionWrap infers the option type from value's type
+    // The optionType parameter here is unused but kept for backward compatibility
+    auto* op = module_.createOptionWrap(value, name);
     insert(op);
     return op;
 }
 
 Value* IRBuilder::createOptionUnwrap(Value* option, const std::string& name) {
-    auto* op = OptionUnwrapInst::create(option, name);
+    auto* op = module_.createOptionUnwrap(option, name);
     insert(op);
     return op;
 }
 
 Value* IRBuilder::createOptionCheck(Value* option, const std::string& name) {
-    auto* op = OptionCheckInst::create(option, name);
+    auto* op = module_.createOptionCheck(option, name);
     insert(op);
     return op;
 }
@@ -436,20 +437,20 @@ Value* IRBuilder::createOptionCheck(Value* option, const std::string& name) {
 // ============================================================================
 
 void IRBuilder::createRet(Value* value) {
-    auto* ret = ReturnInst::create(value);
+    auto* ret = module_.createReturn(value);
     insert(ret);
     clearInsertionPoint();
 }
 
 void IRBuilder::createBr(BasicBlock* dest) {
-    auto* br = BranchInst::create(dest);
+    auto* br = module_.createBranch(dest);
     insert(br);
     dest->addPredecessor(insertionBlock_);
     clearInsertionPoint();
 }
 
 void IRBuilder::createCondBr(Value* condition, BasicBlock* trueBlock, BasicBlock* falseBlock) {
-    auto* condBr = CondBranchInst::create(condition, trueBlock, falseBlock);
+    auto* condBr = module_.createCondBranch(condition, trueBlock, falseBlock);
 
     insert(condBr);
 
@@ -478,14 +479,15 @@ Value* IRBuilder::createCall(Function* callee, const std::vector<Value*>& args,
 
     // 2. Validate argument types
     for (size_t i = 0; i < args.size(); i++) {
-        if (args[i]->getType() != callee->getParam(i)->getType()) {
+        // Compare types by value, not by shared_ptr address
+        if (!args[i]->getType()->equals(callee->getParam(i)->getType().get())) {
             // Error: wrong type for argument i
             return nullptr;
         }
     }
 
     // 3. Create call instruction
-    auto* call = CallInst::create(callee, args, name);
+    auto* call = module_.createCall(callee, args, name);
 
     // 4. Insert it
     insert(call);
@@ -506,9 +508,9 @@ Value* IRBuilder::createCallIndirect(Value* callee, const std::vector<Value*>& a
 Value* IRBuilder::createPhi(std::shared_ptr<IRType> type,
                            const std::vector<PhiNode::IncomingValue>& incomingValues,
                            const std::string& name) {
-    auto* phi = PhiNode::create(type, incomingValues, name);
+    auto* phi = module_.createPhi(type, incomingValues, name);
 
-    
+    // Phi nodes must be inserted at the beginning of the block, before any non-phi instructions
     if (insertionBlock_) {
         auto* savedPoint = insertionPoint_;
 

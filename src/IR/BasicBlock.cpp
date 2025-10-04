@@ -1,9 +1,10 @@
 #include "IR/BasicBlock.hpp"
+#include "IR/Module.hpp"
 #include "IR/Instruction.hpp"
 #include <algorithm>
 #include <sstream>
 #include <assert.h>
-#include <queue>           
+#include <queue>
 #include <unordered_set>
 
 
@@ -12,13 +13,6 @@ namespace volta::ir {
 // ============================================================================
 // BasicBlock Implementation
 // ============================================================================
-
-BasicBlock* BasicBlock::create(const std::string& name, Function* parent) {
-    // NOTE: This static method should not be used!
-    // Use Module::createBasicBlock() instead for arena allocation
-    // This method exists for backwards compatibility only
-    return new BasicBlock(name, parent);
-}
 
 BasicBlock::BasicBlock(const std::string& name, Function* parent)
     : Value(ValueKind::BasicBlock,
@@ -156,16 +150,14 @@ bool BasicBlock::isSuccessor(BasicBlock* block) const {
 // CFG Utilities
 // ========================================================================
 
-BasicBlock* BasicBlock::splitAt(Instruction* splitPoint, const std::string& newBlockName) {
+BasicBlock* BasicBlock::splitAt(Module& module, Instruction* splitPoint, const std::string& newBlockName) {
     // STEP 1: Validate
     auto it = std::find(instructions_.begin(), instructions_.end(), splitPoint);
     if (it == instructions_.end()) return nullptr; // Not in this block
     if (it == instructions_.begin()) return nullptr; // Can't split before first
 
-    // STEP 2: Create new block
-    // WARNING: This uses BasicBlock::create() which uses 'new'
-    // TODO: Refactor to use Module::createBasicBlock() for arena allocation
-    auto* newBlock = BasicBlock::create(newBlockName, parent_);
+    // STEP 2: Create new block using arena allocation
+    auto* newBlock = module.createBasicBlock(newBlockName, parent_);
 
     // STEP 3: Move instructions [splitPoint, end) to new block
     while (it != instructions_.end()) {
@@ -186,7 +178,7 @@ BasicBlock* BasicBlock::splitAt(Instruction* splitPoint, const std::string& newB
     }
 
     // STEP 5: Create branch from this block to new block
-    auto* br = BranchInst::create(newBlock);
+    auto* br = module.createBranch(newBlock);
     addInstruction(br);
     newBlock->addPredecessor(this);
 
@@ -291,15 +283,15 @@ std::string BasicBlock::toStringDetailed() const {
 
 namespace cfg {
 
-void connectBlocks(BasicBlock* from, BasicBlock* to) {
-    auto* br = BranchInst::create(to);
+void connectBlocks(Module& module, BasicBlock* from, BasicBlock* to) {
+    auto* br = module.createBranch(to);
     from->addInstruction(br);
     to->addPredecessor(from);
 }
 
-void connectBlocksConditional(BasicBlock* from, Value* condition,
+void connectBlocksConditional(Module& module, BasicBlock* from, Value* condition,
                               BasicBlock* trueBlock, BasicBlock* falseBlock) {
-    auto* condBr = CondBranchInst::create(condition, trueBlock, falseBlock);
+    auto* condBr = module.createCondBranch(condition, trueBlock, falseBlock);
     from->addInstruction(condBr);
     trueBlock->addPredecessor(from);
     falseBlock->addPredecessor(from);

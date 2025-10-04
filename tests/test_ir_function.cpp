@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <memory>
+#include "IR/Module.hpp"
 #include "IR/Function.hpp"
 #include "IR/BasicBlock.hpp"
 #include "IR/Instruction.hpp"
@@ -26,6 +27,7 @@ static std::shared_ptr<IRType> makeVoidType() {
 // ============================================================================
 
 TEST(FunctionTest, CreateEmptyFunction) {
+    Module module("test");
     auto intType = makeIntType();
     auto* func = Function::create("test", intType, {});
 
@@ -36,10 +38,10 @@ TEST(FunctionTest, CreateEmptyFunction) {
     EXPECT_TRUE(func->isDeclaration());
     EXPECT_FALSE(func->isDefinition());
 
-    delete func;
 }
 
 TEST(FunctionTest, CreateFunctionWithParameters) {
+    Module module("test");
     auto intType = makeIntType();
     auto* func = Function::create("add", intType, {intType, intType});
 
@@ -58,10 +60,10 @@ TEST(FunctionTest, CreateFunctionWithParameters) {
     EXPECT_EQ(arg0->getParent(), func);
     EXPECT_EQ(arg1->getParent(), func);
 
-    delete func;
 }
 
 TEST(FunctionTest, CreateVoidFunction) {
+    Module module("test");
     auto voidType = makeVoidType();
     auto* func = Function::create("doSomething", voidType, {});
 
@@ -69,10 +71,10 @@ TEST(FunctionTest, CreateVoidFunction) {
     EXPECT_EQ(func->getReturnType(), voidType);
     EXPECT_FALSE(func->hasReturnValue());
 
-    delete func;
 }
 
 TEST(FunctionTest, CreateMainFunction) {
+    Module module("test");
     auto intType = makeIntType();
     auto* func = Function::create("main", intType, {});
 
@@ -80,7 +82,6 @@ TEST(FunctionTest, CreateMainFunction) {
     EXPECT_EQ(func->getName(), "main");
     EXPECT_TRUE(func->hasReturnValue());
 
-    delete func;
 }
 
 // ============================================================================
@@ -88,6 +89,7 @@ TEST(FunctionTest, CreateMainFunction) {
 // ============================================================================
 
 TEST(FunctionTest, GetParameterByIndex) {
+    Module module("test");
     auto intType = makeIntType();
     auto boolType = makeBoolType();
     auto* func = Function::create("test", intType, {intType, boolType, intType});
@@ -106,20 +108,20 @@ TEST(FunctionTest, GetParameterByIndex) {
     EXPECT_EQ(param1->getType(), boolType);
     EXPECT_EQ(param2->getType(), intType);
 
-    delete func;
 }
 
 TEST(FunctionTest, GetParameterOutOfBounds) {
+    Module module("test");
     auto intType = makeIntType();
     auto* func = Function::create("test", intType, {intType});
 
     auto* param = func->getParam(5);
     EXPECT_EQ(param, nullptr);
 
-    delete func;
 }
 
 TEST(FunctionTest, GetAllArguments) {
+    Module module("test");
     auto intType = makeIntType();
     auto* func = Function::create("test", intType, {intType, intType, intType});
 
@@ -131,7 +133,6 @@ TEST(FunctionTest, GetAllArguments) {
         EXPECT_EQ(args[i]->getParent(), func);
     }
 
-    delete func;
 }
 
 // ============================================================================
@@ -139,10 +140,11 @@ TEST(FunctionTest, GetAllArguments) {
 // ============================================================================
 
 TEST(FunctionTest, AddFirstBasicBlock) {
+    Module module("test");
     auto intType = makeIntType();
     auto* func = Function::create("test", intType, {});
 
-    auto* bb = BasicBlock::create("entry");
+    auto* bb = module.createBasicBlock("entry");
     func->addBasicBlock(bb);
 
     EXPECT_FALSE(func->isDeclaration());
@@ -152,16 +154,16 @@ TEST(FunctionTest, AddFirstBasicBlock) {
     EXPECT_EQ(func->getEntryBlock(), bb);
     EXPECT_EQ(bb->getParent(), func);
 
-    delete func;
 }
 
 TEST(FunctionTest, AddMultipleBasicBlocks) {
+    Module module("test");
     auto intType = makeIntType();
     auto* func = Function::create("test", intType, {});
 
-    auto* bb1 = BasicBlock::create("entry");
-    auto* bb2 = BasicBlock::create("loop");
-    auto* bb3 = BasicBlock::create("exit");
+    auto* bb1 = module.createBasicBlock("entry");
+    auto* bb2 = module.createBasicBlock("loop");
+    auto* bb3 = module.createBasicBlock("exit");
 
     func->addBasicBlock(bb1);
     func->addBasicBlock(bb2);
@@ -175,15 +177,15 @@ TEST(FunctionTest, AddMultipleBasicBlocks) {
     EXPECT_EQ(blocks[1], bb2);
     EXPECT_EQ(blocks[2], bb3);
 
-    delete func;
 }
 
 TEST(FunctionTest, RemoveBasicBlock) {
+    Module module("test");
     auto intType = makeIntType();
     auto* func = Function::create("test", intType, {});
 
-    auto* bb1 = BasicBlock::create("bb1");
-    auto* bb2 = BasicBlock::create("bb2");
+    auto* bb1 = module.createBasicBlock("bb1");
+    auto* bb2 = module.createBasicBlock("bb2");
 
     func->addBasicBlock(bb1);
     func->addBasicBlock(bb2);
@@ -195,16 +197,15 @@ TEST(FunctionTest, RemoveBasicBlock) {
     EXPECT_EQ(func->getNumBlocks(), 1);
     EXPECT_EQ(bb2->getParent(), nullptr);
 
-    delete func;
-    delete bb2; // We own it after removal
 }
 
 TEST(FunctionTest, EraseBasicBlock) {
+    Module module("test");
     auto intType = makeIntType();
     auto* func = Function::create("test", intType, {});
 
-    auto* bb1 = BasicBlock::create("bb1");
-    auto* bb2 = BasicBlock::create("bb2");
+    auto* bb1 = module.createBasicBlock("bb1");
+    auto* bb2 = module.createBasicBlock("bb2");
 
     func->addBasicBlock(bb1);
     func->addBasicBlock(bb2);
@@ -214,16 +215,16 @@ TEST(FunctionTest, EraseBasicBlock) {
     EXPECT_EQ(func->getNumBlocks(), 1);
     // bb2 is deleted, don't access it!
 
-    delete func;
 }
 
 TEST(FunctionTest, FindBlockByName) {
+    Module module("test");
     auto intType = makeIntType();
     auto* func = Function::create("test", intType, {});
 
-    auto* entry = BasicBlock::create("entry");
-    auto* loop = BasicBlock::create("loop");
-    auto* exit = BasicBlock::create("exit");
+    auto* entry = module.createBasicBlock("entry");
+    auto* loop = module.createBasicBlock("loop");
+    auto* exit = module.createBasicBlock("exit");
 
     func->addBasicBlock(entry);
     func->addBasicBlock(loop);
@@ -234,15 +235,15 @@ TEST(FunctionTest, FindBlockByName) {
     EXPECT_EQ(func->findBlock("exit"), exit);
     EXPECT_EQ(func->findBlock("nonexistent"), nullptr);
 
-    delete func;
 }
 
 TEST(FunctionTest, SetEntryBlock) {
+    Module module("test");
     auto intType = makeIntType();
     auto* func = Function::create("test", intType, {});
 
-    auto* bb1 = BasicBlock::create("bb1");
-    auto* bb2 = BasicBlock::create("bb2");
+    auto* bb1 = module.createBasicBlock("bb1");
+    auto* bb2 = module.createBasicBlock("bb2");
 
     func->addBasicBlock(bb1);
     func->addBasicBlock(bb2);
@@ -252,26 +253,25 @@ TEST(FunctionTest, SetEntryBlock) {
     func->setEntryBlock(bb2);
     EXPECT_EQ(func->getEntryBlock(), bb2);
 
-    delete func;
 }
 
 TEST(FunctionTest, HasSingleBlock) {
+    Module module("test");
     auto intType = makeIntType();
     auto* func = Function::create("test", intType, {});
 
     EXPECT_FALSE(func->hasSingleBlock());
 
-    auto* bb = BasicBlock::create("entry");
+    auto* bb = module.createBasicBlock("entry");
     func->addBasicBlock(bb);
 
     EXPECT_TRUE(func->hasSingleBlock());
 
-    auto* bb2 = BasicBlock::create("bb2");
+    auto* bb2 = module.createBasicBlock("bb2");
     func->addBasicBlock(bb2);
 
     EXPECT_FALSE(func->hasSingleBlock());
 
-    delete func;
 }
 
 // ============================================================================
@@ -279,11 +279,12 @@ TEST(FunctionTest, HasSingleBlock) {
 // ============================================================================
 
 TEST(FunctionTest, GetAllInstructions) {
+    Module module("test");
     auto intType = makeIntType();
     auto* func = Function::create("test", intType, {intType, intType});
 
-    auto* bb1 = BasicBlock::create("bb1");
-    auto* bb2 = BasicBlock::create("bb2");
+    auto* bb1 = module.createBasicBlock("bb1");
+    auto* bb2 = module.createBasicBlock("bb2");
 
     func->addBasicBlock(bb1);
     func->addBasicBlock(bb2);
@@ -291,9 +292,9 @@ TEST(FunctionTest, GetAllInstructions) {
     auto* arg0 = func->getParam(0);
     auto* arg1 = func->getParam(1);
 
-    auto* add1 = BinaryOperator::create(Instruction::Opcode::Add, arg0, arg1);
-    auto* add2 = BinaryOperator::create(Instruction::Opcode::Add, arg0, arg1);
-    auto* ret = ReturnInst::create(add1);
+    auto* add1 = module.createBinaryOp(Instruction::Opcode::Add, arg0, arg1);
+    auto* add2 = module.createBinaryOp(Instruction::Opcode::Add, arg0, arg1);
+    auto* ret = module.createReturn(add1);
 
     bb1->addInstruction(add1);
     bb2->addInstruction(add2);
@@ -304,31 +305,30 @@ TEST(FunctionTest, GetAllInstructions) {
     EXPECT_EQ(instructions.size(), 3);
     EXPECT_EQ(func->getNumInstructions(), 3);
 
-    delete func;
 }
 
 TEST(FunctionTest, GetNumInstructions) {
+    Module module("test");
     auto intType = makeIntType();
     auto* func = Function::create("test", intType, {});
 
     EXPECT_EQ(func->getNumInstructions(), 0);
 
-    auto* bb = BasicBlock::create("entry");
+    auto* bb = module.createBasicBlock("entry");
     func->addBasicBlock(bb);
 
-    auto* inst1 = BinaryOperator::create(Instruction::Opcode::Add,
-                                        ConstantInt::get(1, intType),
-                                        ConstantInt::get(2, intType));
-    auto* inst2 = BinaryOperator::create(Instruction::Opcode::Mul,
-                                        ConstantInt::get(3, intType),
-                                        ConstantInt::get(4, intType));
+    auto* inst1 = module.createBinaryOp(Instruction::Opcode::Add,
+                                        module.getConstantInt(1, intType),
+                                        module.getConstantInt(2, intType));
+    auto* inst2 = module.createBinaryOp(Instruction::Opcode::Mul,
+                                        module.getConstantInt(3, intType),
+                                        module.getConstantInt(4, intType));
 
     bb->addInstruction(inst1);
     bb->addInstruction(inst2);
 
     EXPECT_EQ(func->getNumInstructions(), 2);
 
-    delete func;
 }
 
 // ============================================================================
@@ -336,20 +336,21 @@ TEST(FunctionTest, GetNumInstructions) {
 // ============================================================================
 
 TEST(FunctionTest, GetExitBlocks) {
+    Module module("test");
     auto intType = makeIntType();
     auto* func = Function::create("test", intType, {});
 
-    auto* bb1 = BasicBlock::create("bb1");
-    auto* bb2 = BasicBlock::create("bb2");
-    auto* bb3 = BasicBlock::create("bb3");
+    auto* bb1 = module.createBasicBlock("bb1");
+    auto* bb2 = module.createBasicBlock("bb2");
+    auto* bb3 = module.createBasicBlock("bb3");
 
     func->addBasicBlock(bb1);
     func->addBasicBlock(bb2);
     func->addBasicBlock(bb3);
 
     // Add returns to bb2 and bb3
-    bb2->addInstruction(ReturnInst::create(ConstantInt::get(1, intType)));
-    bb3->addInstruction(ReturnInst::create(ConstantInt::get(2, intType)));
+    bb2->addInstruction(module.createReturn(module.getConstantInt(1, intType)));
+    bb3->addInstruction(module.createReturn(module.getConstantInt(2, intType)));
 
     auto exitBlocks = func->getExitBlocks();
 
@@ -357,17 +358,17 @@ TEST(FunctionTest, GetExitBlocks) {
     EXPECT_NE(std::find(exitBlocks.begin(), exitBlocks.end(), bb2), exitBlocks.end());
     EXPECT_NE(std::find(exitBlocks.begin(), exitBlocks.end(), bb3), exitBlocks.end());
 
-    delete func;
 }
 
 TEST(FunctionTest, GetUnreachableBlocks) {
+    Module module("test");
     auto intType = makeIntType();
     auto* func = Function::create("test", intType, {});
 
-    auto* entry = BasicBlock::create("entry");
-    auto* reachable = BasicBlock::create("reachable");
-    auto* unreachable1 = BasicBlock::create("unreachable1");
-    auto* unreachable2 = BasicBlock::create("unreachable2");
+    auto* entry = module.createBasicBlock("entry");
+    auto* reachable = module.createBasicBlock("reachable");
+    auto* unreachable1 = module.createBasicBlock("unreachable1");
+    auto* unreachable2 = module.createBasicBlock("unreachable2");
 
     func->addBasicBlock(entry);
     func->addBasicBlock(reachable);
@@ -375,11 +376,11 @@ TEST(FunctionTest, GetUnreachableBlocks) {
     func->addBasicBlock(unreachable2);
 
     // Connect entry -> reachable
-    cfg::connectBlocks(entry, reachable);
+    cfg::connectBlocks(module, entry, reachable);
 
     // unreachable1 and unreachable2 have no incoming edges
-    unreachable1->addInstruction(ReturnInst::create(nullptr));
-    unreachable2->addInstruction(ReturnInst::create(nullptr));
+    unreachable1->addInstruction(module.createReturn(nullptr));
+    unreachable2->addInstruction(module.createReturn(nullptr));
 
     auto unreachableBlocks = func->getUnreachableBlocks();
 
@@ -389,23 +390,23 @@ TEST(FunctionTest, GetUnreachableBlocks) {
     EXPECT_NE(std::find(unreachableBlocks.begin(), unreachableBlocks.end(), unreachable2),
               unreachableBlocks.end());
 
-    delete func;
 }
 
 TEST(FunctionTest, RemoveUnreachableBlocks) {
+    Module module("test");
     auto intType = makeIntType();
     auto* func = Function::create("test", intType, {});
 
-    auto* entry = BasicBlock::create("entry");
-    auto* reachable = BasicBlock::create("reachable");
-    auto* unreachable = BasicBlock::create("unreachable");
+    auto* entry = module.createBasicBlock("entry");
+    auto* reachable = module.createBasicBlock("reachable");
+    auto* unreachable = module.createBasicBlock("unreachable");
 
     func->addBasicBlock(entry);
     func->addBasicBlock(reachable);
     func->addBasicBlock(unreachable);
 
-    cfg::connectBlocks(entry, reachable);
-    unreachable->addInstruction(ReturnInst::create(nullptr));
+    cfg::connectBlocks(module, entry, reachable);
+    unreachable->addInstruction(module.createReturn(nullptr));
 
     EXPECT_EQ(func->getNumBlocks(), 3);
 
@@ -414,47 +415,47 @@ TEST(FunctionTest, RemoveUnreachableBlocks) {
     EXPECT_EQ(removed, 1);
     EXPECT_EQ(func->getNumBlocks(), 2);
 
-    delete func;
 }
 
 TEST(FunctionTest, CanReturn) {
+    Module module("test");
     auto intType = makeIntType();
     auto* func = Function::create("test", intType, {});
 
-    auto* bb = BasicBlock::create("entry");
+    auto* bb = module.createBasicBlock("entry");
     func->addBasicBlock(bb);
 
     // No return yet
     EXPECT_FALSE(func->canReturn());
 
-    bb->addInstruction(ReturnInst::create(ConstantInt::get(42, intType)));
+    bb->addInstruction(module.createReturn(module.getConstantInt(42, intType)));
 
     EXPECT_TRUE(func->canReturn());
 
-    delete func;
 }
 
 TEST(FunctionTest, DoesNotReturn) {
+    Module module("test");
     auto voidType = makeVoidType();
     auto* func = Function::create("abort", voidType, {});
 
-    auto* bb = BasicBlock::create("entry");
+    auto* bb = module.createBasicBlock("entry");
     func->addBasicBlock(bb);
 
     // Add some instruction but no return (simulating noreturn)
     // For this test, we just don't add a return
     auto intType = makeIntType();
-    bb->addInstruction(BinaryOperator::create(Instruction::Opcode::Add,
-                                             ConstantInt::get(1, intType),
-                                             ConstantInt::get(2, intType)));
+    bb->addInstruction(module.createBinaryOp(Instruction::Opcode::Add,
+                                             module.getConstantInt(1, intType),
+                                             module.getConstantInt(2, intType)));
 
     // Note: This would be invalid IR (no terminator), but for testing doesNotReturn logic
     // In reality, you'd use an unreachable instruction
 
-    delete func;
 }
 
 TEST(FunctionTest, HasReturnValue) {
+    Module module("test");
     auto intType = makeIntType();
     auto voidType = makeVoidType();
 
@@ -464,8 +465,6 @@ TEST(FunctionTest, HasReturnValue) {
     EXPECT_TRUE(func1->hasReturnValue());
     EXPECT_FALSE(func2->hasReturnValue());
 
-    delete func1;
-    delete func2;
 }
 
 // ============================================================================
@@ -473,22 +472,23 @@ TEST(FunctionTest, HasReturnValue) {
 // ============================================================================
 
 TEST(FunctionTest, VerifyValidFunction) {
+    Module module("test");
     auto intType = makeIntType();
     auto* func = Function::create("test", intType, {intType});
 
-    auto* entry = BasicBlock::create("entry");
+    auto* entry = module.createBasicBlock("entry");
     func->addBasicBlock(entry);
 
     auto* arg = func->getParam(0);
-    entry->addInstruction(ReturnInst::create(arg));
+    entry->addInstruction(module.createReturn(arg));
 
     std::string error;
     EXPECT_TRUE(func->verify(&error)) << "Error: " << error;
 
-    delete func;
 }
 
 TEST(FunctionTest, VerifyDeclarationIsValid) {
+    Module module("test");
     auto intType = makeIntType();
     auto* func = Function::create("external", intType, {intType, intType});
 
@@ -496,37 +496,37 @@ TEST(FunctionTest, VerifyDeclarationIsValid) {
     std::string error;
     EXPECT_TRUE(func->verify(&error)) << "Error: " << error;
 
-    delete func;
 }
 
 TEST(FunctionTest, VerifyFailsWithoutTerminator) {
+    Module module("test");
     auto intType = makeIntType();
     auto* func = Function::create("test", intType, {});
 
-    auto* entry = BasicBlock::create("entry");
+    auto* entry = module.createBasicBlock("entry");
     func->addBasicBlock(entry);
 
     // Add instruction but no terminator
-    entry->addInstruction(BinaryOperator::create(Instruction::Opcode::Add,
-                                                 ConstantInt::get(1, intType),
-                                                 ConstantInt::get(2, intType)));
+    entry->addInstruction(module.createBinaryOp(Instruction::Opcode::Add,
+                                                 module.getConstantInt(1, intType),
+                                                 module.getConstantInt(2, intType)));
 
     std::string error;
     EXPECT_FALSE(func->verify(&error));
     EXPECT_FALSE(error.empty());
 
-    delete func;
 }
 
 TEST(FunctionTest, VerifyComplexCFG) {
+    Module module("test");
     auto intType = makeIntType();
     auto boolType = makeBoolType();
     auto* func = Function::create("test", intType, {intType});
 
-    auto* entry = BasicBlock::create("entry");
-    auto* thenBlock = BasicBlock::create("then");
-    auto* elseBlock = BasicBlock::create("else");
-    auto* merge = BasicBlock::create("merge");
+    auto* entry = module.createBasicBlock("entry");
+    auto* thenBlock = module.createBasicBlock("then");
+    auto* elseBlock = module.createBasicBlock("else");
+    auto* merge = module.createBasicBlock("merge");
 
     func->addBasicBlock(entry);
     func->addBasicBlock(thenBlock);
@@ -534,23 +534,22 @@ TEST(FunctionTest, VerifyComplexCFG) {
     func->addBasicBlock(merge);
 
     auto* arg = func->getParam(0);
-    auto* cond = CmpInst::create(Instruction::Opcode::Gt, arg, ConstantInt::get(0, intType));
+    auto* cond = module.createCmp(Instruction::Opcode::Gt, arg, module.getConstantInt(0, intType));
 
     entry->addInstruction(cond);
-    cfg::connectBlocksConditional(entry, cond, thenBlock, elseBlock);
+    cfg::connectBlocksConditional(module, entry, cond, thenBlock, elseBlock);
 
-    thenBlock->addInstruction(BinaryOperator::create(Instruction::Opcode::Add, arg, ConstantInt::get(1, intType)));
-    cfg::connectBlocks(thenBlock, merge);
+    thenBlock->addInstruction(module.createBinaryOp(Instruction::Opcode::Add, arg, module.getConstantInt(1, intType)));
+    cfg::connectBlocks(module, thenBlock, merge);
 
-    elseBlock->addInstruction(BinaryOperator::create(Instruction::Opcode::Sub, arg, ConstantInt::get(1, intType)));
-    cfg::connectBlocks(elseBlock, merge);
+    elseBlock->addInstruction(module.createBinaryOp(Instruction::Opcode::Sub, arg, module.getConstantInt(1, intType)));
+    cfg::connectBlocks(module, elseBlock, merge);
 
-    merge->addInstruction(ReturnInst::create(arg));
+    merge->addInstruction(module.createReturn(arg));
 
     std::string error;
     EXPECT_TRUE(func->verify(&error)) << "Error: " << error;
 
-    delete func;
 }
 
 // ============================================================================
@@ -558,6 +557,7 @@ TEST(FunctionTest, VerifyComplexCFG) {
 // ============================================================================
 
 TEST(FunctionTest, ToStringDeclaration) {
+    Module module("test");
     auto intType = makeIntType();
     auto* func = Function::create("add", intType, {intType, intType});
 
@@ -566,16 +566,16 @@ TEST(FunctionTest, ToStringDeclaration) {
     EXPECT_NE(str.find("@add"), std::string::npos);
     EXPECT_NE(str.find("i64"), std::string::npos);
 
-    delete func;
 }
 
 TEST(FunctionTest, ToStringDefinition) {
+    Module module("test");
     auto intType = makeIntType();
     auto* func = Function::create("test", intType, {});
 
-    auto* entry = BasicBlock::create("entry");
+    auto* entry = module.createBasicBlock("entry");
     func->addBasicBlock(entry);
-    entry->addInstruction(ReturnInst::create(ConstantInt::get(42, intType)));
+    entry->addInstruction(module.createReturn(module.getConstantInt(42, intType)));
 
     std::string str = func->toString();
 
@@ -583,22 +583,22 @@ TEST(FunctionTest, ToStringDefinition) {
     EXPECT_NE(str.find("entry"), std::string::npos);
     EXPECT_NE(str.find("ret"), std::string::npos);
 
-    delete func;
 }
 
 TEST(FunctionTest, ToStringWithParameters) {
+    Module module("test");
     auto intType = makeIntType();
     auto* func = Function::create("add", intType, {intType, intType});
 
-    auto* entry = BasicBlock::create("entry");
+    auto* entry = module.createBasicBlock("entry");
     func->addBasicBlock(entry);
 
     auto* arg0 = func->getParam(0);
     auto* arg1 = func->getParam(1);
-    auto* add = BinaryOperator::create(Instruction::Opcode::Add, arg0, arg1);
+    auto* add = module.createBinaryOp(Instruction::Opcode::Add, arg0, arg1);
 
     entry->addInstruction(add);
-    entry->addInstruction(ReturnInst::create(add));
+    entry->addInstruction(module.createReturn(add));
 
     std::string str = func->toString();
 
@@ -606,7 +606,6 @@ TEST(FunctionTest, ToStringWithParameters) {
     EXPECT_NE(str.find("arg0"), std::string::npos);
     EXPECT_NE(str.find("arg1"), std::string::npos);
 
-    delete func;
 }
 
 // ============================================================================
@@ -614,17 +613,18 @@ TEST(FunctionTest, ToStringWithParameters) {
 // ============================================================================
 
 TEST(FunctionTest, PrintCFG) {
+    Module module("test");
     auto intType = makeIntType();
     auto* func = Function::create("test", intType, {});
 
-    auto* entry = BasicBlock::create("entry");
-    auto* bb1 = BasicBlock::create("bb1");
+    auto* entry = module.createBasicBlock("entry");
+    auto* bb1 = module.createBasicBlock("bb1");
 
     func->addBasicBlock(entry);
     func->addBasicBlock(bb1);
 
-    cfg::connectBlocks(entry, bb1);
-    bb1->addInstruction(ReturnInst::create(nullptr));
+    cfg::connectBlocks(module, entry, bb1);
+    bb1->addInstruction(module.createReturn(nullptr));
 
     std::string dot = func->printCFG();
 
@@ -633,7 +633,6 @@ TEST(FunctionTest, PrintCFG) {
     EXPECT_NE(dot.find("bb1"), std::string::npos);
     EXPECT_NE(dot.find("->"), std::string::npos); // Edge
 
-    delete func;
 }
 
 // ============================================================================
@@ -641,6 +640,7 @@ TEST(FunctionTest, PrintCFG) {
 // ============================================================================
 
 TEST(FunctionTest, FactorialFunction) {
+    Module module("test");
     // function @factorial(n: i64) -> i64 {
     // entry:
     //   %cond = le i64 %n, i64 1
@@ -655,25 +655,25 @@ TEST(FunctionTest, FactorialFunction) {
     auto intType = makeIntType();
     auto* func = Function::create("factorial", intType, {intType});
 
-    auto* entry = BasicBlock::create("entry");
-    auto* baseCase = BasicBlock::create("base_case");
-    auto* recursiveCase = BasicBlock::create("recursive_case");
+    auto* entry = module.createBasicBlock("entry");
+    auto* baseCase = module.createBasicBlock("base_case");
+    auto* recursiveCase = module.createBasicBlock("recursive_case");
 
     func->addBasicBlock(entry);
     func->addBasicBlock(baseCase);
     func->addBasicBlock(recursiveCase);
 
     auto* n = func->getParam(0);
-    auto* cond = CmpInst::create(Instruction::Opcode::Le, n, ConstantInt::get(1, intType));
+    auto* cond = module.createCmp(Instruction::Opcode::Le, n, module.getConstantInt(1, intType));
 
     entry->addInstruction(cond);
-    cfg::connectBlocksConditional(entry, cond, baseCase, recursiveCase);
+    cfg::connectBlocksConditional(module, entry, cond, baseCase, recursiveCase);
 
-    baseCase->addInstruction(ReturnInst::create(ConstantInt::get(1, intType)));
+    baseCase->addInstruction(module.createReturn(module.getConstantInt(1, intType)));
 
-    auto* nMinus1 = BinaryOperator::create(Instruction::Opcode::Sub, n, ConstantInt::get(1, intType));
+    auto* nMinus1 = module.createBinaryOp(Instruction::Opcode::Sub, n, module.getConstantInt(1, intType));
     recursiveCase->addInstruction(nMinus1);
-    recursiveCase->addInstruction(ReturnInst::create(ConstantInt::get(0, intType)));
+    recursiveCase->addInstruction(module.createReturn(module.getConstantInt(0, intType)));
 
     EXPECT_EQ(func->getNumBlocks(), 3);
     EXPECT_EQ(func->getExitBlocks().size(), 2);
@@ -681,10 +681,10 @@ TEST(FunctionTest, FactorialFunction) {
     std::string error;
     EXPECT_TRUE(func->verify(&error)) << "Error: " << error;
 
-    delete func;
 }
 
 TEST(FunctionTest, LoopFunction) {
+    Module module("test");
     // function @loop(n: i64) -> i64 {
     // entry:
     //   br loop_header
@@ -697,18 +697,18 @@ TEST(FunctionTest, LoopFunction) {
     auto intType = makeIntType();
     auto* func = Function::create("loop", intType, {intType});
 
-    auto* entry = BasicBlock::create("entry");
-    auto* loopHeader = BasicBlock::create("loop_header");
-    auto* exit = BasicBlock::create("exit");
+    auto* entry = module.createBasicBlock("entry");
+    auto* loopHeader = module.createBasicBlock("loop_header");
+    auto* exit = module.createBasicBlock("exit");
 
     func->addBasicBlock(entry);
     func->addBasicBlock(loopHeader);
     func->addBasicBlock(exit);
 
-    cfg::connectBlocks(entry, loopHeader);
-    cfg::connectBlocks(loopHeader, exit);
+    cfg::connectBlocks(module, entry, loopHeader);
+    cfg::connectBlocks(module, loopHeader, exit);
 
-    exit->addInstruction(ReturnInst::create(ConstantInt::get(0, intType)));
+    exit->addInstruction(module.createReturn(module.getConstantInt(0, intType)));
 
     EXPECT_EQ(func->getNumBlocks(), 3);
     EXPECT_EQ(loopHeader->getNumPredecessors(), 1);
@@ -716,5 +716,4 @@ TEST(FunctionTest, LoopFunction) {
     std::string error;
     EXPECT_TRUE(func->verify(&error)) << "Error: " << error;
 
-    delete func;
 }

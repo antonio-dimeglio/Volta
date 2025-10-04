@@ -42,13 +42,6 @@ class BasicBlock : public Value {
     friend class Arena;
     friend class Module;
 public:
-    /**
-     * Create a new basic block
-     * @param name Optional name for debugging (e.g., "entry", "if.then", "loop.body")
-     * @param parent Optional parent function (can be set later)
-     */
-    static BasicBlock* create(const std::string& name = "", Function* parent = nullptr);
-
     ~BasicBlock() override;
 
     // ========================================================================
@@ -210,6 +203,7 @@ public:
      *   After:   BB1: [inst1, inst2, br new_block]
      *            new_block: [inst3, terminator]
      *
+     * @param module Module for arena allocation
      * @param splitPoint The first instruction that goes to the new block
      * @param newBlockName Name for the new block
      * @return The newly created block
@@ -224,7 +218,7 @@ public:
      * 4. Add unconditional branch from this block to new block
      * 5. Update phi nodes in old successors (change this -> new block)
      */
-    BasicBlock* splitAt(Instruction* splitPoint, const std::string& newBlockName = "");
+    BasicBlock* splitAt(Module& module, Instruction* splitPoint, const std::string& newBlockName = "");
 
     /**
      * Replace all uses of this block (in terminators and phis) with another block
@@ -315,14 +309,14 @@ namespace cfg {
  * LEARNING TIP: This is safer than manually creating branches
  * because it updates the CFG edges automatically.
  */
-void connectBlocks(BasicBlock* from, BasicBlock* to);
+void connectBlocks(Module& module, BasicBlock* from, BasicBlock* to);
 
 /**
  * Connect with a conditional branch
  * Creates a CondBranchInst in 'from'
  * Updates CFG edges for both true and false branches
  */
-void connectBlocksConditional(BasicBlock* from, Value* condition,
+void connectBlocksConditional(Module& module, BasicBlock* from, Value* condition,
                               BasicBlock* trueBlock, BasicBlock* falseBlock);
 
 /**

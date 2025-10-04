@@ -234,6 +234,113 @@ Argument* Module::createArgument(std::shared_ptr<IRType> type, unsigned argNo, c
     return arena_.allocate<Argument>(type, argNo, name);
 }
 
+// ========================================================================
+// Instruction Factory Methods (Arena-Allocated)
+// ========================================================================
+
+// Binary operations
+BinaryOperator* Module::createBinaryOp(Instruction::Opcode op, Value* lhs, Value* rhs, const std::string& name) {
+    return arena_.allocate<BinaryOperator>(op, lhs, rhs, name);
+}
+
+UnaryOperator* Module::createUnaryOp(Instruction::Opcode op, Value* operand, const std::string& name) {
+    return arena_.allocate<UnaryOperator>(op, operand, name);
+}
+
+CmpInst* Module::createCmp(Instruction::Opcode op, Value* lhs, Value* rhs, const std::string& name) {
+    return arena_.allocate<CmpInst>(op, lhs, rhs, name);
+}
+
+// Memory operations
+AllocaInst* Module::createAlloca(std::shared_ptr<IRType> type, const std::string& name) {
+    return arena_.allocate<AllocaInst>(type, name);
+}
+
+LoadInst* Module::createLoad(Value* ptr, const std::string& name) {
+    return arena_.allocate<LoadInst>(ptr, name);
+}
+
+StoreInst* Module::createStore(Value* value, Value* ptr) {
+    return arena_.allocate<StoreInst>(value, ptr);
+}
+
+GCAllocInst* Module::createGCAlloc(std::shared_ptr<IRType> type, const std::string& name) {
+    return arena_.allocate<GCAllocInst>(type, name);
+}
+
+// Array operations
+ArrayNewInst* Module::createArrayNew(std::shared_ptr<IRType> elementType, Value* size, const std::string& name) {
+    return arena_.allocate<ArrayNewInst>(elementType, size, name);
+}
+
+ArrayGetInst* Module::createArrayGet(Value* array, Value* index, const std::string& name) {
+    return arena_.allocate<ArrayGetInst>(array, index, name);
+}
+
+ArraySetInst* Module::createArraySet(Value* array, Value* index, Value* value) {
+    return arena_.allocate<ArraySetInst>(array, index, value);
+}
+
+ArrayLenInst* Module::createArrayLen(Value* array, const std::string& name) {
+    return arena_.allocate<ArrayLenInst>(array, name);
+}
+
+ArraySliceInst* Module::createArraySlice(Value* array, Value* start, Value* end, const std::string& name) {
+    return arena_.allocate<ArraySliceInst>(array, start, end, name);
+}
+
+// Type operations
+CastInst* Module::createCast(Value* value, std::shared_ptr<IRType> targetType, const std::string& name) {
+    return arena_.allocate<CastInst>(value, targetType, name);
+}
+
+OptionWrapInst* Module::createOptionWrap(Value* value, const std::string& name) {
+    // Infer option type from the value's type
+    auto optionType = getOptionType(value->getType());
+    return arena_.allocate<OptionWrapInst>(value, optionType, name);
+}
+
+OptionUnwrapInst* Module::createOptionUnwrap(Value* option, const std::string& name) {
+    return arena_.allocate<OptionUnwrapInst>(option, name);
+}
+
+OptionCheckInst* Module::createOptionCheck(Value* option, const std::string& name) {
+    return arena_.allocate<OptionCheckInst>(option, name);
+}
+
+// Control flow (terminators)
+ReturnInst* Module::createReturn(Value* value) {
+    return arena_.allocate<ReturnInst>(value);
+}
+
+BranchInst* Module::createBranch(BasicBlock* target) {
+    return arena_.allocate<BranchInst>(target);
+}
+
+CondBranchInst* Module::createCondBranch(Value* condition, BasicBlock* trueBlock, BasicBlock* falseBlock) {
+    return arena_.allocate<CondBranchInst>(condition, trueBlock, falseBlock);
+}
+
+SwitchInst* Module::createSwitch(Value* value, BasicBlock* defaultBlock, const std::vector<SwitchInst::CaseEntry>& cases) {
+    return arena_.allocate<SwitchInst>(value, defaultBlock, cases);
+}
+
+// Function calls
+CallInst* Module::createCall(Function* callee, const std::vector<Value*>& args, const std::string& name) {
+    return arena_.allocate<CallInst>(callee, args, name);
+}
+
+CallIndirectInst* Module::createCallIndirect(Value* callee, const std::vector<Value*>& args, const std::string& name) {
+    return arena_.allocate<CallIndirectInst>(callee, args, name);
+}
+
+// SSA
+PhiNode* Module::createPhi(std::shared_ptr<IRType> type,
+                           const std::vector<PhiNode::IncomingValue>& incomingValues,
+                           const std::string& name) {
+    return arena_.allocate<PhiNode>(type, incomingValues, name);
+}
+
 // ============================================================================
 // Constant Pooling
 // ============================================================================

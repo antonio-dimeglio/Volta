@@ -240,6 +240,50 @@ public:
     Argument* createArgument(std::shared_ptr<IRType> type, unsigned argNo, const std::string& name = "");
 
     // ========================================================================
+    // Instruction Factory Methods (Arena-Allocated)
+    // ========================================================================
+
+    // Binary operations
+    BinaryOperator* createBinaryOp(Instruction::Opcode op, Value* lhs, Value* rhs, const std::string& name = "");
+    UnaryOperator* createUnaryOp(Instruction::Opcode op, Value* operand, const std::string& name = "");
+    CmpInst* createCmp(Instruction::Opcode op, Value* lhs, Value* rhs, const std::string& name = "");
+
+    // Memory operations
+    AllocaInst* createAlloca(std::shared_ptr<IRType> type, const std::string& name = "");
+    LoadInst* createLoad(Value* ptr, const std::string& name = "");
+    StoreInst* createStore(Value* value, Value* ptr);
+    GCAllocInst* createGCAlloc(std::shared_ptr<IRType> type, const std::string& name = "");
+
+    // Array operations
+    ArrayNewInst* createArrayNew(std::shared_ptr<IRType> elementType, Value* size, const std::string& name = "");
+    ArrayGetInst* createArrayGet(Value* array, Value* index, const std::string& name = "");
+    ArraySetInst* createArraySet(Value* array, Value* index, Value* value);
+    ArrayLenInst* createArrayLen(Value* array, const std::string& name = "");
+    ArraySliceInst* createArraySlice(Value* array, Value* start, Value* end, const std::string& name = "");
+
+    // Type operations
+    CastInst* createCast(Value* value, std::shared_ptr<IRType> targetType, const std::string& name = "");
+    OptionWrapInst* createOptionWrap(Value* value, const std::string& name = "");
+    OptionUnwrapInst* createOptionUnwrap(Value* option, const std::string& name = "");
+    OptionCheckInst* createOptionCheck(Value* option, const std::string& name = "");
+
+    // Control flow (terminators)
+    ReturnInst* createReturn(Value* value = nullptr);
+    BranchInst* createBranch(BasicBlock* target);
+    CondBranchInst* createCondBranch(Value* condition, BasicBlock* trueBlock, BasicBlock* falseBlock);
+    SwitchInst* createSwitch(Value* value, BasicBlock* defaultBlock,
+                             const std::vector<SwitchInst::CaseEntry>& cases = {});
+
+    // Function calls
+    CallInst* createCall(Function* callee, const std::vector<Value*>& args, const std::string& name = "");
+    CallIndirectInst* createCallIndirect(Value* callee, const std::vector<Value*>& args, const std::string& name = "");
+
+    // SSA
+    PhiNode* createPhi(std::shared_ptr<IRType> type,
+                       const std::vector<PhiNode::IncomingValue>& incomingValues = {},
+                       const std::string& name = "");
+
+    // ========================================================================
     // Constant Pooling
     // ========================================================================
 

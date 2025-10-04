@@ -1,8 +1,10 @@
 #include <gtest/gtest.h>
+#include "IR/Module.hpp"
 #include <memory>
 #include "IR/Instruction.hpp"
 #include "IR/Value.hpp"
 #include "IR/IRType.hpp"
+#include "IR/Module.hpp"
 
 using namespace volta::ir;
 
@@ -34,7 +36,6 @@ T* track(T* ptr) {
 // Cleanup function to be called after each test
 void cleanupAllocatedValues() {
     for (auto* val : g_allocatedValues) {
-        delete val;
     }
     g_allocatedValues.clear();
 }
@@ -61,6 +62,7 @@ static ListenerRegistrar g_registrar;
 // ============================================================================
 
 TEST(InstructionTest, OpcodeNames_Arithmetic) {
+    Module module("test");
     EXPECT_STREQ(Instruction::getOpcodeName(Instruction::Opcode::Add), "add");
     EXPECT_STREQ(Instruction::getOpcodeName(Instruction::Opcode::Sub), "sub");
     EXPECT_STREQ(Instruction::getOpcodeName(Instruction::Opcode::Mul), "mul");
@@ -71,6 +73,7 @@ TEST(InstructionTest, OpcodeNames_Arithmetic) {
 }
 
 TEST(InstructionTest, OpcodeNames_Comparison) {
+    Module module("test");
     EXPECT_STREQ(Instruction::getOpcodeName(Instruction::Opcode::Eq), "eq");
     EXPECT_STREQ(Instruction::getOpcodeName(Instruction::Opcode::Ne), "ne");
     EXPECT_STREQ(Instruction::getOpcodeName(Instruction::Opcode::Lt), "lt");
@@ -80,12 +83,14 @@ TEST(InstructionTest, OpcodeNames_Comparison) {
 }
 
 TEST(InstructionTest, OpcodeNames_Logical) {
+    Module module("test");
     EXPECT_STREQ(Instruction::getOpcodeName(Instruction::Opcode::And), "and");
     EXPECT_STREQ(Instruction::getOpcodeName(Instruction::Opcode::Or), "or");
     EXPECT_STREQ(Instruction::getOpcodeName(Instruction::Opcode::Not), "not");
 }
 
 TEST(InstructionTest, OpcodeNames_Memory) {
+    Module module("test");
     EXPECT_STREQ(Instruction::getOpcodeName(Instruction::Opcode::Alloca), "alloca");
     EXPECT_STREQ(Instruction::getOpcodeName(Instruction::Opcode::Load), "load");
     EXPECT_STREQ(Instruction::getOpcodeName(Instruction::Opcode::Store), "store");
@@ -93,6 +98,7 @@ TEST(InstructionTest, OpcodeNames_Memory) {
 }
 
 TEST(InstructionTest, OpcodeNames_Array) {
+    Module module("test");
     EXPECT_STREQ(Instruction::getOpcodeName(Instruction::Opcode::ArrayNew), "array.new");
     EXPECT_STREQ(Instruction::getOpcodeName(Instruction::Opcode::ArrayGet), "array.get");
     EXPECT_STREQ(Instruction::getOpcodeName(Instruction::Opcode::ArraySet), "array.set");
@@ -101,6 +107,7 @@ TEST(InstructionTest, OpcodeNames_Array) {
 }
 
 TEST(InstructionTest, OpcodeNames_ControlFlow) {
+    Module module("test");
     EXPECT_STREQ(Instruction::getOpcodeName(Instruction::Opcode::Ret), "ret");
     EXPECT_STREQ(Instruction::getOpcodeName(Instruction::Opcode::Br), "br");
     EXPECT_STREQ(Instruction::getOpcodeName(Instruction::Opcode::CondBr), "condbr");
@@ -108,11 +115,13 @@ TEST(InstructionTest, OpcodeNames_ControlFlow) {
 }
 
 TEST(InstructionTest, OpcodeNames_Call) {
+    Module module("test");
     EXPECT_STREQ(Instruction::getOpcodeName(Instruction::Opcode::Call), "call");
     EXPECT_STREQ(Instruction::getOpcodeName(Instruction::Opcode::CallIndirect), "call.indirect");
 }
 
 TEST(InstructionTest, OpcodeNames_SSA) {
+    Module module("test");
     EXPECT_STREQ(Instruction::getOpcodeName(Instruction::Opcode::Phi), "phi");
 }
 
@@ -121,11 +130,12 @@ TEST(InstructionTest, OpcodeNames_SSA) {
 // ============================================================================
 
 TEST(BinaryOperatorTest, Creation_Add) {
+    Module module("test");
     auto intType = makeIntType();
-    auto lhs = track(ConstantInt::get(10, intType));
-    auto rhs = track(ConstantInt::get(20, intType));
+    auto lhs = track(module.getConstantInt(10, intType));
+    auto rhs = track(module.getConstantInt(20, intType));
 
-    auto add = track(BinaryOperator::create(Instruction::Opcode::Add, lhs, rhs, "sum"));
+    auto add = track(module.createBinaryOp(Instruction::Opcode::Add, lhs, rhs, "sum"));
 
     ASSERT_NE(add, nullptr);
     EXPECT_EQ(add->getOpcode(), Instruction::Opcode::Add);
@@ -136,10 +146,11 @@ TEST(BinaryOperatorTest, Creation_Add) {
 }
 
 TEST(BinaryOperatorTest, TypeQueries) {
+    Module module("test");
     auto intType = makeIntType();
-    auto lhs = track(ConstantInt::get(10, intType));
-    auto rhs = track(ConstantInt::get(20, intType));
-    auto add = track(BinaryOperator::create(Instruction::Opcode::Add, lhs, rhs));
+    auto lhs = track(module.getConstantInt(10, intType));
+    auto rhs = track(module.getConstantInt(20, intType));
+    auto add = track(module.createBinaryOp(Instruction::Opcode::Add, lhs, rhs));
 
     EXPECT_TRUE(add->isBinaryOp());
     EXPECT_TRUE(add->isArithmetic());
@@ -148,27 +159,29 @@ TEST(BinaryOperatorTest, TypeQueries) {
 }
 
 TEST(BinaryOperatorTest, AllArithmeticOpcodes) {
+    Module module("test");
     auto intType = makeIntType();
-    auto lhs = track(ConstantInt::get(10, intType));
-    auto rhs = track(ConstantInt::get(20, intType));
+    auto lhs = track(module.getConstantInt(10, intType));
+    auto rhs = track(module.getConstantInt(20, intType));
 
-    auto sub = track(BinaryOperator::create(Instruction::Opcode::Sub, lhs, rhs, "diff"));
+    auto sub = track(module.createBinaryOp(Instruction::Opcode::Sub, lhs, rhs, "diff"));
     EXPECT_EQ(sub->getOpcode(), Instruction::Opcode::Sub);
 
-    auto mul = track(BinaryOperator::create(Instruction::Opcode::Mul, lhs, rhs));
+    auto mul = track(module.createBinaryOp(Instruction::Opcode::Mul, lhs, rhs));
     EXPECT_EQ(mul->getOpcode(), Instruction::Opcode::Mul);
 
-    auto div = track(BinaryOperator::create(Instruction::Opcode::Div, lhs, rhs));
+    auto div = track(module.createBinaryOp(Instruction::Opcode::Div, lhs, rhs));
     EXPECT_EQ(div->getOpcode(), Instruction::Opcode::Div);
 }
 
 TEST(BinaryOperatorTest, OperandModification) {
+    Module module("test");
     auto intType = makeIntType();
-    auto lhs = track(ConstantInt::get(10, intType));
-    auto rhs = track(ConstantInt::get(20, intType));
-    auto add = track(BinaryOperator::create(Instruction::Opcode::Add, lhs, rhs));
+    auto lhs = track(module.getConstantInt(10, intType));
+    auto rhs = track(module.getConstantInt(20, intType));
+    auto add = track(module.createBinaryOp(Instruction::Opcode::Add, lhs, rhs));
 
-    auto newRhs = track(ConstantInt::get(30, intType));
+    auto newRhs = track(module.getConstantInt(30, intType));
     add->setRHS(newRhs);
     EXPECT_EQ(add->getRHS(), newRhs);
 }
@@ -178,10 +191,11 @@ TEST(BinaryOperatorTest, OperandModification) {
 // ============================================================================
 
 TEST(UnaryOperatorTest, Creation_Neg) {
+    Module module("test");
     auto intType = makeIntType();
-    auto operand = track(ConstantInt::get(42, intType));
+    auto operand = track(module.getConstantInt(42, intType));
 
-    auto neg = UnaryOperator::create(Instruction::Opcode::Neg, operand, "negated");
+    auto neg = module.createUnaryOp(Instruction::Opcode::Neg, operand, "negated");
 
     ASSERT_NE(neg, nullptr);
     EXPECT_EQ(neg->getOpcode(), Instruction::Opcode::Neg);
@@ -191,9 +205,10 @@ TEST(UnaryOperatorTest, Creation_Neg) {
 }
 
 TEST(UnaryOperatorTest, TypeQueries) {
+    Module module("test");
     auto intType = makeIntType();
-    auto operand = track(ConstantInt::get(42, intType));
-    auto neg = UnaryOperator::create(Instruction::Opcode::Neg, operand);
+    auto operand = track(module.getConstantInt(42, intType));
+    auto neg = module.createUnaryOp(Instruction::Opcode::Neg, operand);
 
     EXPECT_TRUE(neg->isUnaryOp());
     EXPECT_TRUE(neg->isArithmetic());
@@ -202,9 +217,10 @@ TEST(UnaryOperatorTest, TypeQueries) {
 }
 
 TEST(UnaryOperatorTest, Not) {
+    Module module("test");
     auto boolType = makeBoolType();
-    auto boolVal = ConstantBool::get(true, boolType);
-    auto notOp = UnaryOperator::create(Instruction::Opcode::Not, boolVal);
+    auto boolVal = module.getConstantBool(true, boolType);
+    auto notOp = module.createUnaryOp(Instruction::Opcode::Not, boolVal);
 
     EXPECT_EQ(notOp->getOpcode(), Instruction::Opcode::Not);
     EXPECT_TRUE(notOp->isUnaryOp());
@@ -215,11 +231,12 @@ TEST(UnaryOperatorTest, Not) {
 // ============================================================================
 
 TEST(ComparisonTest, Creation_Eq) {
+    Module module("test");
     auto intType = makeIntType();
-    auto lhs = track(ConstantInt::get(10, intType));
-    auto rhs = track(ConstantInt::get(20, intType));
+    auto lhs = track(module.getConstantInt(10, intType));
+    auto rhs = track(module.getConstantInt(20, intType));
 
-    auto eq = CmpInst::create(Instruction::Opcode::Eq, lhs, rhs, "is_equal");
+    auto eq = module.createCmp(Instruction::Opcode::Eq, lhs, rhs, "is_equal");
 
     ASSERT_NE(eq, nullptr);
     EXPECT_EQ(eq->getOpcode(), Instruction::Opcode::Eq);
@@ -228,10 +245,11 @@ TEST(ComparisonTest, Creation_Eq) {
 }
 
 TEST(ComparisonTest, TypeQueries) {
+    Module module("test");
     auto intType = makeIntType();
-    auto lhs = track(ConstantInt::get(10, intType));
-    auto rhs = track(ConstantInt::get(20, intType));
-    auto eq = CmpInst::create(Instruction::Opcode::Eq, lhs, rhs);
+    auto lhs = track(module.getConstantInt(10, intType));
+    auto rhs = track(module.getConstantInt(20, intType));
+    auto eq = module.createCmp(Instruction::Opcode::Eq, lhs, rhs);
 
     EXPECT_TRUE(eq->isComparison());
     EXPECT_FALSE(eq->isArithmetic());
@@ -239,23 +257,24 @@ TEST(ComparisonTest, TypeQueries) {
 }
 
 TEST(ComparisonTest, AllComparisonOpcodes) {
+    Module module("test");
     auto intType = makeIntType();
-    auto lhs = track(ConstantInt::get(10, intType));
-    auto rhs = track(ConstantInt::get(20, intType));
+    auto lhs = track(module.getConstantInt(10, intType));
+    auto rhs = track(module.getConstantInt(20, intType));
 
-    auto ne = CmpInst::create(Instruction::Opcode::Ne, lhs, rhs);
+    auto ne = module.createCmp(Instruction::Opcode::Ne, lhs, rhs);
     EXPECT_EQ(ne->getOpcode(), Instruction::Opcode::Ne);
 
-    auto lt = CmpInst::create(Instruction::Opcode::Lt, lhs, rhs);
+    auto lt = module.createCmp(Instruction::Opcode::Lt, lhs, rhs);
     EXPECT_EQ(lt->getOpcode(), Instruction::Opcode::Lt);
 
-    auto le = CmpInst::create(Instruction::Opcode::Le, lhs, rhs);
+    auto le = module.createCmp(Instruction::Opcode::Le, lhs, rhs);
     EXPECT_EQ(le->getOpcode(), Instruction::Opcode::Le);
 
-    auto gt = CmpInst::create(Instruction::Opcode::Gt, lhs, rhs);
+    auto gt = module.createCmp(Instruction::Opcode::Gt, lhs, rhs);
     EXPECT_EQ(gt->getOpcode(), Instruction::Opcode::Gt);
 
-    auto ge = CmpInst::create(Instruction::Opcode::Ge, lhs, rhs);
+    auto ge = module.createCmp(Instruction::Opcode::Ge, lhs, rhs);
     EXPECT_EQ(ge->getOpcode(), Instruction::Opcode::Ge);
 }
 
@@ -264,8 +283,9 @@ TEST(ComparisonTest, AllComparisonOpcodes) {
 // ============================================================================
 
 TEST(MemoryTest, AllocaInst) {
+    Module module("test");
     auto intType = makeIntType();
-    auto alloca = AllocaInst::create(intType, "var");
+    auto alloca = module.createAlloca(intType, "var");
 
     ASSERT_NE(alloca, nullptr);
     EXPECT_EQ(alloca->getOpcode(), Instruction::Opcode::Alloca);
@@ -276,9 +296,10 @@ TEST(MemoryTest, AllocaInst) {
 }
 
 TEST(MemoryTest, LoadInst) {
+    Module module("test");
     auto intType = makeIntType();
-    auto alloca = AllocaInst::create(intType);
-    auto load = LoadInst::create(alloca, "loaded_val");
+    auto alloca = module.createAlloca(intType);
+    auto load = module.createLoad(alloca, "loaded_val");
 
     ASSERT_NE(load, nullptr);
     EXPECT_EQ(load->getOpcode(), Instruction::Opcode::Load);
@@ -287,10 +308,11 @@ TEST(MemoryTest, LoadInst) {
 }
 
 TEST(MemoryTest, StoreInst) {
+    Module module("test");
     auto intType = makeIntType();
-    auto alloca = AllocaInst::create(intType);
-    auto value = track(ConstantInt::get(42, intType));
-    auto store = StoreInst::create(value, alloca);
+    auto alloca = module.createAlloca(intType);
+    auto value = track(module.getConstantInt(42, intType));
+    auto store = module.createStore(value, alloca);
 
     ASSERT_NE(store, nullptr);
     EXPECT_EQ(store->getOpcode(), Instruction::Opcode::Store);
@@ -300,8 +322,9 @@ TEST(MemoryTest, StoreInst) {
 }
 
 TEST(MemoryTest, GCAllocInst) {
+    Module module("test");
     auto intType = makeIntType();
-    auto gcAlloc = GCAllocInst::create(intType, "heap_var");
+    auto gcAlloc = module.createGCAlloc(intType, "heap_var");
 
     ASSERT_NE(gcAlloc, nullptr);
     EXPECT_EQ(gcAlloc->getOpcode(), Instruction::Opcode::GCAlloc);
@@ -314,9 +337,10 @@ TEST(MemoryTest, GCAllocInst) {
 // ============================================================================
 
 TEST(ArrayTest, ArrayNewInst) {
+    Module module("test");
     auto intType = makeIntType();
-    auto size = track(ConstantInt::get(10, intType));
-    auto arrayNew = ArrayNewInst::create(intType, size, "arr");
+    auto size = track(module.getConstantInt(10, intType));
+    auto arrayNew = module.createArrayNew(intType, size, "arr");
 
     ASSERT_NE(arrayNew, nullptr);
     EXPECT_EQ(arrayNew->getOpcode(), Instruction::Opcode::ArrayNew);
@@ -326,11 +350,12 @@ TEST(ArrayTest, ArrayNewInst) {
 }
 
 TEST(ArrayTest, ArrayGetInst) {
+    Module module("test");
     auto intType = makeIntType();
-    auto size = track(ConstantInt::get(10, intType));
-    auto arrayNew = ArrayNewInst::create(intType, size);
-    auto index = track(ConstantInt::get(5, intType));
-    auto arrayGet = ArrayGetInst::create(arrayNew, index, "elem");
+    auto size = track(module.getConstantInt(10, intType));
+    auto arrayNew = module.createArrayNew(intType, size);
+    auto index = track(module.getConstantInt(5, intType));
+    auto arrayGet = module.createArrayGet(arrayNew, index, "elem");
 
     ASSERT_NE(arrayGet, nullptr);
     EXPECT_EQ(arrayGet->getOpcode(), Instruction::Opcode::ArrayGet);
@@ -340,12 +365,13 @@ TEST(ArrayTest, ArrayGetInst) {
 }
 
 TEST(ArrayTest, ArraySetInst) {
+    Module module("test");
     auto intType = makeIntType();
-    auto size = track(ConstantInt::get(10, intType));
-    auto arrayNew = ArrayNewInst::create(intType, size);
-    auto index = track(ConstantInt::get(5, intType));
-    auto value = track(ConstantInt::get(42, intType));
-    auto arraySet = ArraySetInst::create(arrayNew, index, value);
+    auto size = track(module.getConstantInt(10, intType));
+    auto arrayNew = module.createArrayNew(intType, size);
+    auto index = track(module.getConstantInt(5, intType));
+    auto value = track(module.getConstantInt(42, intType));
+    auto arraySet = module.createArraySet(arrayNew, index, value);
 
     ASSERT_NE(arraySet, nullptr);
     EXPECT_EQ(arraySet->getOpcode(), Instruction::Opcode::ArraySet);
@@ -355,10 +381,11 @@ TEST(ArrayTest, ArraySetInst) {
 }
 
 TEST(ArrayTest, ArrayLenInst) {
+    Module module("test");
     auto intType = makeIntType();
-    auto size = track(ConstantInt::get(10, intType));
-    auto arrayNew = ArrayNewInst::create(intType, size);
-    auto arrayLen = ArrayLenInst::create(arrayNew, "len");
+    auto size = track(module.getConstantInt(10, intType));
+    auto arrayNew = module.createArrayNew(intType, size);
+    auto arrayLen = module.createArrayLen(arrayNew, "len");
 
     ASSERT_NE(arrayLen, nullptr);
     EXPECT_EQ(arrayLen->getOpcode(), Instruction::Opcode::ArrayLen);
@@ -366,12 +393,13 @@ TEST(ArrayTest, ArrayLenInst) {
 }
 
 TEST(ArrayTest, ArraySliceInst) {
+    Module module("test");
     auto intType = makeIntType();
-    auto size = track(ConstantInt::get(10, intType));
-    auto arrayNew = ArrayNewInst::create(intType, size);
-    auto start = track(ConstantInt::get(2, intType));
-    auto end = track(ConstantInt::get(8, intType));
-    auto arraySlice = ArraySliceInst::create(arrayNew, start, end, "slice");
+    auto size = track(module.getConstantInt(10, intType));
+    auto arrayNew = module.createArrayNew(intType, size);
+    auto start = track(module.getConstantInt(2, intType));
+    auto end = track(module.getConstantInt(8, intType));
+    auto arraySlice = module.createArraySlice(arrayNew, start, end, "slice");
 
     ASSERT_NE(arraySlice, nullptr);
     EXPECT_EQ(arraySlice->getOpcode(), Instruction::Opcode::ArraySlice);
@@ -385,10 +413,11 @@ TEST(ArrayTest, ArraySliceInst) {
 // ============================================================================
 
 TEST(TypeTest, CastInst) {
+    Module module("test");
     auto intType = makeIntType();
     auto floatType = makeFloatType();
-    auto intVal = ConstantInt::get(42, intType);
-    auto cast = CastInst::create(intVal, floatType, "as_float");
+    auto intVal = module.getConstantInt(42, intType);
+    auto cast = module.createCast(intVal, floatType, "as_float");
 
     ASSERT_NE(cast, nullptr);
     EXPECT_EQ(cast->getOpcode(), Instruction::Opcode::Cast);
@@ -402,9 +431,10 @@ TEST(TypeTest, CastInst) {
 // ============================================================================
 
 TEST(ControlFlowTest, ReturnInst_WithValue) {
+    Module module("test");
     auto intType = makeIntType();
-    auto returnVal = ConstantInt::get(42, intType);
-    auto ret = ReturnInst::create(returnVal);
+    auto returnVal = module.getConstantInt(42, intType);
+    auto ret = module.createReturn(returnVal);
 
     ASSERT_NE(ret, nullptr);
     EXPECT_EQ(ret->getOpcode(), Instruction::Opcode::Ret);
@@ -414,7 +444,8 @@ TEST(ControlFlowTest, ReturnInst_WithValue) {
 }
 
 TEST(ControlFlowTest, ReturnInst_Void) {
-    auto retVoid = ReturnInst::create(nullptr);
+    Module module("test");
+    auto retVoid = module.createReturn(nullptr);
 
     ASSERT_NE(retVoid, nullptr);
     EXPECT_FALSE(retVoid->hasReturnValue());
@@ -426,8 +457,9 @@ TEST(ControlFlowTest, ReturnInst_Void) {
 // ============================================================================
 
 TEST(PhiNodeTest, Creation) {
+    Module module("test");
     auto intType = makeIntType();
-    auto phi = PhiNode::create(intType, {}, "merged");
+    auto phi = module.createPhi(intType, {}, "merged");
 
     ASSERT_NE(phi, nullptr);
     EXPECT_EQ(phi->getOpcode(), Instruction::Opcode::Phi);
@@ -440,10 +472,11 @@ TEST(PhiNodeTest, Creation) {
 // ============================================================================
 
 TEST(InstructionQueryTest, BinaryOperator) {
+    Module module("test");
     auto intType = makeIntType();
-    auto lhs = track(ConstantInt::get(10, intType));
-    auto rhs = track(ConstantInt::get(20, intType));
-    auto add = track(BinaryOperator::create(Instruction::Opcode::Add, lhs, rhs));
+    auto lhs = track(module.getConstantInt(10, intType));
+    auto rhs = track(module.getConstantInt(20, intType));
+    auto add = track(module.createBinaryOp(Instruction::Opcode::Add, lhs, rhs));
 
     EXPECT_TRUE(add->isBinaryOp());
     EXPECT_TRUE(add->isArithmetic());
@@ -455,10 +488,11 @@ TEST(InstructionQueryTest, BinaryOperator) {
 }
 
 TEST(InstructionQueryTest, Comparison) {
+    Module module("test");
     auto intType = makeIntType();
-    auto lhs = track(ConstantInt::get(10, intType));
-    auto rhs = track(ConstantInt::get(20, intType));
-    auto cmp = CmpInst::create(Instruction::Opcode::Lt, lhs, rhs);
+    auto lhs = track(module.getConstantInt(10, intType));
+    auto rhs = track(module.getConstantInt(20, intType));
+    auto cmp = module.createCmp(Instruction::Opcode::Lt, lhs, rhs);
 
     EXPECT_TRUE(cmp->isComparison());
     EXPECT_FALSE(cmp->isArithmetic());
@@ -466,26 +500,29 @@ TEST(InstructionQueryTest, Comparison) {
 }
 
 TEST(InstructionQueryTest, MemoryOp) {
+    Module module("test");
     auto intType = makeIntType();
-    auto alloca = AllocaInst::create(intType);
+    auto alloca = module.createAlloca(intType);
 
     EXPECT_TRUE(alloca->isMemoryOp());
     EXPECT_FALSE(alloca->isArithmetic());
 }
 
 TEST(InstructionQueryTest, ArrayOp) {
+    Module module("test");
     auto intType = makeIntType();
-    auto size = track(ConstantInt::get(10, intType));
-    auto arrayNew = ArrayNewInst::create(intType, size);
+    auto size = track(module.getConstantInt(10, intType));
+    auto arrayNew = module.createArrayNew(intType, size);
 
     EXPECT_TRUE(arrayNew->isArrayOp());
     EXPECT_FALSE(arrayNew->isMemoryOp());
 }
 
 TEST(InstructionQueryTest, Terminator) {
+    Module module("test");
     auto intType = makeIntType();
-    auto lhs = track(ConstantInt::get(10, intType));
-    auto ret = ReturnInst::create(lhs);
+    auto lhs = track(module.getConstantInt(10, intType));
+    auto ret = module.createReturn(lhs);
 
     EXPECT_TRUE(ret->isTerminator());
     EXPECT_FALSE(ret->isArithmetic());
@@ -496,27 +533,30 @@ TEST(InstructionQueryTest, Terminator) {
 // ============================================================================
 
 TEST(UseDefChainTest, InitialUses) {
+    Module module("test");
     auto intType = makeIntType();
-    auto constant = ConstantInt::get(42, intType);
+    auto constant = module.getConstantInt(42, intType);
 
     EXPECT_EQ(constant->getNumUses(), 0);
     EXPECT_FALSE(constant->hasUses());
 }
 
 TEST(UseDefChainTest, SingleUse) {
+    Module module("test");
     auto intType = makeIntType();
-    auto constant = ConstantInt::get(42, intType);
-    auto neg = UnaryOperator::create(Instruction::Opcode::Neg, constant);
+    auto constant = module.getConstantInt(42, intType);
+    auto neg = module.createUnaryOp(Instruction::Opcode::Neg, constant);
 
     EXPECT_EQ(constant->getNumUses(), 1);
     EXPECT_TRUE(constant->hasUses());
 }
 
 TEST(UseDefChainTest, MultipleUses) {
+    Module module("test");
     auto intType = makeIntType();
-    auto constant = ConstantInt::get(42, intType);
-    auto neg = UnaryOperator::create(Instruction::Opcode::Neg, constant);
-    auto add = track(BinaryOperator::create(Instruction::Opcode::Add, constant, constant));
+    auto constant = module.getConstantInt(42, intType);
+    auto neg = module.createUnaryOp(Instruction::Opcode::Neg, constant);
+    auto add = track(module.createBinaryOp(Instruction::Opcode::Add, constant, constant));
 
     // constant is used once in neg, twice in add = 3 total
     EXPECT_EQ(constant->getNumUses(), 3);
@@ -527,10 +567,11 @@ TEST(UseDefChainTest, MultipleUses) {
 // ============================================================================
 
 TEST(ToStringTest, BinaryOperator) {
+    Module module("test");
     auto intType = makeIntType();
-    auto lhs = track(ConstantInt::get(10, intType));
-    auto rhs = track(ConstantInt::get(20, intType));
-    auto add = track(BinaryOperator::create(Instruction::Opcode::Add, lhs, rhs, "sum"));
+    auto lhs = track(module.getConstantInt(10, intType));
+    auto rhs = track(module.getConstantInt(20, intType));
+    auto add = track(module.createBinaryOp(Instruction::Opcode::Add, lhs, rhs, "sum"));
 
     std::string str = add->toString();
 
