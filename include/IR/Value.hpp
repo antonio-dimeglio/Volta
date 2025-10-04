@@ -4,7 +4,7 @@
 #include <vector>
 #include <memory>
 #include <cstdint>
-#include "semantic/Type.hpp"
+#include "IR/IRType.hpp"
 
 namespace volta::ir {
 
@@ -13,6 +13,8 @@ class Instruction;
 class BasicBlock;
 class Function;
 class Use;
+class Module;
+class Arena;
 
 /**
  * Value - The base class for all values in the IR
@@ -50,6 +52,7 @@ public:
         // Runtime values
         Argument,
         Instruction,
+        BasicBlock,
 
         // Global entities
         GlobalVariable,
@@ -60,7 +63,7 @@ public:
 
     // Core properties
     ValueKind getKind() const { return kind_; }
-    std::shared_ptr<semantic::Type> getType() const { return type_; }
+    std::shared_ptr<IRType> getType() const { return type_; }
 
     // Naming (for debugging and readability)
     const std::string& getName() const { return name_; }
@@ -92,11 +95,11 @@ public:
     uint64_t getID() const { return id_; }
 
 protected:
-    Value(ValueKind kind, std::shared_ptr<semantic::Type> type, const std::string& name = "");
+    Value(ValueKind kind, std::shared_ptr<IRType> type, const std::string& name = "");
 
 private:
     ValueKind kind_;
-    std::shared_ptr<semantic::Type> type_;
+    std::shared_ptr<IRType> type_;
     std::string name_;
     std::vector<Use*> uses_;  // All uses of this value
     uint64_t id_;             // Unique ID for SSA naming
@@ -114,6 +117,14 @@ class Use {
 public:
     Use(Value* value, Instruction* user);
     ~Use();
+
+    // Disable copy to prevent use-def chain corruption
+    Use(const Use&) = delete;
+    Use& operator=(const Use&) = delete;
+
+    // Allow move for vector reallocation (but implement carefully)
+    Use(Use&& other) noexcept;
+    Use& operator=(Use&& other) noexcept;
 
     Value* getValue() const { return value_; }
     void setValue(Value* newValue);
@@ -143,7 +154,7 @@ public:
     }
 
 protected:
-    Constant(ValueKind kind, std::shared_ptr<semantic::Type> type, const std::string& name = "");
+    Constant(ValueKind kind, std::shared_ptr<IRType> type, const std::string& name = "");
 };
 
 /**
@@ -151,7 +162,7 @@ protected:
  */
 class ConstantInt : public Constant {
 public:
-    static ConstantInt* get(int64_t value, std::shared_ptr<semantic::Type> type);
+    static ConstantInt* get(int64_t value, std::shared_ptr<IRType> type);
 
     int64_t getValue() const { return value_; }
 
@@ -161,8 +172,11 @@ public:
         return V->getKind() == ValueKind::ConstantInt;
     }
 
+    friend class Module;
+    friend class Arena;
+
 private:
-    ConstantInt(int64_t value, std::shared_ptr<semantic::Type> type);
+    ConstantInt(int64_t value, std::shared_ptr<IRType> type);
     int64_t value_;
 };
 
@@ -171,7 +185,7 @@ private:
  */
 class ConstantFloat : public Constant {
 public:
-    static ConstantFloat* get(double value, std::shared_ptr<semantic::Type> type);
+    static ConstantFloat* get(double value, std::shared_ptr<IRType> type);
 
     double getValue() const { return value_; }
 
@@ -181,8 +195,11 @@ public:
         return V->getKind() == ValueKind::ConstantFloat;
     }
 
+    friend class Module;
+    friend class Arena;
+
 private:
-    ConstantFloat(double value, std::shared_ptr<semantic::Type> type);
+    ConstantFloat(double value, std::shared_ptr<IRType> type);
     double value_;
 };
 
@@ -191,9 +208,9 @@ private:
  */
 class ConstantBool : public Constant {
 public:
-    static ConstantBool* get(bool value, std::shared_ptr<semantic::Type> type);
-    static ConstantBool* getTrue(std::shared_ptr<semantic::Type> type);
-    static ConstantBool* getFalse(std::shared_ptr<semantic::Type> type);
+    static ConstantBool* get(bool value, std::shared_ptr<IRType> type);
+    static ConstantBool* getTrue(std::shared_ptr<IRType> type);
+    static ConstantBool* getFalse(std::shared_ptr<IRType> type);
 
     bool getValue() const { return value_; }
 
@@ -203,8 +220,11 @@ public:
         return V->getKind() == ValueKind::ConstantBool;
     }
 
+    friend class Module;
+    friend class Arena;
+
 private:
-    ConstantBool(bool value, std::shared_ptr<semantic::Type> type);
+    ConstantBool(bool value, std::shared_ptr<IRType> type);
     bool value_;
 };
 
@@ -214,7 +234,7 @@ private:
  */
 class ConstantString : public Constant {
 public:
-    static ConstantString* get(const std::string& value, std::shared_ptr<semantic::Type> type);
+    static ConstantString* get(const std::string& value, std::shared_ptr<IRType> type);
 
     const std::string& getValue() const { return value_; }
 
@@ -224,8 +244,11 @@ public:
         return V->getKind() == ValueKind::ConstantString;
     }
 
+    friend class Module;
+    friend class Arena;
+
 private:
-    ConstantString(const std::string& value, std::shared_ptr<semantic::Type> type);
+    ConstantString(const std::string& value, std::shared_ptr<IRType> type);
     std::string value_;
 };
 
@@ -234,7 +257,7 @@ private:
  */
 class ConstantNone : public Constant {
 public:
-    static ConstantNone* get(std::shared_ptr<semantic::Type> optionType);
+    static ConstantNone* get(std::shared_ptr<IRType> optionType);
 
     std::string toString() const override;
 
@@ -243,7 +266,7 @@ public:
     }
 
 private:
-    ConstantNone(std::shared_ptr<semantic::Type> optionType);
+    ConstantNone(std::shared_ptr<IRType> optionType);
 };
 
 /**
@@ -252,7 +275,7 @@ private:
  */
 class UndefValue : public Constant {
 public:
-    static UndefValue* get(std::shared_ptr<semantic::Type> type);
+    static UndefValue* get(std::shared_ptr<IRType> type);
 
     std::string toString() const override;
 
@@ -261,7 +284,7 @@ public:
     }
 
 private:
-    UndefValue(std::shared_ptr<semantic::Type> type);
+    UndefValue(std::shared_ptr<IRType> type);
 };
 
 // ============================================================================
@@ -274,7 +297,7 @@ private:
  */
 class Argument : public Value {
 public:
-    Argument(std::shared_ptr<semantic::Type> type,
+    Argument(std::shared_ptr<IRType> type,
              unsigned argNo,
              const std::string& name = "");
 
@@ -303,7 +326,7 @@ private:
  */
 class GlobalVariable : public Value {
 public:
-    GlobalVariable(std::shared_ptr<semantic::Type> type,
+    GlobalVariable(std::shared_ptr<IRType> type,
                    const std::string& name,
                    Constant* initializer = nullptr,
                    bool isConstant = false);

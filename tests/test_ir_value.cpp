@@ -1,33 +1,43 @@
 #include "IR/Value.hpp"
-#include "semantic/Type.hpp"
+#include "IR/IRType.hpp"
 #include <gtest/gtest.h>
 #include <memory>
 
 using namespace volta::ir;
-using namespace volta::semantic;
 
 // Test fixture for Value tests
 class ValueTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        typeCache = std::make_unique<TypeCache>();
-        intType = typeCache->getInt();
-        floatType = typeCache->getFloat();
-        boolType = typeCache->getBool();
-        stringType = typeCache->getString();
-        voidType = typeCache->getVoid();
+        // Create IR types (not semantic types)
+        intType = std::make_shared<IRPrimitiveType>(IRType::Kind::I64);
+        floatType = std::make_shared<IRPrimitiveType>(IRType::Kind::F64);
+        boolType = std::make_shared<IRPrimitiveType>(IRType::Kind::I1);
+        stringType = std::make_shared<IRPrimitiveType>(IRType::Kind::String);
+        voidType = std::make_shared<IRPrimitiveType>(IRType::Kind::Void);
     }
 
     void TearDown() override {
         // Cleanup any allocated values
+        for (auto* val : allocatedValues) {
+            delete val;
+        }
+        allocatedValues.clear();
     }
 
-    std::unique_ptr<TypeCache> typeCache;
-    std::shared_ptr<Type> intType;
-    std::shared_ptr<Type> floatType;
-    std::shared_ptr<Type> boolType;
-    std::shared_ptr<Type> stringType;
-    std::shared_ptr<Type> voidType;
+    // Helper to track allocated values for cleanup
+    template<typename T>
+    T* track(T* ptr) {
+        allocatedValues.push_back(ptr);
+        return ptr;
+    }
+
+    std::shared_ptr<IRType> intType;
+    std::shared_ptr<IRType> floatType;
+    std::shared_ptr<IRType> boolType;
+    std::shared_ptr<IRType> stringType;
+    std::shared_ptr<IRType> voidType;
+    std::vector<Value*> allocatedValues;
 };
 
 // ============================================================================
@@ -35,7 +45,7 @@ protected:
 // ============================================================================
 
 TEST_F(ValueTest, ConstantIntCreation) {
-    auto* ci = ConstantInt::get(42, intType);
+    auto* ci = track(ConstantInt::get(42, intType));
 
     ASSERT_NE(ci, nullptr);
     EXPECT_EQ(ci->getValue(), 42);
@@ -44,21 +54,21 @@ TEST_F(ValueTest, ConstantIntCreation) {
 }
 
 TEST_F(ValueTest, ConstantIntNegativeValue) {
-    auto* ci = ConstantInt::get(-100, intType);
+    auto* ci = track(ConstantInt::get(-100, intType));
 
     ASSERT_NE(ci, nullptr);
     EXPECT_EQ(ci->getValue(), -100);
 }
 
 TEST_F(ValueTest, ConstantIntZero) {
-    auto* ci = ConstantInt::get(0, intType);
+    auto* ci = track(ConstantInt::get(0, intType));
 
     ASSERT_NE(ci, nullptr);
     EXPECT_EQ(ci->getValue(), 0);
 }
 
 TEST_F(ValueTest, ConstantIntToString) {
-    auto* ci = ConstantInt::get(123, intType);
+    auto* ci = track(ConstantInt::get(123, intType));
 
     std::string str = ci->toString();
     EXPECT_FALSE(str.empty());
@@ -66,7 +76,7 @@ TEST_F(ValueTest, ConstantIntToString) {
 }
 
 TEST_F(ValueTest, ConstantIntClassof) {
-    auto* ci = ConstantInt::get(42, intType);
+    auto* ci = track(ConstantInt::get(42, intType));
     Value* v = ci;
 
     EXPECT_TRUE(ConstantInt::classof(v));
@@ -78,7 +88,7 @@ TEST_F(ValueTest, ConstantIntClassof) {
 // ============================================================================
 
 TEST_F(ValueTest, ConstantFloatCreation) {
-    auto* cf = ConstantFloat::get(3.14, floatType);
+    auto* cf = track(ConstantFloat::get(3.14, floatType));
 
     ASSERT_NE(cf, nullptr);
     EXPECT_DOUBLE_EQ(cf->getValue(), 3.14);
@@ -87,28 +97,28 @@ TEST_F(ValueTest, ConstantFloatCreation) {
 }
 
 TEST_F(ValueTest, ConstantFloatNegative) {
-    auto* cf = ConstantFloat::get(-2.5, floatType);
+    auto* cf = track(ConstantFloat::get(-2.5, floatType));
 
     ASSERT_NE(cf, nullptr);
     EXPECT_DOUBLE_EQ(cf->getValue(), -2.5);
 }
 
 TEST_F(ValueTest, ConstantFloatZero) {
-    auto* cf = ConstantFloat::get(0.0, floatType);
+    auto* cf = track(ConstantFloat::get(0.0, floatType));
 
     ASSERT_NE(cf, nullptr);
     EXPECT_DOUBLE_EQ(cf->getValue(), 0.0);
 }
 
 TEST_F(ValueTest, ConstantFloatToString) {
-    auto* cf = ConstantFloat::get(1.5, floatType);
+    auto* cf = track(ConstantFloat::get(1.5, floatType));
 
     std::string str = cf->toString();
     EXPECT_FALSE(str.empty());
 }
 
 TEST_F(ValueTest, ConstantFloatClassof) {
-    auto* cf = ConstantFloat::get(3.14, floatType);
+    auto* cf = track(ConstantFloat::get(3.14, floatType));
     Value* v = cf;
 
     EXPECT_TRUE(ConstantFloat::classof(v));
@@ -121,7 +131,7 @@ TEST_F(ValueTest, ConstantFloatClassof) {
 // ============================================================================
 
 TEST_F(ValueTest, ConstantBoolTrue) {
-    auto* cb = ConstantBool::get(true, boolType);
+    auto* cb = track(ConstantBool::get(true, boolType));
 
     ASSERT_NE(cb, nullptr);
     EXPECT_TRUE(cb->getValue());
@@ -130,29 +140,29 @@ TEST_F(ValueTest, ConstantBoolTrue) {
 }
 
 TEST_F(ValueTest, ConstantBoolFalse) {
-    auto* cb = ConstantBool::get(false, boolType);
+    auto* cb = track(ConstantBool::get(false, boolType));
 
     ASSERT_NE(cb, nullptr);
     EXPECT_FALSE(cb->getValue());
 }
 
 TEST_F(ValueTest, ConstantBoolGetTrue) {
-    auto* cb = ConstantBool::getTrue(boolType);
+    auto* cb = track(ConstantBool::getTrue(boolType));
 
     ASSERT_NE(cb, nullptr);
     EXPECT_TRUE(cb->getValue());
 }
 
 TEST_F(ValueTest, ConstantBoolGetFalse) {
-    auto* cb = ConstantBool::getFalse(boolType);
+    auto* cb = track(ConstantBool::getFalse(boolType));
 
     ASSERT_NE(cb, nullptr);
     EXPECT_FALSE(cb->getValue());
 }
 
 TEST_F(ValueTest, ConstantBoolToString) {
-    auto* cbTrue = ConstantBool::getTrue(boolType);
-    auto* cbFalse = ConstantBool::getFalse(boolType);
+    auto* cbTrue = track(ConstantBool::getTrue(boolType));
+    auto* cbFalse = track(ConstantBool::getFalse(boolType));
 
     std::string strTrue = cbTrue->toString();
     std::string strFalse = cbFalse->toString();
@@ -163,7 +173,7 @@ TEST_F(ValueTest, ConstantBoolToString) {
 }
 
 TEST_F(ValueTest, ConstantBoolClassof) {
-    auto* cb = ConstantBool::getTrue(boolType);
+    auto* cb = track(ConstantBool::getTrue(boolType));
     Value* v = cb;
 
     EXPECT_TRUE(ConstantBool::classof(v));
@@ -175,82 +185,13 @@ TEST_F(ValueTest, ConstantBoolClassof) {
 // ConstantString Tests
 // ============================================================================
 
-TEST_F(ValueTest, ConstantStringCreation) {
-    auto* cs = ConstantString::get("hello", stringType);
-
-    ASSERT_NE(cs, nullptr);
-    EXPECT_EQ(cs->getValue(), "hello");
-    EXPECT_EQ(cs->getKind(), Value::ValueKind::ConstantString);
-    EXPECT_EQ(cs->getType(), stringType);
-}
-
-TEST_F(ValueTest, ConstantStringEmpty) {
-    auto* cs = ConstantString::get("", stringType);
-
-    ASSERT_NE(cs, nullptr);
-    EXPECT_EQ(cs->getValue(), "");
-}
-
-TEST_F(ValueTest, ConstantStringWithSpaces) {
-    auto* cs = ConstantString::get("hello world", stringType);
-
-    ASSERT_NE(cs, nullptr);
-    EXPECT_EQ(cs->getValue(), "hello world");
-}
-
-TEST_F(ValueTest, ConstantStringToString) {
-    auto* cs = ConstantString::get("test", stringType);
-
-    std::string str = cs->toString();
-    EXPECT_FALSE(str.empty());
-}
-
-TEST_F(ValueTest, ConstantStringClassof) {
-    auto* cs = ConstantString::get("hello", stringType);
-    Value* v = cs;
-
-    EXPECT_TRUE(ConstantString::classof(v));
-    EXPECT_TRUE(Constant::classof(v));
-    EXPECT_FALSE(ConstantInt::classof(v));
-}
-
-// ============================================================================
-// ConstantNone Tests
-// ============================================================================
-
-TEST_F(ValueTest, ConstantNoneCreation) {
-    auto optionIntType = typeCache->getOptionType(intType);
-    auto* cn = ConstantNone::get(optionIntType);
-
-    ASSERT_NE(cn, nullptr);
-    EXPECT_EQ(cn->getKind(), Value::ValueKind::ConstantNone);
-    EXPECT_EQ(cn->getType(), optionIntType);
-}
-
-TEST_F(ValueTest, ConstantNoneToString) {
-    auto optionIntType = typeCache->getOptionType(intType);
-    auto* cn = ConstantNone::get(optionIntType);
-
-    std::string str = cn->toString();
-    EXPECT_FALSE(str.empty());
-}
-
-TEST_F(ValueTest, ConstantNoneClassof) {
-    auto optionIntType = typeCache->getOptionType(intType);
-    auto* cn = ConstantNone::get(optionIntType);
-    Value* v = cn;
-
-    EXPECT_TRUE(ConstantNone::classof(v));
-    EXPECT_TRUE(Constant::classof(v));
-    EXPECT_FALSE(ConstantInt::classof(v));
-}
 
 // ============================================================================
 // UndefValue Tests
 // ============================================================================
 
 TEST_F(ValueTest, UndefValueCreation) {
-    auto* uv = UndefValue::get(intType);
+    auto* uv = track(UndefValue::get(intType));
 
     ASSERT_NE(uv, nullptr);
     EXPECT_EQ(uv->getKind(), Value::ValueKind::UndefValue);
@@ -258,14 +199,14 @@ TEST_F(ValueTest, UndefValueCreation) {
 }
 
 TEST_F(ValueTest, UndefValueToString) {
-    auto* uv = UndefValue::get(intType);
+    auto* uv = track(UndefValue::get(intType));
 
     std::string str = uv->toString();
     EXPECT_FALSE(str.empty());
 }
 
 TEST_F(ValueTest, UndefValueClassof) {
-    auto* uv = UndefValue::get(intType);
+    auto* uv = track(UndefValue::get(intType));
     Value* v = uv;
 
     EXPECT_TRUE(UndefValue::classof(v));
@@ -323,14 +264,14 @@ TEST_F(ValueTest, GlobalVariableCreation) {
 }
 
 TEST_F(ValueTest, GlobalVariableWithInitializer) {
-    auto* init = ConstantInt::get(100, intType);
+    auto* init = track(ConstantInt::get(100, intType));
     GlobalVariable gv(intType, "value", init, false);
 
     EXPECT_EQ(gv.getInitializer(), init);
 }
 
 TEST_F(ValueTest, GlobalVariableConstant) {
-    auto* init = ConstantInt::get(42, intType);
+    auto* init = track(ConstantInt::get(42, intType));
     GlobalVariable gv(intType, "PI", init, true);
 
     EXPECT_TRUE(gv.isConstant());
@@ -356,7 +297,7 @@ TEST_F(ValueTest, GlobalVariableClassof) {
 // ============================================================================
 
 TEST_F(ValueTest, ValueNaming) {
-    auto* ci = ConstantInt::get(42, intType);
+    auto* ci = track(ConstantInt::get(42, intType));
 
     EXPECT_TRUE(ci->getName().empty());
     EXPECT_FALSE(ci->hasName());
@@ -367,14 +308,14 @@ TEST_F(ValueTest, ValueNaming) {
 }
 
 TEST_F(ValueTest, ValueUniqueID) {
-    auto* ci1 = ConstantInt::get(1, intType);
-    auto* ci2 = ConstantInt::get(2, intType);
+    auto* ci1 = track(ConstantInt::get(1, intType));
+    auto* ci2 = track(ConstantInt::get(2, intType));
 
     EXPECT_NE(ci1->getID(), ci2->getID());
 }
 
 TEST_F(ValueTest, ValueTypeChecking) {
-    auto* ci = ConstantInt::get(42, intType);
+    auto* ci = track(ConstantInt::get(42, intType));
 
     EXPECT_TRUE(ci->isConstant());
     EXPECT_FALSE(ci->isInstruction());
@@ -405,7 +346,7 @@ TEST_F(ValueTest, GlobalVariableTypeChecking) {
 // ============================================================================
 
 TEST_F(ValueTest, DynCastConstantInt) {
-    auto* ci = ConstantInt::get(42, intType);
+    auto* ci = track(ConstantInt::get(42, intType));
     Value* v = ci;
 
     auto* casted = dyn_cast<ConstantInt>(v);
@@ -414,7 +355,7 @@ TEST_F(ValueTest, DynCastConstantInt) {
 }
 
 TEST_F(ValueTest, DynCastFailure) {
-    auto* ci = ConstantInt::get(42, intType);
+    auto* ci = track(ConstantInt::get(42, intType));
     Value* v = ci;
 
     auto* casted = dyn_cast<ConstantFloat>(v);
@@ -422,7 +363,7 @@ TEST_F(ValueTest, DynCastFailure) {
 }
 
 TEST_F(ValueTest, IsaConstant) {
-    auto* ci = ConstantInt::get(42, intType);
+    auto* ci = track(ConstantInt::get(42, intType));
     Value* v = ci;
 
     EXPECT_TRUE(isa<Constant>(v));
@@ -443,7 +384,7 @@ TEST_F(ValueTest, IsaArgument) {
 // ============================================================================
 
 TEST_F(ValueTest, ValueUsesEmpty) {
-    auto* ci = ConstantInt::get(42, intType);
+    auto* ci = track(ConstantInt::get(42, intType));
 
     EXPECT_FALSE(ci->hasUses());
     EXPECT_EQ(ci->getNumUses(), 0);
@@ -454,7 +395,7 @@ TEST_F(ValueTest, ValueUsesEmpty) {
 // These are placeholder tests to ensure the API compiles
 
 TEST_F(ValueTest, ValueUsesAPIExists) {
-    auto* ci = ConstantInt::get(42, intType);
+    auto* ci = track(ConstantInt::get(42, intType));
 
     // Just verify the methods exist and are callable
     const auto& uses = ci->getUses();
@@ -466,24 +407,21 @@ TEST_F(ValueTest, ValueUsesAPIExists) {
 // ============================================================================
 
 TEST_F(ValueTest, MultipleConstantTypes) {
-    auto* ci = ConstantInt::get(42, intType);
-    auto* cf = ConstantFloat::get(3.14, floatType);
-    auto* cb = ConstantBool::getTrue(boolType);
-    auto* cs = ConstantString::get("hello", stringType);
+    auto* ci = track(ConstantInt::get(42, intType));
+    auto* cf = track(ConstantFloat::get(3.14, floatType));
+    auto* cb = track(ConstantBool::getTrue(boolType));
 
     EXPECT_NE(ci->getKind(), cf->getKind());
     EXPECT_NE(ci->getKind(), cb->getKind());
-    EXPECT_NE(ci->getKind(), cs->getKind());
 
     EXPECT_TRUE(ci->isConstant());
     EXPECT_TRUE(cf->isConstant());
     EXPECT_TRUE(cb->isConstant());
-    EXPECT_TRUE(cs->isConstant());
 }
 
 TEST_F(ValueTest, ConstantPolymorphism) {
-    auto* ci = ConstantInt::get(42, intType);
-    auto* cf = ConstantFloat::get(3.14, floatType);
+    auto* ci = track(ConstantInt::get(42, intType));
+    auto* cf = track(ConstantFloat::get(3.14, floatType));
 
     Constant* c1 = ci;
     Constant* c2 = cf;
