@@ -15,7 +15,13 @@ std::unique_ptr<BytecodeModule> BytecodeCompiler::compile(
 
     // PASS 1: Register all function declarations (names + param counts)
     // This allows forward references (function A can call function B even if B is defined later)
+    // Skip declarations (native functions) - they're already registered via registerRuntimeFunctions()
     for (auto* func : irModule_->getFunctions()) {
+        // Skip function declarations (native/external functions with no body)
+        if (func->isDeclaration()) {
+            continue;
+        }
+
         size_t numParams = func->getNumParams();
         if (numParams > 255) {
             throw std::runtime_error("Function has too many parameters (max 255)");
@@ -25,11 +31,16 @@ std::unique_ptr<BytecodeModule> BytecodeCompiler::compile(
 
     // PASS 2: Compile the actual bytecode for each function
     for (auto* func : irModule_->getFunctions()) {
+        // Skip function declarations (native/external functions with no body)
+        if (func->isDeclaration()) {
+            continue;
+        }
         compileFunction(func);
     }
 
-    if (!module_.get()->verify()) {
-        throw std::runtime_error("Generated invalid bytecode module.");
+    std::string verifyError;
+    if (!module_->verify(&verifyError)) {
+        throw std::runtime_error("Generated invalid bytecode module: " + verifyError);
     }
 
     return std::move(module_);

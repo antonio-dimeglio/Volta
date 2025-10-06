@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <utility>
 #include <new>
+#include <vector>
+#include <type_traits>
 
 namespace volta::ir {
 
@@ -122,6 +124,10 @@ private:
     size_t chunkSize_;          // Size of each chunk
     size_t totalAllocated_;     // Total bytes allocated from system
     size_t totalUsed_;          // Total bytes actually used by objects
+
+    // Track allocated objects for proper destruction
+    // Store pairs of (destructor_function, object_pointer)
+    std::vector<std::pair<void(*)(void*), void*>> destructors_;
 };
 
 // ============================================================================
@@ -134,7 +140,17 @@ T* Arena::allocate(Args&&... args) {
     void* ptr = allocateRaw(sizeof(T), alignof(T));
 
     // Construct object using placement new
-    return new (ptr) T(std::forward<Args>(args)...);
+    T* obj = new (ptr) T(std::forward<Args>(args)...);
+
+    // Register destructor (only if T has a non-trivial destructor)
+    if constexpr (!std::is_trivially_destructible_v<T>) {
+        destructors_.push_back({
+            [](void* p) { static_cast<T*>(p)->~T(); },
+            obj
+        });
+    }
+
+    return obj;
 }
 
 } // namespace volta::ir

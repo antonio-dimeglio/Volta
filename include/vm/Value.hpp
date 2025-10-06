@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <sstream>
 
 namespace volta::vm {
 #define GC_MARKED_BIT 0x01
@@ -82,6 +83,36 @@ struct Value {
         Value v;
         v.type = ValueType::NONE;
         return v;
+    }
+
+    inline std::string toString() const {
+        switch (type) {
+            case ValueType::INT64:
+                return std::to_string(as.as_i64);
+            case ValueType::FLOAT64: {
+                std::ostringstream oss;
+                oss << as.as_f64;
+                return oss.str();
+            }
+            case ValueType::BOOL:
+                return as.as_b ? "true" : "false";
+            case ValueType::OBJECT:
+                if (as.as_obj == nullptr)
+                    return "<null object>";
+                switch (as.as_obj->type) {
+                    case ObjectType::ARRAY:   return "<array>";
+                    case ObjectType::STRING:  return "<string>";
+                    case ObjectType::CLOSURE: return "<closure>";
+                    case ObjectType::OPTION_SOME: return "<option>";
+                    case ObjectType::TUPLE:   return "<tuple>";
+                    case ObjectType::STRUCT:  return "<struct>";
+                    default:                  return "<object>";
+                }
+            case ValueType::NONE:
+                return "none";
+            default:
+                return "<unknown>";
+        }
     }
 };
 

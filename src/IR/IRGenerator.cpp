@@ -855,6 +855,15 @@ std::unique_ptr<Module> generateIR(
     const std::string& moduleName
 ) {
     auto module = std::make_unique<Module>(moduleName);
+
+    // Register builtin/native functions
+    // print(int) -> void
+    {
+        std::vector<std::shared_ptr<IRType>> params = { module->getIntType() };
+        auto returnType = module->getVoidType();
+        module->createFunction("print", returnType, params);
+    }
+
     IRGenerator generator(*module, &analyzer);
 
     if (!generator.generate(&program)) {

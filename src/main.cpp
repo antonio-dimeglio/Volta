@@ -8,9 +8,8 @@
 #include "IR/IRPrinter.hpp"
 #include "IR/Verifier.hpp"
 #include "IR/OptimizationPass.hpp"
-// #include "bytecode/BytecodeCompiler.hpp"
-// #include "bytecode/Disassembler.hpp"
-// #include "vm/VM.hpp"
+#include "vm/BytecodeCompiler.hpp"
+#include "vm/VM.hpp"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -21,8 +20,7 @@ using namespace volta::parser;
 using namespace volta::ast;
 using namespace volta::errors;
 using namespace volta::ir;
-// using namespace volta::bytecode;
-// using namespace volta::vm;
+using namespace volta::vm;
 
 void printUsage(const char* programName) {
     std::cout << "Volta Programming Language\n";
@@ -107,6 +105,18 @@ void runFile(const std::string& filename) {
             exit(1);
         }
 
+
+        BytecodeCompiler bc;
+        auto bcModule = bc.compile(std::move(module));
+
+        std::cout << "\n";
+        bcModule->printSummary(std::cout);
+        bcModule->printFunctionTable(std::cout);
+        bcModule->printConstantPools(std::cout);
+
+        VM vm;
+        auto res = vm.execute(*bcModule, "__main");
+        std::cout << "Final value after execution: " << res.toString() << "\n";
 
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;

@@ -246,7 +246,8 @@ fn main(n: int) -> int {
 
     EXPECT_NE(module->getFunction("helper"), nullptr);
     EXPECT_NE(module->getFunction("main"), nullptr);
-    EXPECT_EQ(module->getNumFunctions(), 2);
+    // Note: getNumFunctions() returns 3 because we auto-register 'print' builtin
+    EXPECT_EQ(module->getNumFunctions(), 3);
 }
 
 TEST_F(EndToEndIRTest, RecursiveFunction) {

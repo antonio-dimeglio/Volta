@@ -63,6 +63,7 @@ enum class TokenType {
     NONE_KEYWORD,
     IMPORT,
     AS,
+    TYPE,
 
     // Delimiters
     LPAREN,

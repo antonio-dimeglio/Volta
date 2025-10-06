@@ -57,8 +57,37 @@ void Lexer::skipWhitespace() {
     }
 }
 
+void Lexer::skipMultilineComment() {
+    while (!isAtEnd()) {
+        auto maybeChar = advance();
+        if (maybeChar.has_value() &&
+            maybeChar.value() == ']' &&
+            currentChar().has_value() &&
+            currentChar().value() == '#') {
+            advance(); // consume the closing '#'
+            return;
+        }
+    }
+    errorReporter.reportSyntaxError(
+        "Unterminated multiline comment.",
+        volta::errors::SourceLocation("", line_, column_, 1)
+    );
+}
+
 void Lexer::skipComment() {
-    // Skip until newline or end of file
+    // We're currently at '#'
+    char next = peek();
+
+    // Check if it's a multiline comment #[...]#
+    if (next == '[') {
+        advance(); // skip '#'
+        advance(); // skip '['
+        skipMultilineComment();
+        return;
+    }
+
+    // Single-line comment: skip until newline or end of file
+    advance(); // skip '#'
     while (!isAtEnd() && source_[idx_] != '\n') {
         advance();
     }

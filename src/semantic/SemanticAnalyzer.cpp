@@ -10,6 +10,42 @@ SemanticAnalyzer::SemanticAnalyzer(volta::errors::ErrorReporter& reporter)
       symbolTable_(std::make_unique<SymbolTable>()) {}
 
 void SemanticAnalyzer::registerBuiltins() {
+    // print(int) -> void
+    {
+        std::vector<std::shared_ptr<Type>> params = {
+            typeCache_.getInt()
+        };
+        auto returnType = typeCache_.getVoid();
+        auto printType = typeCache_.getFunctionType(std::move(params), returnType);
+
+        auto symbol = Symbol("print", printType, false, volta::errors::SourceLocation());
+        symbolTable_->declare("print", symbol);
+    }
+
+    // print(float) -> void
+    {
+        std::vector<std::shared_ptr<Type>> params = {
+            typeCache_.getFloat()
+        };
+        auto returnType = typeCache_.getVoid();
+        auto printType = typeCache_.getFunctionType(std::move(params), returnType);
+
+        auto symbol = Symbol("print", printType, false, volta::errors::SourceLocation());
+        symbolTable_->declare("print", symbol);
+    }
+
+    // print(bool) -> void
+    {
+        std::vector<std::shared_ptr<Type>> params = {
+            typeCache_.getBool()
+        };
+        auto returnType = typeCache_.getVoid();
+        auto printType = typeCache_.getFunctionType(std::move(params), returnType);
+
+        auto symbol = Symbol("print", printType, false, volta::errors::SourceLocation());
+        symbolTable_->declare("print", symbol);
+    }
+
     // print(str) -> void
     {
         std::vector<std::shared_ptr<Type>> params = {

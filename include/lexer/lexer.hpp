@@ -37,6 +37,7 @@ private:
     std::optional<char> advance();
 
     void skipWhitespace();
+    void skipMultilineComment();
     void skipComment();
 
     // Token scanning methods

@@ -1017,7 +1017,7 @@ std::unique_ptr<volta::ast::Pattern> Parser::parsePattern() {
     }
 
     // Identifier, wildcard, or constructor pattern
-    if (check(TokenType::IDENTIFIER)) {
+    if (check(TokenType::IDENTIFIER) || check(TokenType::SOME_KEYWORD) || check(TokenType::NONE_KEYWORD)) {
         auto name = advance().lexeme;
         auto ident = std::make_unique<IdentifierExpression>(name, loc);
 
@@ -1040,7 +1040,7 @@ std::unique_ptr<volta::ast::Pattern> Parser::parsePattern() {
             return std::make_unique<ConstructorPattern>(std::move(ident), std::move(args), loc);
         }
 
-        // Simple identifier pattern
+        // Simple identifier pattern (or None without parentheses)
         return std::make_unique<IdentifierPattern>(std::move(ident), loc);
     }
 

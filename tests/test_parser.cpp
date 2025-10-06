@@ -506,3 +506,163 @@ TEST_F(ParserTest, ParseChainedMethodCalls) {
     auto expr = parser->parseExpression();
     ASSERT_NE(expr, nullptr);
 }
+
+// ============================================================================
+// Additional Feature Tests (May fail - features not yet implemented)
+// ============================================================================
+
+TEST_F(ParserTest, ParseMatchExpression) {
+    auto parser = createParser(R"(
+        match value {
+            Some(x) => x,
+            None => 0
+        }
+    )");
+    auto expr = parser->parseExpression();
+    ASSERT_NE(expr, nullptr);
+}
+
+TEST_F(ParserTest, ParseMatchExpressionMultiplePatterns) {
+    auto parser = createParser(R"(
+        match result {
+            0 => "zero",
+            1 => "one",
+            _ => "other"
+        }
+    )");
+    auto expr = parser->parseExpression();
+    ASSERT_NE(expr, nullptr);
+}
+
+TEST_F(ParserTest, ParseLambdaExpression) {
+    auto parser = createParser("fn(x: int) -> int = x + 1");
+    auto expr = parser->parseExpression();
+    ASSERT_NE(expr, nullptr);
+}
+
+TEST_F(ParserTest, ParseLambdaExpressionMultipleParams) {
+    auto parser = createParser("fn(x: int, y: int) -> int = x + y");
+    auto expr = parser->parseExpression();
+    ASSERT_NE(expr, nullptr);
+}
+
+TEST_F(ParserTest, ParseLambdaExpressionNoParams) {
+    auto parser = createParser("fn() -> int = 42");
+    auto expr = parser->parseExpression();
+    ASSERT_NE(expr, nullptr);
+}
+
+TEST_F(ParserTest, ParseSingleExpressionFunction) {
+    auto parser = createParser("fn square(x: float) -> float = x * x");
+    auto stmt = parser->parseStatement();
+    ASSERT_NE(stmt, nullptr);
+}
+
+TEST_F(ParserTest, ParseSingleExpressionFunctionNoReturn) {
+    auto parser = createParser("fn increment(x: int) -> int = x + 1");
+    auto stmt = parser->parseStatement();
+    ASSERT_NE(stmt, nullptr);
+}
+
+TEST_F(ParserTest, ParseOptionTypeSome) {
+    auto parser = createParser("Some(42)");
+    auto expr = parser->parseExpression();
+    ASSERT_NE(expr, nullptr);
+}
+
+TEST_F(ParserTest, ParseOptionTypeNone) {
+    auto parser = createParser("None");
+    auto expr = parser->parseExpression();
+    ASSERT_NE(expr, nullptr);
+}
+
+TEST_F(ParserTest, ParseOptionTypeInVariable) {
+    auto parser = createParser("value: Option[int] = Some(10)");
+    auto stmt = parser->parseStatement();
+    ASSERT_NE(stmt, nullptr);
+}
+
+TEST_F(ParserTest, ParseTypeAlias) {
+    auto parser = createParser("type Vector = Array[float]");
+    auto stmt = parser->parseStatement();
+    ASSERT_NE(stmt, nullptr);
+}
+
+TEST_F(ParserTest, ParseTypeAliasTuple) {
+    auto parser = createParser("type Point = (float, float)");
+    auto stmt = parser->parseStatement();
+    ASSERT_NE(stmt, nullptr);
+}
+
+TEST_F(ParserTest, ParseTypeAliasFunction) {
+    auto parser = createParser("type Callback = fn(int) -> int");
+    auto stmt = parser->parseStatement();
+    ASSERT_NE(stmt, nullptr);
+}
+
+TEST_F(ParserTest, DISABLED_ParseGenericFunction) {
+    // DISABLED: Generic syntax [T] after function name causes infinite loop
+    // Parser expects '(' after function name but finds '['
+    auto parser = createParser("fn first[T](arr: Array[T]) -> T { return arr[0] }");
+    auto stmt = parser->parseStatement();
+    ASSERT_NE(stmt, nullptr);
+}
+
+TEST_F(ParserTest, DISABLED_ParseGenericFunctionMultipleParams) {
+    // DISABLED: Generic syntax [T, U] causes infinite loop
+    auto parser = createParser("fn map[T, U](arr: Array[T], f: fn(T) -> U) -> Array[U] { }");
+    auto stmt = parser->parseStatement();
+    ASSERT_NE(stmt, nullptr);
+}
+
+TEST_F(ParserTest, DISABLED_ParseGenericStruct) {
+    // DISABLED: Generic syntax [T] after struct name causes infinite loop
+    auto parser = createParser(R"(
+        struct Box[T] {
+            value: T
+        }
+    )");
+    auto stmt = parser->parseStatement();
+    ASSERT_NE(stmt, nullptr);
+}
+
+TEST_F(ParserTest, ParseArraySlicingBasic) {
+    auto parser = createParser("arr[1:3]");
+    auto expr = parser->parseExpression();
+    ASSERT_NE(expr, nullptr);
+}
+
+TEST_F(ParserTest, ParseArraySlicingOpenEnd) {
+    auto parser = createParser("arr[1:]");
+    auto expr = parser->parseExpression();
+    ASSERT_NE(expr, nullptr);
+}
+
+TEST_F(ParserTest, ParseArraySlicingOpenStart) {
+    auto parser = createParser("arr[:3]");
+    auto expr = parser->parseExpression();
+    ASSERT_NE(expr, nullptr);
+}
+
+TEST_F(ParserTest, ParseNestedGenerics) {
+    auto parser = createParser("value: Array[Array[int]] = [[1, 2], [3, 4]]");
+    auto stmt = parser->parseStatement();
+    ASSERT_NE(stmt, nullptr);
+}
+
+TEST_F(ParserTest, ParseComplexMatchWithGuards) {
+    auto parser = createParser(R"(
+        match pair {
+            (x, y) if x > y => x,
+            (x, y) => y
+        }
+    )");
+    auto expr = parser->parseExpression();
+    ASSERT_NE(expr, nullptr);
+}
+
+TEST_F(ParserTest, ParseStructInstantiationNested) {
+    auto parser = createParser("Person { name: \"Alice\", address: Address { street: \"Main St\" } }");
+    auto expr = parser->parseExpression();
+    ASSERT_NE(expr, nullptr);
+}

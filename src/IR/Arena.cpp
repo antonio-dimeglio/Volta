@@ -41,7 +41,8 @@ Arena::Arena(Arena&& other) noexcept
       firstChunk_(other.firstChunk_),
       chunkSize_(other.chunkSize_),
       totalAllocated_(other.totalAllocated_),
-      totalUsed_(other.totalUsed_) {
+      totalUsed_(other.totalUsed_),
+      destructors_(std::move(other.destructors_)) {
     other.currentChunk_ = nullptr;
     other.firstChunk_ = nullptr;
     other.totalAllocated_ = 0;
@@ -56,6 +57,7 @@ Arena& Arena::operator=(Arena&& other) noexcept {
         chunkSize_ = other.chunkSize_;
         totalAllocated_ = other.totalAllocated_;
         totalUsed_ = other.totalUsed_;
+        destructors_ = std::move(other.destructors_);
 
         other.currentChunk_ = nullptr;
         other.firstChunk_ = nullptr;
@@ -136,17 +138,23 @@ void Arena::allocateChunk() {
 }
 
 void Arena::reset() {
-    // TODO: Free all chunks and reset arena
-    // HINT: Similar to destructor
-    // HINT: But also reset currentChunk_, firstChunk_, counters
+    // Call destructors in REVERSE order (LIFO - last allocated, first destroyed)
+    // This ensures proper destruction order for dependent objects
+    for (auto it = destructors_.rbegin(); it != destructors_.rend(); ++it) {
+        auto& [destructor, obj] = *it;
+        destructor(obj);
+    }
+    destructors_.clear();
 
-    // Minimal implementation
+    // Free all memory chunks
     Chunk* chunk = firstChunk_;
     while (chunk) {
         Chunk* next = chunk->next;
         delete chunk;
         chunk = next;
     }
+
+    // Reset arena state
     currentChunk_ = nullptr;
     firstChunk_ = nullptr;
     totalAllocated_ = 0;
