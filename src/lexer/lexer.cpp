@@ -314,7 +314,8 @@ std::vector<Token> Lexer::tokenize() {
     while (!isAtEnd()) {
         auto maybeToken = scanToken();
         if (!maybeToken.has_value()) {
-            return tokens; 
+            advance();
+            continue;
         }
 
         Token token = maybeToken.value();

@@ -66,6 +66,7 @@ private:
     std::shared_ptr<Type> analyzeArrayLiteral(const volta::ast::ArrayLiteral* arrayLit);
     std::shared_ptr<Type> analyzeIndexExpression(const volta::ast::IndexExpression* indexExpr);
     std::shared_ptr<Type> analyzeStructLiteral(const volta::ast::StructLiteral* structLit);
+    std::shared_ptr<Type> analyzeCastExpression(const volta::ast::CastExpression* castExpr);
 
     // Type operations
     bool areTypesCompatible(const Type* expected, const Type* actual);
@@ -77,6 +78,7 @@ private:
     void exitScope();
     void declareVariable(const std::string& name, std::shared_ptr<Type> type, bool isMutable, volta::errors::SourceLocation loc);
     void declareFunction(const std::string& name, std::shared_ptr<Type> functionType, volta::errors::SourceLocation loc);
+    void declareType(const std::string& name, std::shared_ptr<Type> type, volta::errors::SourceLocation loc);
 
     // Lookup operations
     std::shared_ptr<Type> lookupVariable(const std::string& name, volta::errors::SourceLocation loc);

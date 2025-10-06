@@ -1,0 +1,625 @@
+#include <gtest/gtest.h>
+#include "vm/BytecodeCompiler.hpp"
+#include "IR/Module.hpp"
+#include "IR/IRBuilder.hpp"
+#include "IR/BasicBlock.hpp"
+#include "IR/Instruction.hpp"
+
+using namespace volta;
+using namespace volta::vm;
+using namespace volta::ir;
+
+// ============================================================================
+// Test Fixture
+// ============================================================================
+
+class BytecodeCompilerTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        module = std::make_unique<Module>("test_module");
+        builder = std::make_unique<IRBuilder>(*module);
+    }
+
+    std::unique_ptr<Module> module;
+    std::unique_ptr<IRBuilder> builder;
+};
+
+// ============================================================================
+// Basic Compilation Tests
+// ============================================================================
+
+TEST_F(BytecodeCompilerTest, CompileEmptyFunction) {
+    // Create function: fn test() -> void { ret void }
+    auto* func = builder->createFunction("test", builder->getVoidType(), {});
+    auto* entry = func->getEntryBlock();
+    builder->setInsertionPoint(entry);
+    builder->createRet(nullptr);
+
+    // Compile
+    BytecodeCompiler compiler;
+    auto bytecode = compiler.compile(std::move(module));
+
+    // Verify
+    ASSERT_NE(bytecode, nullptr);
+    EXPECT_TRUE(bytecode->verify());
+
+    // Should have 1 native function (print) + 1 user function
+    EXPECT_EQ(bytecode->getFunctionCount(), 2);
+}
+
+TEST_F(BytecodeCompilerTest, CompileSimpleReturn) {
+    // Create function: fn test() -> int { ret 42 }
+    auto* func = builder->createFunction("test", builder->getIntType(), {});
+    auto* entry = func->getEntryBlock();
+    builder->setInsertionPoint(entry);
+
+    auto* const42 = builder->getInt(42);
+    builder->createRet(const42);
+
+    // Compile
+    BytecodeCompiler compiler;
+    auto bytecode = compiler.compile(std::move(module));
+
+    // Verify
+    ASSERT_NE(bytecode, nullptr);
+    EXPECT_TRUE(bytecode->verify());
+
+    // Check constant pool
+    EXPECT_EQ(bytecode->getIntConstant(0), 42);
+}
+
+// ============================================================================
+// Arithmetic Operations Tests
+// ============================================================================
+
+TEST_F(BytecodeCompilerTest, CompileAddition) {
+    // Create function: fn add(a: int, b: int) -> int { ret a + b }
+    auto* func = builder->createFunction("add", builder->getIntType(),
+                                         {builder->getIntType(), builder->getIntType()});
+    auto* entry = func->getEntryBlock();
+    builder->setInsertionPoint(entry);
+
+    auto* a = func->getParam(0);
+    auto* b = func->getParam(1);
+    auto* sum = builder->createAdd(a, b, "sum");
+    builder->createRet(sum);
+
+    // Compile
+    BytecodeCompiler compiler;
+    auto bytecode = compiler.compile(std::move(module));
+
+    // Verify
+    ASSERT_NE(bytecode, nullptr);
+    EXPECT_TRUE(bytecode->verify());
+}
+
+TEST_F(BytecodeCompilerTest, CompileAllArithmeticOps) {
+    // Test Add, Sub, Mul, Div, Rem
+    auto* func = builder->createFunction("arithmetic", builder->getIntType(),
+                                         {builder->getIntType(), builder->getIntType()});
+    auto* entry = func->getEntryBlock();
+    builder->setInsertionPoint(entry);
+
+    auto* a = func->getParam(0);
+    auto* b = func->getParam(1);
+
+    auto* add = builder->createAdd(a, b);
+    auto* sub = builder->createSub(add, b);
+    auto* mul = builder->createMul(sub, b);
+    auto* div = builder->createDiv(mul, b);
+    auto* rem = builder->createRem(div, b);
+    builder->createRet(rem);
+
+    BytecodeCompiler compiler;
+    auto bytecode = compiler.compile(std::move(module));
+
+    ASSERT_NE(bytecode, nullptr);
+    EXPECT_TRUE(bytecode->verify());
+}
+
+// ============================================================================
+// Comparison Operations Tests
+// ============================================================================
+
+TEST_F(BytecodeCompilerTest, CompileComparisons) {
+    auto* func = builder->createFunction("compare", builder->getBoolType(),
+                                         {builder->getIntType(), builder->getIntType()});
+    auto* entry = func->getEntryBlock();
+    builder->setInsertionPoint(entry);
+
+    auto* a = func->getParam(0);
+    auto* b = func->getParam(1);
+
+    auto* eq = builder->createEq(a, b);
+    auto* ne = builder->createNe(a, b);
+    auto* lt = builder->createLt(a, b);
+    auto* result = builder->createAnd(eq, ne);
+    builder->createRet(result);
+
+    BytecodeCompiler compiler;
+    auto bytecode = compiler.compile(std::move(module));
+
+    ASSERT_NE(bytecode, nullptr);
+    EXPECT_TRUE(bytecode->verify());
+}
+
+// ============================================================================
+// Control Flow Tests
+// ============================================================================
+
+TEST_F(BytecodeCompilerTest, CompileUnconditionalBranch) {
+    // fn test() -> int {
+    //   br block2
+    // block2:
+    //   ret 42
+    // }
+    auto* func = builder->createFunction("test", builder->getIntType(), {});
+    auto* block1 = func->getEntryBlock();
+    auto* block2 = builder->createBasicBlock("block2", func);
+
+    builder->setInsertionPoint(block1);
+    builder->createBr(block2);
+
+    builder->setInsertionPoint(block2);
+    auto* const42 = builder->getInt(42);
+    builder->createRet(const42);
+
+    BytecodeCompiler compiler;
+    auto bytecode = compiler.compile(std::move(module));
+
+    ASSERT_NE(bytecode, nullptr);
+    EXPECT_TRUE(bytecode->verify());
+}
+
+TEST_F(BytecodeCompilerTest, CompileConditionalBranch) {
+    // fn test(cond: bool) -> int {
+    //   br cond, trueBlock, falseBlock
+    // trueBlock:
+    //   ret 1
+    // falseBlock:
+    //   ret 0
+    // }
+    auto* func = builder->createFunction("test", builder->getIntType(), {builder->getBoolType()});
+    auto* entry = func->getEntryBlock();
+    auto* trueBlock = builder->createBasicBlock("trueBlock", func);
+    auto* falseBlock = builder->createBasicBlock("falseBlock", func);
+
+    builder->setInsertionPoint(entry);
+    auto* cond = func->getParam(0);
+    builder->createCondBr(cond, trueBlock, falseBlock);
+
+    builder->setInsertionPoint(trueBlock);
+    auto* const1 = builder->getInt(1);
+    builder->createRet(const1);
+
+    builder->setInsertionPoint(falseBlock);
+    auto* const0 = builder->getInt(0);
+    builder->createRet(const0);
+
+    BytecodeCompiler compiler;
+    auto bytecode = compiler.compile(std::move(module));
+
+    ASSERT_NE(bytecode, nullptr);
+    EXPECT_TRUE(bytecode->verify());
+}
+
+// ============================================================================
+// Register Allocation Tests
+// ============================================================================
+
+TEST_F(BytecodeCompilerTest, RegisterAllocationWithConstants) {
+    // fn test() -> int {
+    //   let a = 10
+    //   let b = 20
+    //   ret a + b
+    // }
+    auto* func = builder->createFunction("test", builder->getIntType(), {});
+    auto* entry = func->getEntryBlock();
+    builder->setInsertionPoint(entry);
+
+    auto* const10 = builder->getInt(10);
+    auto* const20 = builder->getInt(20);
+    auto* sum = builder->createAdd(const10, const20);
+    builder->createRet(sum);
+
+    BytecodeCompiler compiler;
+    auto bytecode = compiler.compile(std::move(module));
+
+    ASSERT_NE(bytecode, nullptr);
+    EXPECT_TRUE(bytecode->verify());
+
+    // Check constant pool has both values
+    EXPECT_EQ(bytecode->getIntConstant(0), 10);
+    EXPECT_EQ(bytecode->getIntConstant(1), 20);
+}
+
+TEST_F(BytecodeCompilerTest, RegisterAllocationWithParameters) {
+    // fn test(a: int, b: int, c: int) -> int {
+    //   ret a + b + c
+    // }
+    auto* func = builder->createFunction("test", builder->getIntType(),
+                                         {builder->getIntType(), builder->getIntType(), builder->getIntType()});
+    auto* entry = func->getEntryBlock();
+    builder->setInsertionPoint(entry);
+
+    auto* a = func->getParam(0);
+    auto* b = func->getParam(1);
+    auto* c = func->getParam(2);
+
+    auto* sum1 = builder->createAdd(a, b);
+    auto* sum2 = builder->createAdd(sum1, c);
+    builder->createRet(sum2);
+
+    BytecodeCompiler compiler;
+    auto bytecode = compiler.compile(std::move(module));
+
+    ASSERT_NE(bytecode, nullptr);
+    EXPECT_TRUE(bytecode->verify());
+
+    // Check function metadata
+    auto funcInfo = bytecode->getFunction(1);  // Index 0 is print
+    EXPECT_EQ(funcInfo.getParamCount(), 3);
+    EXPECT_GE(funcInfo.getRegisterCount(), 3);  // At least 3 for params
+}
+
+// ============================================================================
+// Function Call Tests
+// ============================================================================
+
+TEST_F(BytecodeCompilerTest, CompileFunctionCall) {
+    // fn callee(x: int) -> int { ret x }
+    // fn caller() -> int { ret callee(42) }
+
+    // Create callee
+    auto* callee = builder->createFunction("callee", builder->getIntType(), {builder->getIntType()});
+    auto* calleeEntry = callee->getEntryBlock();
+    builder->setInsertionPoint(calleeEntry);
+    auto* param = callee->getParam(0);
+    builder->createRet(param);
+
+    // Create caller
+    auto* caller = builder->createFunction("caller", builder->getIntType(), {});
+    auto* callerEntry = caller->getEntryBlock();
+    builder->setInsertionPoint(callerEntry);
+    auto* const42 = builder->getInt(42);
+    auto* result = builder->createCall(callee, {const42});
+    builder->createRet(result);
+
+    BytecodeCompiler compiler;
+    auto bytecode = compiler.compile(std::move(module));
+
+    ASSERT_NE(bytecode, nullptr);
+    EXPECT_TRUE(bytecode->verify());
+    EXPECT_EQ(bytecode->getFunctionCount(), 3);  // print + callee + caller
+}
+
+// ============================================================================
+// Constant Tests
+// ============================================================================
+
+TEST_F(BytecodeCompilerTest, CompileBooleanConstants) {
+    auto* func = builder->createFunction("test", builder->getBoolType(), {});
+    auto* entry = func->getEntryBlock();
+    builder->setInsertionPoint(entry);
+
+    auto* constTrue = builder->getBool(true);
+    auto* constFalse = builder->getBool(false);
+    auto* result = builder->createAnd(constTrue, constFalse);
+    builder->createRet(result);
+
+    BytecodeCompiler compiler;
+    auto bytecode = compiler.compile(std::move(module));
+
+    ASSERT_NE(bytecode, nullptr);
+    EXPECT_TRUE(bytecode->verify());
+}
+
+// ============================================================================
+// Edge Cases and Error Handling
+// ============================================================================
+
+TEST_F(BytecodeCompilerTest, TooManyParameters) {
+    // Create function with 256 parameters (should fail)
+    std::vector<std::shared_ptr<IRType>> paramTypes;
+    for (int i = 0; i < 256; i++) {
+        paramTypes.push_back(builder->getIntType());
+    }
+
+    auto* func = builder->createFunction("test", builder->getIntType(), paramTypes);
+    auto* entry = func->getEntryBlock();
+    builder->setInsertionPoint(entry);
+    auto* const0 = builder->getInt(0);
+    builder->createRet(const0);
+
+    BytecodeCompiler compiler;
+
+    // Should throw exception
+    EXPECT_THROW(compiler.compile(std::move(module)), std::runtime_error);
+}
+
+TEST_F(BytecodeCompilerTest, ComplexControlFlow) {
+    // fn test(x: int) -> int {
+    //   if (x > 0) {
+    //     if (x > 10) { ret 2 }
+    //     else { ret 1 }
+    //   } else {
+    //     ret 0
+    //   }
+    // }
+    auto* func = builder->createFunction("test", builder->getIntType(), {builder->getIntType()});
+    auto* entry = func->getEntryBlock();
+    auto* thenBlock = builder->createBasicBlock("then", func);
+    auto* elseBlock = builder->createBasicBlock("else", func);
+    auto* innerThen = builder->createBasicBlock("innerThen", func);
+    auto* innerElse = builder->createBasicBlock("innerElse", func);
+
+    builder->setInsertionPoint(entry);
+    auto* x = func->getParam(0);
+    auto* const0 = builder->getInt(0);
+    auto* cond1 = builder->createGt(x, const0);
+    builder->createCondBr(cond1, thenBlock, elseBlock);
+
+    builder->setInsertionPoint(thenBlock);
+    auto* const10 = builder->getInt(10);
+    auto* cond2 = builder->createGt(x, const10);
+    builder->createCondBr(cond2, innerThen, innerElse);
+
+    builder->setInsertionPoint(innerThen);
+    auto* const2 = builder->getInt(2);
+    builder->createRet(const2);
+
+    builder->setInsertionPoint(innerElse);
+    auto* const1 = builder->getInt(1);
+    builder->createRet(const1);
+
+    builder->setInsertionPoint(elseBlock);
+    builder->createRet(const0);
+
+    BytecodeCompiler compiler;
+    auto bytecode = compiler.compile(std::move(module));
+
+    ASSERT_NE(bytecode, nullptr);
+    EXPECT_TRUE(bytecode->verify());
+}
+
+// ============================================================================
+// Runtime Functions Tests
+// ============================================================================
+
+TEST_F(BytecodeCompilerTest, PrintFunctionRegistered) {
+    auto* func = builder->createFunction("test", builder->getVoidType(), {});
+    auto* entry = func->getEntryBlock();
+    builder->setInsertionPoint(entry);
+    builder->createRet(nullptr);
+
+    BytecodeCompiler compiler;
+    auto bytecode = compiler.compile(std::move(module));
+
+    ASSERT_NE(bytecode, nullptr);
+
+    // Check print is registered at index 0
+    auto printFunc = bytecode->getFunction(0);
+    EXPECT_EQ(printFunc.getName(), "print");
+    EXPECT_EQ(printFunc.getParamCount(), 1);
+    EXPECT_TRUE(printFunc.isNative());
+}
+
+// ============================================================================
+// If-Else-If Chain Integration Tests (from full parsing pipeline)
+// ============================================================================
+
+#include "lexer/lexer.hpp"
+#include "parser/Parser.hpp"
+#include "semantic/SemanticAnalyzer.hpp"
+#include "IR/IRGenerator.hpp"
+#include "error/ErrorReporter.hpp"
+#include "IR/IRPrinter.hpp"
+#include <sstream>
+#include <iomanip>
+
+class BytecodeIfElseChainTest : public ::testing::Test {
+protected:
+    std::unique_ptr<BytecodeModule> compileSource(const std::string& source) {
+        using namespace volta::lexer;
+        using namespace volta::parser;
+        using namespace volta::semantic;
+        using namespace volta::errors;
+
+        // 1. Lex
+        Lexer lexer(source);
+        auto tokens = lexer.tokenize();
+
+        // 2. Parse
+        Parser parser(tokens);
+        auto ast = parser.parseProgram();
+        if (!ast) {
+            throw std::runtime_error("Parse failed");
+        }
+
+        // 3. Semantic Analysis
+        ErrorReporter semanticReporter;
+        SemanticAnalyzer analyzer(semanticReporter);
+        analyzer.registerBuiltins();
+
+        if (!analyzer.analyze(*ast)) {
+            std::ostringstream oss;
+            semanticReporter.printErrors(oss);
+            throw std::runtime_error("Semantic errors:\n" + oss.str());
+        }
+
+        // 4. IR Generation
+        auto module = ir::generateIR(*ast, analyzer, "test_module");
+        if (!module) {
+            throw std::runtime_error("IR generation failed");
+        }
+
+        // Print IR for debugging
+        ir::IRPrinter printer;
+        std::cout << "\n=== IR ===\n";
+        std::cout << printer.printModule(*module) << std::endl;
+
+        // 5. Bytecode Compilation
+        BytecodeCompiler compiler;
+        auto bytecode = compiler.compile(std::move(module));
+
+        return bytecode;
+    }
+};
+
+TEST_F(BytecodeIfElseChainTest, SimpleIfElse) {
+    std::string source = R"(
+fn test(x: int) -> int {
+    if x > 0 {
+        return 1
+    } else {
+        return 0
+    }
+}
+    )";
+
+    auto bytecode = compileSource(source);
+    ASSERT_NE(bytecode, nullptr);
+
+    std::cout << "\n=== SimpleIfElse Bytecode ===\n";
+    std::cout << "Function count: " << bytecode->getFunctionCount() << std::endl;
+
+    EXPECT_TRUE(bytecode->verify());
+
+    // Get the test function
+    vm::index funcIdx = bytecode->getFunctionIndex("test");
+    auto funcInfo = bytecode->getFunction(funcIdx);
+
+    std::cout << "Function: " << funcInfo.getName() << std::endl;
+    std::cout << "  Params: " << (int)funcInfo.getParamCount() << std::endl;
+    std::cout << "  Registers: " << (int)funcInfo.getRegisterCount() << std::endl;
+    std::cout << "  Code size: " << funcInfo.getCodeLength() << " bytes" << std::endl;
+
+    EXPECT_EQ(funcInfo.getParamCount(), 1);
+    EXPECT_GE(funcInfo.getRegisterCount(), 1);
+}
+
+TEST_F(BytecodeIfElseChainTest, SingleElseIf) {
+    std::string source = R"(
+fn test(x: int) -> int {
+    if x < 0 {
+        return -1
+    } else if x == 0 {
+        return 0
+    } else {
+        return 1
+    }
+}
+    )";
+
+    auto bytecode = compileSource(source);
+    ASSERT_NE(bytecode, nullptr);
+
+    std::cout << "\n=== SingleElseIf Bytecode ===\n";
+    std::cout << "Function count: " << bytecode->getFunctionCount() << std::endl;
+
+    EXPECT_TRUE(bytecode->verify());
+
+    vm::index funcIdx = bytecode->getFunctionIndex("test");
+    auto funcInfo = bytecode->getFunction(funcIdx);
+
+    std::cout << "Function: " << funcInfo.getName() << std::endl;
+    std::cout << "  Params: " << (int)funcInfo.getParamCount() << std::endl;
+    std::cout << "  Registers: " << (int)funcInfo.getRegisterCount() << std::endl;
+    std::cout << "  Code size: " << funcInfo.getCodeLength() << " bytes" << std::endl;
+
+    EXPECT_EQ(funcInfo.getParamCount(), 1);
+    EXPECT_GE(funcInfo.getRegisterCount(), 1);
+}
+
+TEST_F(BytecodeIfElseChainTest, MultipleElseIfs) {
+    std::string source = R"(
+fn test(x: int) -> int {
+    if x < 0 {
+        return -1
+    } else if x == 0 {
+        return 0
+    } else if x == 1 {
+        return 1
+    } else if x == 2 {
+        return 2
+    } else {
+        return 999
+    }
+}
+    )";
+
+    auto bytecode = compileSource(source);
+    ASSERT_NE(bytecode, nullptr);
+
+    std::cout << "\n=== MultipleElseIfs Bytecode ===\n";
+    EXPECT_TRUE(bytecode->verify());
+
+    vm::index funcIdx = bytecode->getFunctionIndex("test");
+    auto funcInfo = bytecode->getFunction(funcIdx);
+
+    std::cout << "Function: " << funcInfo.getName() << std::endl;
+    std::cout << "  Code size: " << funcInfo.getCodeLength() << " bytes" << std::endl;
+}
+
+TEST_F(BytecodeIfElseChainTest, ElseIfWithAssignments) {
+    std::string source = R"(
+fn test(x: int) -> int {
+    result: mut int = 0
+    if x < 0 {
+        result = -1
+    } else if x == 0 {
+        result = 0
+    } else {
+        result = 1
+    }
+    return result
+}
+    )";
+
+    auto bytecode = compileSource(source);
+    ASSERT_NE(bytecode, nullptr);
+
+    std::cout << "\n=== ElseIfWithAssignments Bytecode ===\n";
+    EXPECT_TRUE(bytecode->verify());
+}
+
+TEST_F(BytecodeIfElseChainTest, ClassifyFunction) {
+    std::string source = R"(
+fn classify(x: int) -> int {
+    if x < 0 {
+        return -1
+    } else if x == 0 {
+        return 0
+    } else {
+        return 1
+    }
+}
+    )";
+
+    auto bytecode = compileSource(source);
+    ASSERT_NE(bytecode, nullptr);
+
+    std::cout << "\n=== ClassifyFunction Bytecode ===\n";
+    EXPECT_TRUE(bytecode->verify());
+
+    // Detailed bytecode inspection
+    vm::index funcIdx = bytecode->getFunctionIndex("classify");
+    auto funcInfo = bytecode->getFunction(funcIdx);
+
+    std::cout << "\n=== Bytecode Details ===\n";
+    std::cout << "Function: " << funcInfo.getName() << std::endl;
+    std::cout << "  Offset: " << funcInfo.getCodeOffset() << std::endl;
+    std::cout << "  Size: " << funcInfo.getCodeLength() << " bytes" << std::endl;
+    std::cout << "  Params: " << (int)funcInfo.getParamCount() << std::endl;
+    std::cout << "  Registers: " << (int)funcInfo.getRegisterCount() << std::endl;
+
+    // Print bytecode hex dump
+    std::cout << "\n  Bytecode (hex):" << std::endl;
+    uint32_t offset = funcInfo.getCodeOffset();
+    for (uint32_t i = 0; i < funcInfo.getCodeLength(); i++) {
+        if (i % 16 == 0) std::cout << "    " << std::hex << std::setw(4) << std::setfill('0') << i << ": ";
+        std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)bytecode->readByte(offset + i) << " ";
+        if ((i + 1) % 16 == 0 || i == funcInfo.getCodeLength() - 1) std::cout << std::endl;
+    }
+    std::cout << std::dec;
+}

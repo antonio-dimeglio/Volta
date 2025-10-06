@@ -340,4 +340,17 @@ struct LambdaExpression : Expression {
         blockBody(std::move(blockBody)) {}
 };
 
+struct CastExpression : Expression {
+    std::unique_ptr<Expression> expression;
+    std::unique_ptr<Type> targetType;
+
+    CastExpression(
+        std::unique_ptr<Expression> expression,
+        std::unique_ptr<Type> targetType,
+        volta::errors::SourceLocation location
+    ) : Expression(location),
+        expression(std::move(expression)),
+        targetType(std::move(targetType)) {}
+};
+
 }

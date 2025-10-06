@@ -1,5 +1,6 @@
 #include "semantic/SemanticAnalyzer.hpp"
 #include <cassert>
+#include <unordered_set>
 
 namespace volta::semantic {
 
@@ -66,6 +67,13 @@ void SemanticAnalyzer::declareFunction(const std::string& name, std::shared_ptr<
     auto symbol = Symbol(name, functionType, false, loc);
     if (!symbolTable_->declare(name, symbol)) {
         error("Redefinition of function " + name + ".", loc);
+    }
+}
+
+void SemanticAnalyzer::declareType(const std::string& name, std::shared_ptr<Type> type, volta::errors::SourceLocation loc) {
+    auto symbol = Symbol(name, type, false, loc);
+    if (!symbolTable_->declare(name, symbol)) {
+        error("Redefinition of type '" + name + "'", loc);
     }
 }
 
@@ -250,29 +258,42 @@ void SemanticAnalyzer::collectFunction(const volta::ast::FnDeclaration& fn) {
 }
 
 void SemanticAnalyzer::collectStruct(const volta::ast::StructDeclaration& structDecl) {
-    // Todo: add check if field is already defined and its being redefined:
     std::vector<StructType::Field> fields;
+    std::unordered_set<std::string> seenFields;
 
     for (auto& field : structDecl.fields) {
+        // Check for duplicate fields
+        if (!seenFields.insert(field->identifier).second) {
+            error(
+                "Duplicate field '" + field->identifier + "' in struct '" + structDecl.identifier + "'",
+                structDecl.location
+            );
+            continue;
+        }
+
         auto resolvedFieldtype = resolveTypeAnnotation(field->type.get());
         auto structField = StructType::Field(field->identifier, resolvedFieldtype);
-
-        
         fields.push_back(structField);
     }
-    
+
     auto structType = std::make_shared<StructType>(structDecl.identifier, std::move(fields));
-    declareFunction(structDecl.identifier, structType, structDecl.location);
+    declareType(structDecl.identifier, structType, structDecl.location);
 }
 
 void SemanticAnalyzer::resolveTypes(const volta::ast::Program& program) {
-    // PURPOSE: Second pass - currently just a placeholder
-    // In a more advanced compiler, this would resolve forward type references
-    // For now, all types are resolved immediately in Pass 1
-    
-    // TODO: Leave empty for now
-    // This pass is for languages with forward type declarations
-    // Volta resolves types immediately, so nothing to do here
+    // PURPOSE: Second pass - resolve forward type references
+    //
+    // CURRENTLY EMPTY because Volta doesn't support:
+    // - Recursive types: struct Node { next: Option[Node] }
+    // - Mutually recursive structs
+    // - Type aliases referencing types defined later
+    //
+    // TODO (Phase 3): Implement type resolution for:
+    // 1. Validate all struct field types exist
+    // 2. Detect cycles in type definitions
+    // 3. Resolve type aliases in order of dependency
+
+    (void)program;  // Suppress unused parameter warning
 }
 
 void SemanticAnalyzer::analyzeProgram(const volta::ast::Program& program) {
@@ -305,9 +326,9 @@ void SemanticAnalyzer::analyzeStatement(const volta::ast::Statement* stmt) {
         for (auto& currStmt : block->statements) {
             analyzeStatement(currStmt.get());
         }
-    } else if (auto* importStmt = dynamic_cast<const volta::ast::ImportStatement*>(stmt)) {
+    } else if (dynamic_cast<const volta::ast::ImportStatement*>(stmt)) {
         // Nothing to do - imports handled elsewhere
-    } else if (auto* structDecl = dynamic_cast<const volta::ast::StructDeclaration*>(stmt)) {
+    } else if (dynamic_cast<const volta::ast::StructDeclaration*>(stmt)) {
         // Nothing to do - structs already collected in Pass 1
     } else {
         throw std::runtime_error("Unexpected node for type checking.");
@@ -522,6 +543,8 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeExpression(const volta::ast::Expr
     }
     else if (auto* structLit = dynamic_cast<const volta::ast::StructLiteral*>(expr)) {
         resultType = analyzeStructLiteral(structLit);
+    } else if (auto* castExpr = dynamic_cast<const volta::ast::CastExpression*>(expr)) {
+        resultType = analyzeCastExpression(castExpr);
     }
     else {
         resultType = typeCache_.getUnknown();
@@ -887,6 +910,31 @@ bool SemanticAnalyzer::isExpressionMutable(const volta::ast::Expression* expr) {
 
     // All other expressions (literals, calls, etc.) are not mutable
     return false;
+}
+
+std::shared_ptr<Type> SemanticAnalyzer::analyzeCastExpression(const volta::ast::CastExpression* castExpr) {
+    // 1. Analyze the expression being cast
+    auto sourceType = analyzeExpression(castExpr->expression.get());
+    
+    // 2. Get the target type
+    auto targetType = resolveTypeAnnotation(castExpr->targetType.get());
+    
+    // 3. Check if the cast is valid
+    bool validCast = false;
+    
+    if (sourceType->kind() == Type::Kind::Int && targetType->kind() == Type::Kind::Float) {
+        validCast = true;  // int → float
+    } else if (sourceType->kind() == Type::Kind::Float && targetType->kind() == Type::Kind::Int) {
+        validCast = true;  // float → int
+    }
+    
+    if (!validCast) {
+        error("Invalid cast from " + sourceType->toString() + " to " + targetType->toString(), 
+              castExpr->location);
+    }
+    
+    // 4. Return the target type
+    return targetType;
 }
 
 }

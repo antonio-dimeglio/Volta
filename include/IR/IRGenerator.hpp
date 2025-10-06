@@ -121,7 +121,7 @@ public:
      * Creates conditional branches, merge blocks, and phi nodes if needed
      */
     void generateIfStmt(const ast::IfStatement* stmt);
-
+    
     /**
      * Generate IR for while loop
      * Creates header, body, and exit blocks with appropriate branches
@@ -254,6 +254,9 @@ public:
      * @return Member value
      */
     Value* generateMemberExpr(const ast::MemberExpression* expr);
+
+
+    Value* generateCastExpr(const ast::CastExpression* expr);
 
     /**
      * Generate IR for assignment (x = 5, arr[i] = val, etc.)

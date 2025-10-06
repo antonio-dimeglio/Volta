@@ -387,6 +387,295 @@ TEST_F(IntegrationTest, PhiNodeCorrectness) {
     // After mem2reg, merge block should have phi
     Mem2RegPass mem2reg;
     mem2reg.runOnModule(*module);
-    
+
     EXPECT_TRUE(verifyModule());
+}
+
+// ============================================================================
+// If-Else-If Chain Tests (from full parsing pipeline)
+// ============================================================================
+
+#include "lexer/lexer.hpp"
+#include "parser/Parser.hpp"
+#include "semantic/SemanticAnalyzer.hpp"
+#include "IR/IRGenerator.hpp"
+#include "error/ErrorReporter.hpp"
+#include <sstream>
+
+class IRIfElseChainTest : public ::testing::Test {
+protected:
+    std::unique_ptr<Module> generateIRFromSource(const std::string& source) {
+        using namespace volta::lexer;
+        using namespace volta::parser;
+        using namespace volta::semantic;
+        using namespace volta::errors;
+
+        // 1. Lex
+        Lexer lexer(source);
+        auto tokens = lexer.tokenize();
+
+        // 2. Parse
+        Parser parser(tokens);
+        auto ast = parser.parseProgram();
+        if (!ast) {
+            throw std::runtime_error("Parse failed");
+        }
+
+        // 3. Semantic Analysis
+        ErrorReporter semanticReporter;
+        SemanticAnalyzer analyzer(semanticReporter);
+        analyzer.registerBuiltins();
+
+        if (!analyzer.analyze(*ast)) {
+            std::ostringstream oss;
+            semanticReporter.printErrors(oss);
+            throw std::runtime_error("Semantic errors:\n" + oss.str());
+        }
+
+        // 4. IR Generation
+        auto module = generateIR(*ast, analyzer, "test_module");
+        if (!module) {
+            throw std::runtime_error("IR generation failed");
+        }
+
+        return module;
+    }
+
+    void printIR(const Module& module) {
+        IRPrinter printer;
+        std::cout << printer.printModule(module) << std::endl;
+    }
+
+    bool verifyIRModule(const Module& module) {
+        Verifier verifier;
+        if (!verifier.verify(module)) {
+            std::cerr << "IR verification errors:\n";
+            for (const auto& error : verifier.getErrors()) {
+                std::cerr << "  - " << error << "\n";
+            }
+            return false;
+        }
+        return true;
+    }
+
+    Function* getFunction(Module& module, const std::string& name) {
+        for (auto* func : module.getFunctions()) {
+            if (func->getName() == name) {
+                return func;
+            }
+        }
+        return nullptr;
+    }
+};
+
+TEST_F(IRIfElseChainTest, SimpleIfElse) {
+    std::string source = R"(
+fn test(x: int) -> int {
+    if x > 0 {
+        return 1
+    } else {
+        return 0
+    }
+}
+    )";
+
+    auto module = generateIRFromSource(source);
+    ASSERT_TRUE(module);
+
+    std::cout << "\n=== SimpleIfElse ===\n";
+    printIR(*module);
+
+    EXPECT_TRUE(verifyIRModule(*module));
+
+    auto* func = getFunction(*module, "test");
+    ASSERT_NE(func, nullptr);
+    EXPECT_GE(func->getNumBlocks(), 2);
+}
+
+TEST_F(IRIfElseChainTest, SingleElseIf) {
+    std::string source = R"(
+fn test(x: int) -> int {
+    if x < 0 {
+        return -1
+    } else if x == 0 {
+        return 0
+    } else {
+        return 1
+    }
+}
+    )";
+
+    auto module = generateIRFromSource(source);
+    ASSERT_TRUE(module);
+
+    std::cout << "\n=== SingleElseIf ===\n";
+    printIR(*module);
+
+    EXPECT_TRUE(verifyIRModule(*module));
+
+    auto* func = getFunction(*module, "test");
+    ASSERT_NE(func, nullptr);
+
+    std::cout << "Number of blocks: " << func->getNumBlocks() << std::endl;
+    EXPECT_GE(func->getNumBlocks(), 4);
+}
+
+TEST_F(IRIfElseChainTest, MultipleElseIfs) {
+    std::string source = R"(
+fn test(x: int) -> int {
+    if x < 0 {
+        return -1
+    } else if x == 0 {
+        return 0
+    } else if x == 1 {
+        return 1
+    } else if x == 2 {
+        return 2
+    } else {
+        return 999
+    }
+}
+    )";
+
+    auto module = generateIRFromSource(source);
+    ASSERT_TRUE(module);
+
+    std::cout << "\n=== MultipleElseIfs ===\n";
+    printIR(*module);
+
+    EXPECT_TRUE(verifyIRModule(*module));
+
+    auto* func = getFunction(*module, "test");
+    ASSERT_NE(func, nullptr);
+
+    std::cout << "Number of blocks: " << func->getNumBlocks() << std::endl;
+}
+
+TEST_F(IRIfElseChainTest, ElseIfWithAssignments) {
+    std::string source = R"(
+fn test(x: int) -> int {
+    result: mut int = 0
+    if x < 0 {
+        result = -1
+    } else if x == 0 {
+        result = 0
+    } else {
+        result = 1
+    }
+    return result
+}
+    )";
+
+    auto module = generateIRFromSource(source);
+    ASSERT_TRUE(module);
+
+    std::cout << "\n=== ElseIfWithAssignments ===\n";
+    printIR(*module);
+
+    EXPECT_TRUE(verifyIRModule(*module));
+
+    auto* func = getFunction(*module, "test");
+    ASSERT_NE(func, nullptr);
+    EXPECT_GE(func->getNumBlocks(), 4);
+}
+
+TEST_F(IRIfElseChainTest, NestedIfElseIf) {
+    std::string source = R"(
+fn test(x: int, y: int) -> int {
+    if x < 0 {
+        if y < 0 {
+            return -2
+        } else {
+            return -1
+        }
+    } else if x == 0 {
+        return 0
+    } else {
+        return 1
+    }
+}
+    )";
+
+    auto module = generateIRFromSource(source);
+    ASSERT_TRUE(module);
+
+    std::cout << "\n=== NestedIfElseIf ===\n";
+    printIR(*module);
+
+    EXPECT_TRUE(verifyIRModule(*module));
+}
+
+TEST_F(IRIfElseChainTest, DetailedBlockAnalysis) {
+    std::string source = R"(
+fn classify(x: int) -> int {
+    if x < 0 {
+        return -1
+    } else if x == 0 {
+        return 0
+    } else {
+        return 1
+    }
+}
+    )";
+
+    auto module = generateIRFromSource(source);
+    ASSERT_TRUE(module);
+
+    std::cout << "\n=== DetailedBlockAnalysis ===\n";
+    printIR(*module);
+
+    EXPECT_TRUE(verifyIRModule(*module));
+
+    auto* func = getFunction(*module, "classify");
+    ASSERT_NE(func, nullptr);
+
+    // Detailed block analysis
+    auto& blocks = func->getBlocks();
+    std::cout << "\n=== Block Structure Analysis ===\n";
+    std::cout << "Total blocks: " << blocks.size() << std::endl;
+
+    for (size_t i = 0; i < blocks.size(); i++) {
+        auto* block = blocks[i];
+        std::cout << "\nBlock " << i << " (" << block << "):\n";
+        std::cout << "  Predecessors: " << block->getNumPredecessors() << "\n";
+        std::cout << "  Successors: " << block->getSuccessors().size() << "\n";
+        std::cout << "  Instructions: " << block->getInstructions().size() << "\n";
+
+        if (block->hasTerminator()) {
+            auto* term = block->getTerminator();
+            std::cout << "  Terminator: ";
+
+            switch (term->getOpcode()) {
+                case Instruction::Opcode::Ret:
+                    std::cout << "RET";
+                    if (static_cast<ReturnInst*>(term)->hasReturnValue()) {
+                        std::cout << " (with value)";
+                    }
+                    break;
+                case Instruction::Opcode::Br:
+                    std::cout << "BR (unconditional)";
+                    break;
+                case Instruction::Opcode::CondBr:
+                    std::cout << "CONDBR (conditional)";
+                    break;
+                default:
+                    std::cout << "OTHER";
+            }
+            std::cout << "\n";
+        } else {
+            std::cout << "  Terminator: NONE (ERROR!)\n";
+        }
+
+        if (!block->getSuccessors().empty()) {
+            std::cout << "  Successor blocks:\n";
+            for (auto* succ : block->getSuccessors()) {
+                for (size_t j = 0; j < blocks.size(); j++) {
+                    if (blocks[j] == succ) {
+                        std::cout << "    -> Block " << j << "\n";
+                        break;
+                    }
+                }
+            }
+        }
+    }
 }

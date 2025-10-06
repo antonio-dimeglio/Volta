@@ -168,6 +168,21 @@ private:
     void promoteAlloca(AllocaInst* alloca);
 };
 
+
+// ============================================================================
+// SimplifyCFG
+// ============================================================================
+
+class SimplifyCFG : public Pass {
+public:
+    std::string getName() const override { return "SimplifyCFG"; }
+    bool runOnModule(Module& module) override;
+
+private:
+    bool runOnFunction(Function* func);
+    bool mergeBlocks(Function* func);
+};
+
 // ============================================================================
 // Pass Manager
 // ============================================================================

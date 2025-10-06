@@ -51,6 +51,8 @@ std::string tokenTypeToString(TokenType type) {
         case TokenType::MUT: return "MUT";
         case TokenType::SOME_KEYWORD: return "SOME";
         case TokenType::NONE_KEYWORD: return "NONE";
+        case TokenType::AS: return "AS";
+        case TokenType::IMPORT: return "IMPORT";
 
         case TokenType::LPAREN: return "LPAREN";
         case TokenType::RPAREN: return "RPAREN";
@@ -91,7 +93,8 @@ const std::unordered_map<std::string, TokenType>& getKeywords() {
         {"false", TokenType::BOOLEAN_LITERAL},
         {"and", TokenType::AND},
         {"or", TokenType::OR},
-        {"not", TokenType::NOT}
+        {"not", TokenType::NOT},
+        {"as", TokenType::AS}
     };
     return keywords;
 }

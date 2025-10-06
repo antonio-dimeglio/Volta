@@ -455,6 +455,7 @@ Value* IRBuilder::createCast(Value* value, std::shared_ptr<IRType> destType,
 
 Value* IRBuilder::createOptionWrap(Value* value, std::shared_ptr<IRType> optionType,
                                   const std::string& name) {
+    (void)optionType;  // Unused - module infers type from value
     // Module.createOptionWrap infers the option type from value's type
     // The optionType parameter here is unused but kept for backward compatibility
     auto* op = module_.createOptionWrap(value, name);
@@ -503,7 +504,7 @@ void IRBuilder::createCondBr(Value* condition, BasicBlock* trueBlock, BasicBlock
 
 Value* IRBuilder::createSwitch(Value* value, BasicBlock* defaultDest,
                                const std::vector<SwitchInst::CaseEntry>& cases) {
-    // TODO: Implement
+    (void)value; (void)defaultDest; (void)cases;  // TODO: Implement
     return nullptr;
 }
 
@@ -538,7 +539,7 @@ Value* IRBuilder::createCall(Function* callee, const std::vector<Value*>& args,
 
 Value* IRBuilder::createCallIndirect(Value* callee, const std::vector<Value*>& args,
                                     const std::string& name) {
-    // TODO: Implement
+    (void)callee; (void)args; (void)name;  // TODO: Implement
     return nullptr;
 }
 
@@ -580,7 +581,7 @@ IRBuilder::IfThenElseBlocks IRBuilder::createIfThenElse(Value* condition,
                                                         const std::string& thenName,
                                                         const std::string& elseName,
                                                         const std::string& mergeName) {
-    BasicBlock* currentBlock = insertionBlock_;
+    (void)insertionBlock_;  // Not needed for this operation
 
     BasicBlock* thenBlock = createBasicBlock(thenName);
     BasicBlock* elseBlock = createBasicBlock(elseName);
@@ -660,7 +661,7 @@ Function* IRBuilder::getCurrentFunction() const {
 }
 
 bool IRBuilder::validate(std::string* error) const {
-    // TODO: Implement
+    (void)error;  // TODO: Implement
     return true;
 }
 
@@ -679,13 +680,13 @@ void IRBuilder::insert(Instruction* inst) {
 
 bool IRBuilder::validateBinaryOp(Value* lhs, Value* rhs, const std::string& opName,
                                 std::string* error) const {
-    // TODO: Implement
+    (void)lhs; (void)rhs; (void)opName; (void)error;  // TODO: Implement
     return true;
 }
 
 bool IRBuilder::validatePointerOp(Value* ptr, const std::string& opName,
                                  std::string* error) const {
-    // TODO: Implement
+    (void)ptr; (void)opName; (void)error;  // TODO: Implement
     return true;
 }
 

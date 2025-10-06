@@ -272,9 +272,8 @@ print("Std Dev: " + str(std))
 
 ## Memory Management
 
-- **Garbage Collection**: Automatic memory management using a mark-and-sweep garbage collector
+- **Garbage Collection**: Automatic memory management using a generational garbage collector
 - **Immutability benefits**: Immutable data structures can be safely shared without copying
-- **Reference counting**: Small objects use reference counting for immediate cleanup
 
 ## Implementation Notes
 

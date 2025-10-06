@@ -1,5 +1,6 @@
 #include "parser/Parser.hpp"
 #include <stdexcept>
+#include <unordered_set>
 
 using namespace volta::ast;
 using namespace volta::lexer;
@@ -29,16 +30,10 @@ std::unique_ptr<volta::ast::Statement> Parser::parseStatement() {
     if (match(TokenType::FUNCTION)) return parseFnDeclaration();
     if (match(TokenType::STRUCT)) return parseStructDeclaration();
     if (check(TokenType::IDENTIFIER)) {
-        size_t saved = current_;
-        advance();
-
-        if (check(TokenType::INFER_ASSIGN) || 
-            check(TokenType::COLON)) {
-            current_ = saved;
+        const Token& next = peekNext();
+        if (next.type == TokenType::INFER_ASSIGN || next.type == TokenType::COLON) {
             return parseVarDeclaration();
         }
-
-        current_ = saved; 
     }
 
     return parseExpressionStatement();
@@ -74,24 +69,19 @@ std::unique_ptr<volta::ast::IfStatement> Parser::parseIfStatement() {
     auto thenBlock = parseBlock();
 
     std::vector<std::pair<std::unique_ptr<Expression>, std::unique_ptr<Block>>> elseIfClauses;
-    while (check(TokenType::ELSE)) {
-        auto elsePos = current_;
-        advance();  // consume 'else'
+    std::unique_ptr<Block> elseBlock = nullptr;
 
+    while (match(TokenType::ELSE)) {
         if (match(TokenType::IF)) {
+            // else-if clause
             auto elseIfCond = parseExpression();
             auto elseIfBlock = parseBlock();
             elseIfClauses.push_back({std::move(elseIfCond), std::move(elseIfBlock)});
         } else {
-            // Put back the 'else' and break to handle it below
-            current_ = elsePos;
-            break;
+            // final else clause
+            elseBlock = parseBlock();
+            break;  // No more else-if possible after final else
         }
-    }
-
-    std::unique_ptr<Block> elseBlock = nullptr;
-    if (match(TokenType::ELSE)) {
-        elseBlock = parseBlock();
     }
 
     return std::make_unique<IfStatement>(
@@ -261,7 +251,7 @@ std::unique_ptr<volta::ast::StructDeclaration> Parser::parseStructDeclaration() 
     auto startLoc = currentLocation();
     auto structName = consume(TokenType::IDENTIFIER, "Expected struct name after struct keyword.").lexeme;
 
-    consume(TokenType::LBRACE, "Expected '}' after struct name.");
+    consume(TokenType::LBRACE, "Expected '{' after struct name.");
     std::vector<std::unique_ptr<StructField>> structFields;
 
     while (!check(TokenType::RBRACE)) {
@@ -305,7 +295,10 @@ std::unique_ptr<volta::ast::Expression> Parser::parseAssignment() {
             case TokenType::MINUS_ASSIGN: binOp = BinaryExpression::Operator::SubtractAssign; break;
             case TokenType::MULT_ASSIGN: binOp = BinaryExpression::Operator::MultiplyAssign; break;
             case TokenType::DIV_ASSIGN: binOp = BinaryExpression::Operator::DivideAssign; break;
-            default: throw std::runtime_error("Invalid assignment operator");
+            default:
+                errorReporter.reportSyntaxError("Invalid assignment operator", currentLocation());
+                binOp = BinaryExpression::Operator::Assign;  // Placeholder to continue
+                break;
         }
 
         return std::make_unique<BinaryExpression>(
@@ -352,11 +345,11 @@ std::unique_ptr<volta::ast::Expression> Parser::parseLogicalAnd() {
 }
 
 std::unique_ptr<volta::ast::Expression> Parser::parseEquality() {
-    auto left = parseComparison();
+    auto left = parseCast();
 
     while (match({TokenType::EQUALS, TokenType::NOT_EQUALS})) {
         auto op = previous();
-        auto right = parseComparison();
+        auto right = parseCast();
 
         BinaryExpression::Operator binOp =
             (op.type == TokenType::EQUALS) ?
@@ -367,6 +360,22 @@ std::unique_ptr<volta::ast::Expression> Parser::parseEquality() {
             std::move(left),
             binOp,
             std::move(right),
+            currentLocation()
+        );
+    }
+
+    return left;
+}
+
+std::unique_ptr<volta::ast::Expression> Parser::parseCast() {
+    auto left = parseComparison();
+
+        while (match(TokenType::AS)) {
+        auto targetType = parseType();
+
+        left = std::make_unique<CastExpression>(
+            std::move(left),
+            std::move(targetType),
             currentLocation()
         );
     }
@@ -387,7 +396,10 @@ std::unique_ptr<volta::ast::Expression> Parser::parseComparison() {
             case TokenType::GT: binOp = BinaryExpression::Operator::Greater; break;
             case TokenType::LEQ: binOp = BinaryExpression::Operator::LessEqual; break;
             case TokenType::GEQ: binOp = BinaryExpression::Operator::GreaterEqual; break;
-            default: throw std::runtime_error("Invalid comparison operator");
+            default:
+                errorReporter.reportSyntaxError("Invalid comparison operator", currentLocation());
+                binOp = BinaryExpression::Operator::Less;  // Placeholder to continue
+                break;
         }
 
         left = std::make_unique<BinaryExpression>(
@@ -459,7 +471,10 @@ std::unique_ptr<volta::ast::Expression> Parser::parseFactor() {
             case TokenType::MULT: binOp = BinaryExpression::Operator::Multiply; break;
             case TokenType::DIV: binOp = BinaryExpression::Operator::Divide; break;
             case TokenType::MODULO: binOp = BinaryExpression::Operator::Modulo; break;
-            default: throw std::runtime_error("Invalid factor operator");
+            default:
+                errorReporter.reportSyntaxError("Invalid factor operator", currentLocation());
+                binOp = BinaryExpression::Operator::Multiply;  // Placeholder to continue
+                break;
         }
 
         left = std::make_unique<BinaryExpression>(
@@ -714,7 +729,9 @@ std::unique_ptr<volta::ast::Expression> Parser::parsePrimary() {
         return parseMatchExpression();
     }
 
-    throw std::runtime_error("Expected expression at line " + std::to_string(peek().line));
+    errorReporter.reportSyntaxError("Expected expression", currentLocation());
+    synchronize();  // Skip to next safe point
+    return std::make_unique<IntegerLiteral>(0, currentLocation());  // Dummy node
 }
 
 // Literal parsing
@@ -735,7 +752,8 @@ std::unique_ptr<volta::ast::Expression> Parser::parseArrayLiteral() {
 
 std::unique_ptr<volta::ast::Expression> Parser::parseTupleLiteral() {
     // Already handled in parsePrimary() for consistency
-    throw std::runtime_error("parseTupleLiteral should be handled in parsePrimary");
+    errorReporter.reportSyntaxError("parseTupleLiteral should be handled in parsePrimary", currentLocation());
+    return std::make_unique<IntegerLiteral>(0, currentLocation());  // Dummy node
 }
 
 std::unique_ptr<volta::ast::Expression> Parser::parseStructLiteral() {
@@ -746,11 +764,20 @@ std::unique_ptr<volta::ast::Expression> Parser::parseStructLiteral() {
     consume(TokenType::LBRACE, "Expected '{' after struct name");
 
     std::vector<std::unique_ptr<FieldInit>> fields;
+    std::unordered_set<std::string> seenFields;  // Track seen fields
 
     if (!check(TokenType::RBRACE)) {
         do {
             auto fieldName = consume(TokenType::IDENTIFIER, "Expected field name");
             auto fieldIdent = std::make_unique<IdentifierExpression>(fieldName.lexeme, currentLocation());
+
+            // Check for duplicates
+            if (!seenFields.insert(fieldName.lexeme).second) {
+                errorReporter.reportSyntaxError(
+                    "Duplicate field '" + fieldName.lexeme + "' in struct literal",
+                    currentLocation()
+                );
+            }
 
             consume(TokenType::COLON, "Expected ':' after field name");
 
@@ -842,8 +869,9 @@ std::unique_ptr<volta::ast::Expression> Parser::parseLambdaExpression() {
     // Lambda syntax: |params| -> type { body } or |params| -> type expression
     auto loc = currentLocation();
 
-    // Simplified: not implemented yet
-    throw std::runtime_error("parseLambdaExpression not fully implemented");
+    // Not implemented yet - report error and return placeholder
+    errorReporter.reportSyntaxError("Lambda expressions not yet implemented", currentLocation());
+    return std::make_unique<IntegerLiteral>(0, currentLocation());  // Dummy node
 }
 
 // Type parsing
@@ -883,7 +911,8 @@ std::unique_ptr<volta::ast::Type> Parser::parseType() {
         }
 
         // Error: expected comma or rparen
-        throw std::runtime_error("Expected ',' or ')' in type");
+        errorReporter.reportSyntaxError("Expected ',' or ')' in type", currentLocation());
+        return firstType;  // Return what we have
     }
 
     // Check for identifier (named type or compound with generic args)
@@ -933,7 +962,9 @@ std::unique_ptr<volta::ast::Type> Parser::parseType() {
         return std::make_unique<NamedType>(std::move(nameExpr));
     }
 
-    throw std::runtime_error("Expected type");
+    errorReporter.reportSyntaxError("Expected type", currentLocation());
+    synchronize();
+    return std::make_unique<PrimitiveType>(PrimitiveType::Kind::Void);  // Dummy type
 }
 
 std::unique_ptr<volta::ast::TypeAnnotation> Parser::parseTypeAnnotation() {
@@ -944,12 +975,14 @@ std::unique_ptr<volta::ast::TypeAnnotation> Parser::parseTypeAnnotation() {
 
 std::unique_ptr<volta::ast::Type> Parser::parsePrimitiveType() {
     // Handled in parseType()
-    throw std::runtime_error("parsePrimitiveType should be called through parseType");
+    errorReporter.reportSyntaxError("parsePrimitiveType should be called through parseType", currentLocation());
+    return std::make_unique<PrimitiveType>(PrimitiveType::Kind::Void);  // Dummy type
 }
 
 std::unique_ptr<volta::ast::Type> Parser::parseCompoundType() {
     // Handled in parseType()
-    throw std::runtime_error("parseCompoundType should be called through parseType");
+    errorReporter.reportSyntaxError("parseCompoundType should be called through parseType", currentLocation());
+    return std::make_unique<PrimitiveType>(PrimitiveType::Kind::Void);  // Dummy type
 }
 
 std::unique_ptr<volta::ast::Type> Parser::parseFunctionType() {
@@ -1025,12 +1058,21 @@ std::unique_ptr<volta::ast::Pattern> Parser::parsePattern() {
         return std::make_unique<TuplePattern>(std::move(elements), loc);
     }
 
-    throw std::runtime_error("Expected pattern");
+    errorReporter.reportSyntaxError("Expected pattern", currentLocation());
+    synchronize();
+    return std::make_unique<WildcardPattern>(currentLocation());  // Dummy pattern
 }
 
 // Token navigation
 const volta::lexer::Token& Parser::peek() const {
     return tokens_[current_];
+}
+
+const volta::lexer::Token& Parser::peekNext() const {
+    if (current_ + 1 < tokens_.size()) {
+        return tokens_[current_ + 1];
+    }
+    return peek();  // Return current token if at end
 }
 
 const volta::lexer::Token& Parser::previous() const {
@@ -1075,7 +1117,12 @@ const volta::lexer::Token& Parser::consume(TokenType type, const std::string& me
     auto loc = currentLocation();
     errorReporter.reportSyntaxError(message, loc);
 
-    throw std::runtime_error(message);
+    // Don't throw! Synchronize and return dummy token
+    synchronize();
+
+    // Return a dummy token so parsing can continue
+    static Token errorToken(type, "", loc.line, loc.column);
+    return errorToken;
 }
 
 // Helper methods

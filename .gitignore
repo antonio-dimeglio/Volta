@@ -30,5 +30,5 @@ Thumbs.db
 *.dSYM/
 
 # IDE stuff
-.vscode/
-.claude/
+**/.vscode/
+**/.claude/

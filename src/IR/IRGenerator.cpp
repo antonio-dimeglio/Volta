@@ -40,9 +40,51 @@ bool IRGenerator::generate(const ast::Program* program) {
         return false;
     }
 
-    // Generate all top-level statements
+    // Separate top-level statements into declarations and executable statements
+    std::vector<const ast::Statement*> executableStmts;
+
     for (const auto& stmt : program->statements) {
-        generateStatement(stmt.get());
+        // Check if this is a declaration (function or global variable)
+        if (dynamic_cast<const ast::FnDeclaration*>(stmt.get()) ||
+            dynamic_cast<const ast::VarDeclaration*>(stmt.get())) {
+            // Generate declarations directly at module level
+            generateStatement(stmt.get());
+        } else {
+            // Collect executable statements to wrap in __main
+            executableStmts.push_back(stmt.get());
+        }
+    }
+
+    // If there are executable top-level statements, wrap them in a __main function
+    if (!executableStmts.empty()) {
+        // Create __main function: fn __main() -> void
+        auto* mainFunc = module_.createFunction(
+            "__main",
+            module_.getVoidType(),
+            {} // No parameters
+        );
+
+        // Set up function context
+        currentFunction_ = mainFunc;
+        enterScope();
+
+        // Create entry block
+        auto* entryBlock = module_.createBasicBlock("entry", mainFunc);
+        builder_.setInsertionPoint(entryBlock);
+
+        // Generate all executable statements
+        for (const auto* stmt : executableStmts) {
+            generateStatement(stmt);
+        }
+
+        // Add return void if block is not already terminated
+        if (!isBlockTerminated()) {
+            builder_.createRet(nullptr);
+        }
+
+        // Clean up function context
+        exitScope();
+        currentFunction_ = nullptr;
     }
 
     return !hasErrors_;
@@ -79,23 +121,49 @@ void IRGenerator::generateStatement(const ast::Statement* stmt) {
 
 void IRGenerator::generateFunctionDecl(const ast::FnDeclaration* decl) {
     // 1. Lower return type from semantic analysis or AST
-    std::shared_ptr<IRType> returnType;
-    if (analyzer_ && decl->returnType) {
-        auto semType = analyzer_->resolveTypeAnnotation(decl->returnType.get());
-        returnType = lowerType(semType);
-    } else {
-        returnType = builder_.getIntType();  // Fallback
+    if (!analyzer_) {
+        reportError("Function '" + decl->identifier + "': No semantic analyzer available");
+        return;
     }
 
-    // 2. Lower parameter types from semantic analysis or AST
+    if (!decl->returnType) {
+        reportError("Function '" + decl->identifier + "': Missing return type annotation");
+        return;
+    }
+
+    auto semReturnType = analyzer_->resolveTypeAnnotation(decl->returnType.get());
+    if (!semReturnType) {
+        reportError("Function '" + decl->identifier + "': Failed to resolve return type");
+        return;
+    }
+
+    std::shared_ptr<IRType> returnType = lowerType(semReturnType);
+    if (!returnType) {
+        reportError("Function '" + decl->identifier + "': Failed to lower return type to IR");
+        return;
+    }
+
+    // 2. Lower parameter types from semantic analysis
     std::vector<std::shared_ptr<IRType>> paramTypes;
     for (const auto& param : decl->parameters) {
-        if (analyzer_ && param->type) {
-            auto semType = analyzer_->resolveTypeAnnotation(param->type.get());
-            paramTypes.push_back(lowerType(semType));
-        } else {
-            paramTypes.push_back(builder_.getIntType());  // Fallback
+        if (!param->type) {
+            reportError("Parameter '" + param->identifier + "' missing type annotation");
+            return;
         }
+
+        auto semType = analyzer_->resolveTypeAnnotation(param->type.get());
+        if (!semType) {
+            reportError("Failed to resolve type for parameter '" + param->identifier + "'");
+            return;
+        }
+
+        auto irType = lowerType(semType);
+        if (!irType) {
+            reportError("Failed to lower type for parameter '" + param->identifier + "'");
+            return;
+        }
+
+        paramTypes.push_back(irType);
     }
 
     // 3. Create function
@@ -173,26 +241,19 @@ void IRGenerator::generateVarDecl(const ast::VarDeclaration* decl) {
 }
 
 void IRGenerator::generateIfStmt(const ast::IfStatement* stmt) {
-    // 1. Generate condition
+    // 1. Generate main if condition
     if (!stmt->condition) {
         reportError("If statement: condition is null in AST");
         return;
     }
 
-    Value* cond = nullptr;
-    try {
-        cond = generateExpression(stmt->condition.get());
-    } catch (const std::exception& e) {
-        reportError(std::string("Exception generating if condition: ") + e.what());
-    }
-
+    Value* cond = generateExpression(stmt->condition.get());
     if (!cond) {
-        reportError("If statement: failed to generate condition (cond is null)");
-        // Don't return - let's see if there are more errors
+        reportError("If statement: failed to generate condition");
         cond = builder_.getBool(false);  // Dummy value to continue
     }
 
-    // 2. Create blocks (this creates condBr in current block)
+    // 2. Create blocks for main if-then-else
     auto blocks = builder_.createIfThenElse(cond);
 
     // 3. Generate then block
@@ -200,34 +261,65 @@ void IRGenerator::generateIfStmt(const ast::IfStatement* stmt) {
     if (stmt->thenBlock) {
         generateBlock(stmt->thenBlock.get());
     }
-    // Branch to merge if not already terminated
     if (!isBlockTerminated()) {
         builder_.createBr(blocks.mergeBlock);
     }
 
-    // 4. Generate else block (or else-if chain)
+    // 4. Generate else-if chain SEQUENTIALLY
     builder_.setInsertionPoint(blocks.elseBlock);
-    if (!stmt->elseIfClauses.empty()) {
-        // Handle else-if chain recursively
-        // TODO: Implement else-if chain
-    } else if (stmt->elseBlock) {
+
+    BasicBlock* currentElseBlock = blocks.elseBlock;
+    BasicBlock* finalMerge = blocks.mergeBlock;
+
+    for (size_t i = 0; i < stmt->elseIfClauses.size(); i++) {
+        const auto& elseIfClause = stmt->elseIfClauses[i];
+
+        // Generate condition in current else block
+        builder_.setInsertionPoint(currentElseBlock);
+        Value* elseIfCond = generateExpression(elseIfClause.first.get());
+        if (!elseIfCond) {
+            reportError("Else-if statement: failed to generate condition");
+            elseIfCond = builder_.getBool(false);
+        }
+
+        // Create then and next else blocks
+        BasicBlock* elseIfThen = builder_.createBasicBlock("elseif.then");
+        BasicBlock* nextElse = builder_.createBasicBlock("elseif.else");
+
+        // Create conditional branch IMMEDIATELY
+        builder_.createCondBr(elseIfCond, elseIfThen, nextElse);
+
+        // Generate then block
+        builder_.setInsertionPoint(elseIfThen);
+        generateBlock(elseIfClause.second.get());
+        if (!isBlockTerminated()) {
+            builder_.createBr(finalMerge);
+        }
+
+        // Move to next else block
+        currentElseBlock = nextElse;
+    }
+
+    // 5. Generate final else (or just branch to merge)
+    builder_.setInsertionPoint(currentElseBlock);
+    if (stmt->elseBlock) {
         generateBlock(stmt->elseBlock.get());
     }
-    // Branch to merge if not already terminated
     if (!isBlockTerminated()) {
-        builder_.createBr(blocks.mergeBlock);
+        builder_.createBr(finalMerge);
     }
 
-    // 5. Continue in merge block
-    builder_.setInsertionPoint(blocks.mergeBlock);
+    // 6. Continue in merge block
+    builder_.setInsertionPoint(finalMerge);
 
-    // If the merge block is unreachable (both branches terminated), add a dummy return
-    if (blocks.mergeBlock->getNumPredecessors() == 0) {
-        // The block is unreachable, but we still need a terminator for valid IR
+    // Handle unreachable merge block
+    // NOTE: If all branches return, the merge block is unreachable (0 predecessors).
+    // We still need to give it a valid terminator for IR correctness.
+    // The bytecode compiler will skip emitting code for unreachable blocks.
+    if (finalMerge->getNumPredecessors() == 0) {
         if (currentFunction_ && currentFunction_->getReturnType()->kind() == IRType::Kind::Void) {
             builder_.createRet();
         } else if (currentFunction_) {
-            // For non-void functions, return an undef value (unreachable anyway)
             Value* undefVal = builder_.getUndef(currentFunction_->getReturnType());
             builder_.createRet(undefVal);
         }
@@ -273,7 +365,8 @@ void IRGenerator::generateWhileStmt(const ast::WhileStatement* stmt) {
 }
 
 void IRGenerator::generateForStmt(const ast::ForStatement* stmt) {
-    // TODO: Implement
+    (void)stmt;  // TODO: Implement
+    reportError("For loops not yet implemented in IR generation");
     // Desugar to while loop:
     // let iterator = expr.iter()
     // while iterator.hasNext():
@@ -364,6 +457,9 @@ Value* IRGenerator::generateExpression(const ast::Expression* expr) {
     if (auto* arrLit = dynamic_cast<const ast::ArrayLiteral*>(expr)) {
         return generateArrayLiteral(arrLit);
     }
+    if (auto* castExpr = dynamic_cast<const ast::CastExpression*>(expr)) {
+       return generateCastExpr(castExpr);
+    }
 
     // Try to get type info for debugging
     std::string typeName = "unknown";
@@ -398,14 +494,16 @@ Value* IRGenerator::generateNoneLiteral(const ast::NoneLiteral* lit) {
 }
 
 Value* IRGenerator::generateSomeLiteral(const ast::SomeLiteral* lit) {
-    // TODO: Implement
+    (void)lit;  // TODO: Implement
+    reportError("Some literals not yet implemented in IR generation");
     // 1. Generate inner value
     // 2. Wrap in Option using OptionWrap
     return nullptr;
 }
 
 Value* IRGenerator::generateArrayLiteral(const ast::ArrayLiteral* lit) {
-    // TODO: Implement
+    (void)lit;  // TODO: Implement
+    reportError("Array literals not yet implemented in IR generation");
     // 1. Create array with ArrayNew
     // 2. Store each element using ArraySet
     // 3. Return array pointer
@@ -427,7 +525,14 @@ Value* IRGenerator::generateIdentifier(const ast::IdentifierExpression* expr) {
 }
 
 Value* IRGenerator::generateBinaryExpr(const ast::BinaryExpression* expr) {
-    if (expr->op == ast::BinaryExpression::Operator::Assign) {
+    using Op = ast::BinaryExpression::Operator;
+
+    // Handle ALL assignment operators
+    if (expr->op == Op::Assign ||
+        expr->op == Op::AddAssign ||
+        expr->op == Op::SubtractAssign ||
+        expr->op == Op::MultiplyAssign ||
+        expr->op == Op::DivideAssign) {
         return generateAssignment(expr);
     }
 
@@ -529,7 +634,8 @@ Value* IRGenerator::generateCallExpr(const ast::CallExpression* expr) {
 }
 
 Value* IRGenerator::generateIndexExpr(const ast::IndexExpression* expr) {
-    // TODO: Implement
+    (void)expr;  // TODO: Implement
+    reportError("Index expressions not yet implemented in IR generation");
     // 1. Generate array expression
     // 2. Generate index expression
     // 3. Create ArrayGet instruction
@@ -537,9 +643,40 @@ Value* IRGenerator::generateIndexExpr(const ast::IndexExpression* expr) {
 }
 
 Value* IRGenerator::generateMemberExpr(const ast::MemberExpression* expr) {
-    // TODO: Implement
+    (void)expr;  // TODO: Implement
+    reportError("Member expressions not yet implemented in IR generation");
     // For structs, use ExtractValue or GEP
     return nullptr;
+}
+
+Value* IRGenerator::generateCastExpr(const ast::CastExpression* expr) {
+    if (!analyzer_) {
+        reportError("Cast expression: semantic analyzer not available");
+        return nullptr;
+    }
+
+    // 1. Generate the value being cast
+    Value* sourceValue = generateExpression(expr->expression.get());
+    if (!sourceValue) {
+        reportError("Cast expression: failed to generate source value");
+        return nullptr;
+    }
+
+    // 2. Get the target type from AST and convert to IR type
+    auto semType = analyzer_->resolveTypeAnnotation(expr->targetType.get());
+    if (!semType) {
+        reportError("Cast expression: failed to resolve target type");
+        return nullptr;
+    }
+
+    auto targetType = lowerType(semType);
+    if (!targetType) {
+        reportError("Cast expression: failed to lower target type");
+        return nullptr;
+    }
+
+    // 3. Create the Cast instruction
+    return builder_.createCast(sourceValue, targetType);
 }
 
 Value* IRGenerator::generateAssignment(const ast::BinaryExpression* expr) {
@@ -551,8 +688,38 @@ Value* IRGenerator::generateAssignment(const ast::BinaryExpression* expr) {
             return nullptr;
         }
 
-        // Generate RHS
-        Value* rhs = generateExpression(expr->right.get());
+        Value* rhs;
+
+        if (expr->op == ast::BinaryExpression::Operator::Assign) {
+            // Simple assignment: x = rhs
+            rhs = generateExpression(expr->right.get());
+        } else {
+            // Compound assignment: x += rhs -> x = x + rhs
+            Value* oldValue = builder_.createLoad(allocaPtr, ident->name);
+            Value* rhsValue = generateExpression(expr->right.get());
+            if (!rhsValue) return nullptr;
+
+            // Map compound assign to binary op
+            using Op = ast::BinaryExpression::Operator;
+            switch (expr->op) {
+                case Op::AddAssign:
+                    rhs = builder_.createAdd(oldValue, rhsValue);
+                    break;
+                case Op::SubtractAssign:
+                    rhs = builder_.createSub(oldValue, rhsValue);
+                    break;
+                case Op::MultiplyAssign:
+                    rhs = builder_.createMul(oldValue, rhsValue);
+                    break;
+                case Op::DivideAssign:
+                    rhs = builder_.createDiv(oldValue, rhsValue);
+                    break;
+                default:
+                    reportError("Unknown compound assignment operator");
+                    return nullptr;
+            }
+        }
+
         if (!rhs) return nullptr;
 
         // Store to alloca

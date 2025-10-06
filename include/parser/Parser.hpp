@@ -41,6 +41,7 @@ public:
     std::unique_ptr<volta::ast::Expression> parseLogicalOr();
     std::unique_ptr<volta::ast::Expression> parseLogicalAnd();
     std::unique_ptr<volta::ast::Expression> parseEquality();
+    std::unique_ptr<volta::ast::Expression> parseCast();
     std::unique_ptr<volta::ast::Expression> parseComparison();
     std::unique_ptr<volta::ast::Expression> parseRange();
     std::unique_ptr<volta::ast::Expression> parseTerm();
@@ -75,6 +76,7 @@ private:
 
     // Token navigation
     const volta::lexer::Token& peek() const;
+    const volta::lexer::Token& peekNext() const;
     const volta::lexer::Token& previous() const;
     bool isAtEnd() const;
     const volta::lexer::Token& advance();

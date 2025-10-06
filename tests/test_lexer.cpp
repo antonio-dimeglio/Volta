@@ -225,3 +225,52 @@ TEST_F(LexerTest, InvalidScientificNotation) {
     EXPECT_TRUE(lexer.getErrorReporter().hasErrors());
     EXPECT_EQ(lexer.getErrorReporter().getErrorCount(), 1);
 }
+
+TEST(Lexer, ContinuesAfterError) {
+    std::string source = "fn test() { return @#$ }";
+    Lexer lexer(source);
+    auto tokens = lexer.tokenize();
+
+    // Should have errors reported
+    EXPECT_TRUE(lexer.getErrorReporter().hasErrors());
+
+    // But should still return a token stream with EOF
+    EXPECT_FALSE(tokens.empty());
+    EXPECT_EQ(tokens.back().type, TokenType::END_OF_FILE);
+}
+
+// Test 2: Leading dot in number
+TEST(Lexer, LeadingDotNumber) {
+    std::string source = ".5 + 3.14";
+    Lexer lexer(source);
+    auto tokens = lexer.tokenize();
+
+    ASSERT_EQ(tokens.size(), 4);  // [.5, +, 3.14, EOF]
+    EXPECT_EQ(tokens[0].type, TokenType::REAL);
+    EXPECT_EQ(tokens[0].lexeme, ".5");
+    EXPECT_EQ(tokens[2].lexeme, "3.14");
+}
+
+// Test 3: Scientific notation
+TEST(Lexer, ScientificNotation) {
+    std::string source = "1e10 3.14e-5 .5e+2";
+    Lexer lexer(source);
+    auto tokens = lexer.tokenize();
+
+    ASSERT_EQ(tokens.size(), 4);
+    EXPECT_EQ(tokens[0].type, TokenType::REAL);
+    EXPECT_EQ(tokens[0].lexeme, "1e10");
+    EXPECT_EQ(tokens[1].lexeme, "3.14e-5");
+    EXPECT_EQ(tokens[2].lexeme, ".5e+2");
+}
+
+// Test 4: IMPORT token
+TEST(Lexer, ImportKeyword) {
+    std::string source = "import math";
+    Lexer lexer(source);
+    auto tokens = lexer.tokenize();
+
+    ASSERT_GE(tokens.size(), 2);
+    EXPECT_EQ(tokens[0].type, TokenType::IMPORT);
+    EXPECT_EQ(tokenTypeToString(TokenType::IMPORT), "IMPORT");  // Should not be "UNKNOWN"
+}

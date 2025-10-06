@@ -3,6 +3,7 @@
 #include "IR/Instruction.hpp"
 #include "IR/IRType.hpp"
 #include <unordered_set>
+#include <iostream>
 
 namespace volta::ir {
 
@@ -39,7 +40,6 @@ bool DeadCodeEliminationPass::runOnFunction(Function* func) {
     // 2. Mark phase: Find all live instructions
     for (auto* block : func->getBlocks()) {
         for (auto* inst : block->getInstructions()) {
-            // Mark instructions with side effects as live
             if (hasSideEffects(inst)) {
                 markLive(inst);
             }
@@ -49,10 +49,10 @@ bool DeadCodeEliminationPass::runOnFunction(Function* func) {
     // 3. Sweep phase: Delete dead instructions
     bool changed = false;
     for (auto* block : func->getBlocks()) {
-        auto instructions = block->getInstructions();  // Copy!
+        auto instructions = block->getInstructions(); 
         for (auto* inst : instructions) {
             if (!isInstructionLive(inst)) {
-                block->removeInstruction(inst);
+                block->eraseInstruction(inst);
                 changed = true;
             }
         }
@@ -305,15 +305,6 @@ bool Mem2RegPass::runOnModule(Module& module) {
 }
 
 bool Mem2RegPass::runOnFunction(Function* func) {
-    // Algorithm:
-    // 1. Find all allocas that can be promoted
-    // 2. For each promotable alloca:
-    //    a. Insert phi nodes at dominance frontiers
-    //    b. Replace loads with SSA values
-    //    c. Remove stores
-    //    d. Remove alloca
-    // 3. Return true if any alloca was promoted
-
     bool changed = false;
     std::vector<AllocaInst*> allocasToPromote;
 
@@ -384,7 +375,69 @@ void Mem2RegPass::promoteAlloca(AllocaInst* alloca) {
         load->getParent()->removeInstruction(load);
         store->getParent()->removeInstruction(store);
         alloca->getParent()->removeInstruction(alloca);
+    } else if (store && !load) {
+        store->getParent()->removeInstruction(store);
+        alloca->getParent()->removeInstruction(alloca);
+    } else if (!store && !load) {
+        alloca->getParent()->removeInstruction(alloca);
     }
+}
+
+
+// ============================================================================
+// SimplifyCFG
+// ============================================================================
+
+bool SimplifyCFG::runOnModule(Module& module) {
+    bool modified = false;
+
+    for (auto* fn : module.getFunctions()) {
+        if (runOnFunction(fn)) modified = true;
+        if (mergeBlocks(fn)) modified = true;
+    }
+
+    return modified;
+}
+
+bool SimplifyCFG::runOnFunction(Function* func) {
+    bool changed = false;
+
+    if (func->removeUnreachableBlocks() > 0){
+        changed = true;
+    }
+    return changed;
+}
+
+bool SimplifyCFG::mergeBlocks(Function* func) {
+    bool modified = false;
+
+    for (auto* block : func->getBlocks()) {
+        auto* term = block->getTerminator();
+        if(!term) continue;
+
+        auto* br = dyn_cast<BranchInst>(term);
+        if (!br) continue;
+
+        auto* dest = br->getDestination();
+
+        if (dest->getNumPredecessors() != 1) continue;
+
+        if (dest->hasPhiNodes()) continue;
+
+        block->removeInstruction(br);
+
+        std::vector<Instruction*> destInsts = dest->getInstructions();
+
+        for (auto* inst : destInsts) {
+            dest->removeInstruction(inst);
+            block->addInstruction(inst);
+        }
+
+        func->eraseBasicBlock(dest);
+        modified = true;
+    }
+
+    return modified;
 }
 
 // ============================================================================
