@@ -86,6 +86,7 @@ void runFile(const std::string& filename) {
         pm.addPass(std::make_unique<ConstantFoldingPass>());
         pm.addPass(std::make_unique<ConstantPropagationPass>());
         pm.addPass(std::make_unique<Mem2RegPass>());
+        pm.addPass(std::make_unique<InstructionSimplifyPass>());
         pm.addPass(std::make_unique<DeadCodeEliminationPass>());
         pm.addPass(std::make_unique<SimplifyCFG>());
         pm.addPass(std::make_unique<DeadCodeEliminationPass>());

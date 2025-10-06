@@ -441,6 +441,262 @@ bool SimplifyCFG::mergeBlocks(Function* func) {
 }
 
 // ============================================================================
+// Algebraic Simplification (Instruction Simplification)
+// ============================================================================
+
+bool InstructionSimplifyPass::runOnModule(Module& mod) {
+    module_ = &mod;
+    bool changed = false;
+
+    for (auto* fn : module_->getFunctions()) {
+        if (runOnFunction(fn)) changed = true;        
+    }
+
+    return changed;
+}
+
+bool InstructionSimplifyPass::runOnFunction(Function* func) {
+    bool changed = false;
+
+    for (auto* instr : func->getAllInstructions()) {
+        if (auto* op = dyn_cast<BinaryOperator>(instr)) {
+            auto simplified = simplifyBinaryOp(op);
+
+            if (simplified) {
+                op->replaceAllUsesWith(simplified);
+                changed = true;
+            }
+        }
+    }
+
+    return changed;
+}
+
+
+Value* InstructionSimplifyPass::simplifyBinaryOp(BinaryOperator* binOp) {
+    switch (binOp->getOpcode()) {
+        case Instruction::Opcode::Add: return simplifyAdd(binOp);
+        case Instruction::Opcode::Mul: return simplifyMul(binOp);
+        case Instruction::Opcode::Sub: return simplifySub(binOp);
+        case Instruction::Opcode::Div: return simplifyDiv(binOp);
+        case Instruction::Opcode::Pow: return simplifyPow(binOp);
+        case Instruction::Opcode::And: return simplifyAnd(binOp);
+        case Instruction::Opcode::Or:  return simplifyOr(binOp);
+        case Instruction::Opcode::Not: return simplifyNot(binOp);
+        case Instruction::Opcode::Gt:  return simplifyGt(binOp);
+        case Instruction::Opcode::Ge:  return simplifyGe(binOp);
+        case Instruction::Opcode::Lt:  return simplifyLt(binOp);
+        case Instruction::Opcode::Le:  return simplifyLe(binOp);
+        case Instruction::Opcode::Eq:  return simplifyEq(binOp);
+        case Instruction::Opcode::Ne:  return simplifyNe(binOp);
+        default: return nullptr;
+    }
+}
+Value* InstructionSimplifyPass::simplifyAdd(BinaryOperator* binOp) {
+    Value* lhs = binOp->getLHS();
+    Value* rhs = binOp->getRHS();
+
+    if (auto* rhsConst = dyn_cast<ConstantInt>(rhs))
+        if (rhsConst->getValue() == 0) return lhs;
+
+    if (auto* lhsConst = dyn_cast<ConstantInt>(lhs))
+        if (lhsConst->getValue() == 0) return rhs;
+
+    return nullptr;
+}
+
+Value* InstructionSimplifyPass::simplifySub(BinaryOperator* binOp) {
+    Value* lhs = binOp->getLHS();
+    Value* rhs = binOp->getRHS();
+
+    if (auto* rhsConst = dyn_cast<ConstantInt>(rhs))
+        if (rhsConst->getValue() == 0) return lhs;
+
+    if (lhs == rhs) return module_->getConstantInt(0, binOp->getType());
+    return nullptr;
+}
+
+Value* InstructionSimplifyPass::simplifyMul(BinaryOperator* binOp) {
+    Value* lhs = binOp->getLHS();
+    Value* rhs = binOp->getRHS();
+
+    if (auto* rhsConst = dyn_cast<ConstantInt>(rhs)) {
+        if (rhsConst->getValue() == 0) return module_->getConstantInt(0, binOp->getType());
+
+        if (rhsConst->getValue() == 1) return lhs;
+    }
+
+    if (auto* lhsConst = dyn_cast<ConstantInt>(lhs)) {
+        if (lhsConst->getValue() == 0) return module_->getConstantInt(0, binOp->getType());
+
+        if (lhsConst->getValue() == 1) return rhs;
+    }
+
+    return nullptr;
+}
+
+Value* InstructionSimplifyPass::simplifyDiv(BinaryOperator* binOp) {
+    Value* lhs = binOp->getLHS();
+    Value* rhs = binOp->getRHS();
+
+    if (auto* rhsConst = dyn_cast<ConstantInt>(rhs)) {
+        if (rhsConst->getValue() == 1) return lhs;
+    }
+
+    if (lhs == rhs) return module_->getConstantInt(1, binOp->getType());
+
+    return nullptr;
+}
+
+Value* InstructionSimplifyPass::simplifyMod(BinaryOperator* binOp) {
+    Value* lhs = binOp->getLHS();
+    Value* rhs = binOp->getRHS();
+
+    if (auto* rhsConst = dyn_cast<ConstantInt>(rhs))
+        if (rhsConst->getValue() == 1) return module_->getConstantInt(0, binOp->getType());
+
+    if (lhs == rhs) return module_->getConstantInt(0, binOp->getType());
+    return nullptr;
+}
+
+Value* InstructionSimplifyPass::simplifyPow(BinaryOperator* binOp) {
+    Value* lhs = binOp->getLHS();
+    Value* rhs = binOp->getRHS();
+
+    if (auto* rhsConst = dyn_cast<ConstantInt>(rhs)) {
+        if (rhsConst->getValue() == 0) return module_->getConstantInt(1, binOp->getType());
+        if (rhsConst->getValue() == 1) return lhs;
+    }
+
+    if (auto* lhsConst = dyn_cast<ConstantInt>(lhs))
+        if (lhsConst->getValue() == 1) return module_->getConstantInt(1, binOp->getType());
+
+    return nullptr;
+}
+
+Value* InstructionSimplifyPass::simplifyAnd(BinaryOperator* binOp) {
+    Value* lhs = binOp->getLHS();
+    Value* rhs = binOp->getRHS();
+
+    if (auto* rhsConst = dyn_cast<ConstantInt>(rhs)) {
+        if (rhsConst->getValue() == 0) return module_->getConstantInt(0, binOp->getType());
+        if (rhsConst->getValue() == 1) return lhs;
+    }
+
+    if (auto* lhsConst = dyn_cast<ConstantInt>(lhs)) {
+        if (lhsConst->getValue() == 0) return module_->getConstantInt(0, binOp->getType());
+        if (lhsConst->getValue() == 1) return rhs;
+    }
+
+    return nullptr;
+}
+
+Value* InstructionSimplifyPass::simplifyOr(BinaryOperator* binOp) {
+    Value* lhs = binOp->getLHS();
+    Value* rhs = binOp->getRHS();
+
+    if (auto* rhsConst = dyn_cast<ConstantInt>(rhs)) {
+        if (rhsConst->getValue() == 0) return lhs;
+        if (rhsConst->getValue() == 1) return module_->getConstantInt(1, binOp->getType());
+    }
+
+    if (auto* lhsConst = dyn_cast<ConstantInt>(lhs)) {
+        if (lhsConst->getValue() == 0) return rhs;
+        if (lhsConst->getValue() == 1) return module_->getConstantInt(1, binOp->getType());
+    }
+
+    return nullptr;
+}
+
+Value* InstructionSimplifyPass::simplifyNot(BinaryOperator* binOp) {
+    Value* lhs = binOp->getLHS();
+
+    // not(not(x)) → x (double negation)
+    if (auto* lhsInst = dyn_cast<Instruction>(lhs)) {
+        if (auto* innerNot = dyn_cast<UnaryOperator>(lhsInst)) {
+            if (innerNot->getOpcode() == Instruction::Opcode::Not) {
+                return innerNot->getOperand();
+            }
+        }
+    }
+
+    return nullptr;
+}
+
+Value* InstructionSimplifyPass::simplifyGt(BinaryOperator* binOp) {
+    Value* lhs = binOp->getLHS();
+    Value* rhs = binOp->getRHS();
+
+    // x > x → false
+    if (lhs == rhs) {
+        return module_->getConstantInt(0, binOp->getType());
+    }
+
+    return nullptr;
+}
+
+Value* InstructionSimplifyPass::simplifyGe(BinaryOperator* binOp) {
+    Value* lhs = binOp->getLHS();
+    Value* rhs = binOp->getRHS();
+
+    // x >= x → true
+    if (lhs == rhs) {
+        return module_->getConstantInt(1, binOp->getType());
+    }
+
+    return nullptr;
+}
+
+Value* InstructionSimplifyPass::simplifyLt(BinaryOperator* binOp) {
+    Value* lhs = binOp->getLHS();
+    Value* rhs = binOp->getRHS();
+
+    // x < x → false
+    if (lhs == rhs) {
+        return module_->getConstantInt(0, binOp->getType());
+    }
+
+    return nullptr;
+}
+
+Value* InstructionSimplifyPass::simplifyLe(BinaryOperator* binOp) {
+    Value* lhs = binOp->getLHS();
+    Value* rhs = binOp->getRHS();
+
+    // x <= x → true
+    if (lhs == rhs) {
+        return module_->getConstantInt(1, binOp->getType());
+    }
+
+    return nullptr;
+}
+
+Value* InstructionSimplifyPass::simplifyEq(BinaryOperator* binOp) {
+    Value* lhs = binOp->getLHS();
+    Value* rhs = binOp->getRHS();
+
+    // x == x → true
+    if (lhs == rhs) {
+        return module_->getConstantInt(1, binOp->getType());
+    }
+
+    return nullptr;
+}
+
+Value* InstructionSimplifyPass::simplifyNe(BinaryOperator* binOp) {
+    Value* lhs = binOp->getLHS();
+    Value* rhs = binOp->getRHS();
+
+    // x != x → false
+    if (lhs == rhs) {
+        return module_->getConstantInt(0, binOp->getType());
+    }
+
+    return nullptr;
+}
+
+
+// ============================================================================
 // PassManager
 // ============================================================================
 

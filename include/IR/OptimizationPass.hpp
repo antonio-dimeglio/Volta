@@ -184,6 +184,56 @@ private:
 };
 
 // ============================================================================
+// Algebraic Simplification (Instruction Simplification)
+// ============================================================================
+
+/**
+ * InstructionSimplifyPass - Simplify instructions using algebraic identities
+ *
+ * This pass applies algebraic simplification rules to eliminate redundant
+ * operations and replace complex patterns with simpler equivalents.
+ *
+ * Examples:
+ *   %x + 0       →  %x        (additive identity)
+ *   %x * 1       →  %x        (multiplicative identity)
+ *   %x * 0       →  0         (annihilator)
+ *   %x - %x      →  0         (self-subtraction)
+ *   %x / 1       →  %x        (division identity)
+ *   %x and true  →  %x        (boolean identity)
+ *   %x or false  →  %x        (boolean identity)
+ *
+ * Key Difference from Constant Folding:
+ * - Constant Folding: 5 + 3 → 8 (both operands are constants)
+ * - Inst Simplify: x + 0 → x (one operand is constant, applies identity rules)
+ */
+class InstructionSimplifyPass : public Pass {
+public:
+    std::string getName() const override { return "InstSimplify"; }
+    bool runOnModule(Module& module) override;
+
+private:
+    bool runOnFunction(Function* func);
+    Value* simplifyBinaryOp(BinaryOperator* binOp);
+    Value* simplifyAdd(BinaryOperator* binOp);
+    Value* simplifyMul(BinaryOperator* binOp);
+    Value* simplifySub(BinaryOperator* binOp);
+    Value* simplifyDiv(BinaryOperator* binOp);
+    Value* simplifyMod(BinaryOperator* binOp);
+    Value* simplifyPow(BinaryOperator* binOp);
+    Value* simplifyAnd(BinaryOperator* binOp);
+    Value* simplifyOr(BinaryOperator* binOp);
+    Value* simplifyNot(BinaryOperator* binOp);
+    Value* simplifyGt(BinaryOperator* binOp);
+    Value* simplifyGe(BinaryOperator* binOp);
+    Value* simplifyLt(BinaryOperator* binOp);
+    Value* simplifyLe(BinaryOperator* binOp);
+    Value* simplifyEq(BinaryOperator* binOp);
+    Value* simplifyNe(BinaryOperator* binOp);
+    
+    Module* module_ = nullptr;  // For creating constants if needed
+};
+
+// ============================================================================
 // Pass Manager
 // ============================================================================
 
