@@ -179,14 +179,17 @@ jobs:
             echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create archive
+      - name: Prepare release files
         run: |
           mkdir -p release
           cp bin/volta.exe release/
           cp README.md release/
           cp LICENSE release/
-          cd release
-          7z a ../volta-${{ steps.get_version.outputs.VERSION }}-windows-x86_64.zip *
+
+      - name: Create archive
+        shell: pwsh
+        run: |
+          Compress-Archive -Path release\* -DestinationPath volta-${{ steps.get_version.outputs.VERSION }}-windows-x86_64.zip
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
