@@ -1,6 +1,5 @@
 #include "vm/BytecodeDecompiler.hpp"
-#include <iomanip> 
-#include <format>
+#include <iomanip>
 
 namespace volta::vm {
 
@@ -36,7 +35,7 @@ size_t BytecodeDecompiler::disassembleInstruction(uint32_t offset) {
     Opcode op = static_cast<Opcode>(module_.peekByte(offset));
     size_t length = getInstructionLength(op);
 
-    out_ << "  " << std::format("{:06}", offset) << " | ";
+    out_ << "  " << std::setfill('0') << std::setw(6) << offset << " | ";
     out_ << std::setfill(' ') << std::setw(15) << std::left << getOpcodeName(op) << " | ";
 
     switch (op) {

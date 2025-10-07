@@ -8,7 +8,19 @@ MAKEFLAGS += --no-print-directory
 CXX := g++
 CXXFLAGS := -std=c++20 -Wall -Wextra -O2 -Iinclude -Wno-unused-parameter -Wno-unused-variable -Wno-comment
 DEBUG_FLAGS := -fsanitize=address -fsanitize=undefined -g -O0 -DDEBUG
-LDFLAGS := -lffi -ldl
+
+# Platform-specific linker flags
+UNAME_S := $(shell uname -s 2>/dev/null || echo Windows)
+ifeq ($(OS),Windows_NT)
+	LDFLAGS := -lffi
+else ifeq ($(UNAME_S),Linux)
+	LDFLAGS := -lffi -ldl
+else ifeq ($(UNAME_S),Darwin)
+	LDFLAGS := -lffi -ldl
+else
+	# Fallback (probably MSYS2/MinGW on Windows)
+	LDFLAGS := -lffi
+endif
 
 # Dependency tracking flags
 DEPFLAGS = -MMD -MP
