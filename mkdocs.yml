@@ -1,0 +1,83 @@
+site_name: Volta Programming Language
+site_description: Documentation for the Volta programming language
+site_author: Volta Team
+site_url: https://your-domain.com
+
+theme:
+  name: material
+  palette:
+    # Light mode
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - admonition
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+    - Your First Program: getting-started/first-program.md
+  - Language Guide:
+    - Basics:
+      - Variables: guide/basics/variables.md
+      - Data Types: guide/basics/types.md
+      - Operators: guide/basics/operators.md
+      - Comments: guide/basics/comments.md
+    - Control Flow:
+      - If Statements: guide/control-flow/if-statements.md
+      - Match Expressions: guide/control-flow/match.md
+      - Loops: guide/control-flow/loops.md
+    - Functions:
+      - Declaring Functions: guide/functions/declarations.md
+      - Parameters & Return Values: guide/functions/parameters.md
+      - Expression Bodies: guide/functions/expressions.md
+    - Data Structures:
+      - Structs: guide/data-structures/structs.md
+      - Arrays: guide/data-structures/arrays.md
+      - Tuples: guide/data-structures/tuples.md
+    - Advanced:
+      - Option Types: guide/advanced/options.md
+      - Error Handling: guide/advanced/errors.md
+      - Type Casting: guide/advanced/casting.md
+  - Standard Library:
+    - Overview: stdlib/overview.md
+    - Built-in Functions: stdlib/builtins.md
+  - Examples:
+    - Basic Examples: examples/basic.md
+    - Advanced Examples: examples/advanced.md
+  - Reference:
+    - Language Specification: reference/specification.md
+    - Grammar: reference/grammar.md
+    - Keywords: reference/keywords.md

@@ -1,7 +1,8 @@
-#pragma once 
+#pragma once
 #include <memory>
 #include <string>
 #include <vector>
+#include <optional>
 #include "error/ErrorTypes.hpp"
 #include "Expression.hpp"
 #include "Type.hpp"

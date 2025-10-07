@@ -3,4 +3,3 @@ fn double(n: float) -> float {
 }
 
 x := double(5.0)
-print(x)

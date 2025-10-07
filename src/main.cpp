@@ -11,6 +11,7 @@
 #include "vm/BytecodeCompiler.hpp"
 #include "vm/BytecodeDecompiler.hpp"
 #include "vm/VM.hpp"
+#include "lsp/LSPProvider.hpp"
 #include "CLI11.hpp"
 #include <iostream>
 #include <fstream>
@@ -26,6 +27,7 @@ using namespace volta::vm;
 
 struct CompilerOptions {
     std::string inputFile;
+    std::vector<std::string> lspInfoArgs;
     bool dumpTokens = false;
     bool dumpAST = false;
     bool dumpIR = false;
@@ -195,6 +197,55 @@ void runRepl() {
     std::cout << "Goodbye!\n";
 }
 
+void handleLSPInfo(const std::vector<std::string>& args) {
+    using namespace volta::lsp;
+
+    if (args.size() != 3) {
+        outputErrorJSON("INVALID_ARGS", "Expected 3 arguments: file line column");
+        return;
+    }
+
+    std::string filename = args[0];
+    size_t line = std::stoul(args[1]);
+    size_t column = std::stoul(args[2]);
+
+    try {
+        // Read and parse the file
+        std::string source = readFile(filename);
+
+        Lexer lexer(source);
+        auto tokens = lexer.tokenize();
+
+        Parser parser(tokens);
+        auto ast = parser.parseProgram();
+
+        // Run semantic analysis
+        ErrorReporter reporter;
+        volta::semantic::SemanticAnalyzer analyzer(reporter);
+        analyzer.analyze(*ast);
+
+        if (reporter.hasErrors()) {
+            outputErrorJSON("SEMANTIC_ERROR", "File has semantic errors");
+            return;
+        }
+
+        // Create LSP provider and query
+        LSPProvider lspProvider(ast.get(), &analyzer);
+        Position pos(line, column);
+
+        auto info = lspProvider.getSymbolInfo(filename, pos);
+
+        if (info) {
+            outputSuccessJSON(*info);
+        } else {
+            outputErrorJSON("SYMBOL_NOT_FOUND", "No symbol found at position");
+        }
+
+    } catch (const std::exception& e) {
+        outputErrorJSON("INTERNAL_ERROR", e.what());
+    }
+}
+
 int main(int argc, char* argv[]) {
     CLI::App app{"Volta Programming Language Compiler"};
 
@@ -203,6 +254,11 @@ int main(int argc, char* argv[]) {
     // Positional argument for input file
     app.add_option("input", options.inputFile, "Input Volta source file (.volta)")
         ->check(CLI::ExistingFile);
+
+    // Lsp info
+    app.add_option("--lsp-info", options.lspInfoArgs, "Get symbol at position")
+        ->expected(3) // File, line and column
+        ->group("LSP");
 
     // Dump flags
     app.add_flag("--dump-tokens", options.dumpTokens, "Dump lexer tokens");
@@ -231,6 +287,12 @@ int main(int argc, char* argv[]) {
     app.add_flag("-r,--repl", options.repl, "Start REPL (interactive mode)");
 
     CLI11_PARSE(app, argc, argv);
+
+    // Handle LSP mode
+    if (!options.lspInfoArgs.empty()) {
+        handleLSPInfo(options.lspInfoArgs);
+        return 0;
+    }
 
     // If no input file and not REPL mode, start REPL
     if (options.inputFile.empty() && !options.repl) {
