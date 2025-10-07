@@ -1,0 +1,273 @@
+name: Release Builds
+
+on:
+  # Trigger on version tags (v1.0.0, v1.2.3, etc.)
+  push:
+    tags:
+      - 'v*'
+
+  # Also allow manual trigger from GitHub UI
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.0)'
+        required: true
+        default: '0.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  # Ubuntu build (x86_64)
+  build-ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libffi-dev
+
+      - name: Build Volta
+        run: |
+          make clean
+          make -j$(nproc)
+          strip bin/volta
+
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create archive
+        run: |
+          mkdir -p release
+          cp bin/volta release/
+          cp README.md release/
+          cp LICENSE release/
+          cd release
+          tar -czf ../volta-${{ steps.get_version.outputs.VERSION }}-linux-x86_64.tar.gz *
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: volta-linux-x86_64
+          path: volta-*.tar.gz
+
+  # macOS Intel build
+  build-macos-intel:
+    runs-on: macos-13  # Intel runner
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew install libffi
+
+      - name: Build Volta
+        run: |
+          make clean
+          make -j$(sysctl -n hw.ncpu)
+          strip bin/volta
+
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create archive
+        run: |
+          mkdir -p release
+          cp bin/volta release/
+          cp README.md release/
+          cp LICENSE release/
+          cd release
+          tar -czf ../volta-${{ steps.get_version.outputs.VERSION }}-macos-x86_64.tar.gz *
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: volta-macos-x86_64
+          path: volta-*.tar.gz
+
+  # macOS ARM (Apple Silicon) build
+  build-macos-arm:
+    runs-on: macos-14  # ARM runner
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew install libffi
+
+      - name: Build Volta
+        run: |
+          make clean
+          make -j$(sysctl -n hw.ncpu)
+          strip bin/volta
+
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create archive
+        run: |
+          mkdir -p release
+          cp bin/volta release/
+          cp README.md release/
+          cp LICENSE release/
+          cd release
+          tar -czf ../volta-${{ steps.get_version.outputs.VERSION }}-macos-arm64.tar.gz *
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: volta-macos-arm64
+          path: volta-*.tar.gz
+
+  # Windows build (x86_64)
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-make
+            mingw-w64-x86_64-libffi
+            make
+
+      - name: Build Volta
+        run: |
+          make clean
+          make -j$(nproc)
+          strip bin/volta.exe
+
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+            echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create archive
+        run: |
+          mkdir -p release
+          cp bin/volta.exe release/
+          cp README.md release/
+          cp LICENSE release/
+          cd release
+          7z a ../volta-${{ steps.get_version.outputs.VERSION }}-windows-x86_64.zip *
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: volta-windows-x86_64
+          path: volta-*.zip
+
+  # Create GitHub release with all artifacts
+  create-release:
+    needs: [build-ubuntu, build-macos-intel, build-macos-arm, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            echo "TAG_NAME=v${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+            echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure
+        run: ls -R artifacts
+
+      - name: Create release notes
+        run: |
+          cat > release_notes.md << 'EOF'
+          # Volta ${{ steps.get_version.outputs.VERSION }}
+
+          ## Downloads
+
+          Choose the appropriate binary for your platform:
+
+          - **Linux (x86_64)**: `volta-${{ steps.get_version.outputs.VERSION }}-linux-x86_64.tar.gz`
+          - **macOS (Intel)**: `volta-${{ steps.get_version.outputs.VERSION }}-macos-x86_64.tar.gz`
+          - **macOS (Apple Silicon)**: `volta-${{ steps.get_version.outputs.VERSION }}-macos-arm64.tar.gz`
+          - **Windows (x86_64)**: `volta-${{ steps.get_version.outputs.VERSION }}-windows-x86_64.zip`
+
+          ## Installation
+
+          ### Linux/macOS
+          ```bash
+          tar -xzf volta-*.tar.gz
+          cd release
+          sudo cp volta /usr/local/bin/
+          ```
+
+          ### Windows
+          Extract the zip file and add the directory to your PATH.
+
+          ## What's New
+
+          See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${{ steps.get_version.outputs.TAG_NAME }}/CHANGELOG.md) for details.
+
+          ## Verify Installation
+
+          ```bash
+          volta --version
+          ```
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_version.outputs.TAG_NAME }}
+          name: Volta ${{ steps.get_version.outputs.VERSION }}
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/**/*.tar.gz
+            artifacts/**/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
