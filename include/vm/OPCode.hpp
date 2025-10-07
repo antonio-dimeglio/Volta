@@ -1,3 +1,4 @@
+#pragma once
 #include <stdint.h>
 
 namespace volta::vm {
@@ -72,7 +73,7 @@ enum class Opcode : uint8_t {
 };
 
 // Helper to get instruction length (in bytes)
-inline uint8_t get_instruction_length(Opcode op) {
+inline uint8_t getInstructionLength(Opcode op) {
     switch (op) {
         // 1 byte
         case Opcode::RET_VOID:

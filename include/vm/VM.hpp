@@ -5,6 +5,10 @@
 #include <vector>
 #include <string>
 #include <cstdint>
+#include "gc/GarbageCollector.hpp"
+#include "gc/GCRootProvider.hpp"
+#include "vm/VMTypeRegistry.hpp"
+
 
 namespace volta::vm {
 
@@ -79,18 +83,33 @@ struct Frame {
  * TODO: Add profiling/instrumentation hooks
  * TODO: Optimize dispatch (computed goto, direct threading)
  */
-class VM {
+class VM : public Volta::GC::GCRootProvider  {
 public:
     /**
      * @brief Construct a new VM instance
      */
-    VM() : module_(nullptr) {};
+    VM() : module_(nullptr), gc_(nullptr), typeRegistry_(nullptr) {
+        // Create GC with default sizes (1MB nursery, 8MB old gen)
+        gc_ = new Volta::GC::GarbageCollector(1024 * 1024, 8 * 1024 * 1024);
+        
+        // Create type registry
+        typeRegistry_ = new VMTypeRegistry(nullptr);
+        
+        // Wire up GC
+        gc_->setRootProvider(this);
+        gc_->setTypeRegistry(typeRegistry_);
+    }
 
     /**
      * @brief Destroy the VM instance
      */
     ~VM();
 
+    /**
+     * @brief Get GC roots from the VM (implements GCRootProvider)
+     * @return Vector of pointers to object pointers in registers
+     */
+    std::vector<Volta::GC::Object**> getRoots() override;
     /**
      * @brief Execute a function from a bytecode module
      *
@@ -125,7 +144,8 @@ private:
 
     BytecodeModule* module_;           ///< Current module being executed (valid during execute())
     std::vector<Frame> callStack;     ///< Call stack (activation records)
-
+    Volta::GC::GarbageCollector* gc_;      ///< Garbage collector (owned by VM)
+    VMTypeRegistry* typeRegistry_;         ///< Type registry (owned by VM)
     // TODO Phase 3: Add GC integration
     // GarbageCollector* gc;
 

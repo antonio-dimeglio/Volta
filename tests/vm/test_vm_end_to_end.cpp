@@ -597,3 +597,85 @@ fn main() -> int {
     EXPECT_EQ(result.type, vm::ValueType::INT64);
     EXPECT_EQ(result.as.as_i64, 6); // GCD(48, 18) = 6
 }
+
+// ============================================================================
+// String and GC Tests
+// ============================================================================
+
+TEST_F(VMEndToEndTest, StringConstantAllocation) {
+    // Test that string constants are allocated via GC
+    std::string source = R"(
+fn get_message() -> str {
+    message: str = "Hello from GC!"
+    return message
+}
+
+fn main() -> int {
+    get_message()
+    return 42
+}
+    )";
+
+    vm::Value result = executeSource(source);
+    EXPECT_EQ(result.type, vm::ValueType::INT64);
+    EXPECT_EQ(result.as.as_i64, 42);
+}
+
+TEST_F(VMEndToEndTest, MultipleStringAllocations) {
+    // Test multiple string allocations to trigger potential GC
+    std::string source = R"(
+fn create_strings() -> int {
+    s1: str = "First string"
+    s2: str = "Second string"
+    s3: str = "Third string"
+    s4: str = "Fourth string"
+    s5: str = "Fifth string"
+    return 100
+}
+
+fn main() -> int {
+    return create_strings()
+}
+    )";
+
+    vm::Value result = executeSource(source);
+    EXPECT_EQ(result.type, vm::ValueType::INT64);
+    EXPECT_EQ(result.as.as_i64, 100);
+}
+
+TEST_F(VMEndToEndTest, StringsAcrossFunctionCalls) {
+    // Test that strings survive across function calls
+    std::string source = R"(
+fn helper() -> str {
+    return "helper string"
+}
+
+fn main() -> int {
+    s1: str = "main string"
+    s2: str = helper()
+    s3: str = "another string"
+    return 999
+}
+    )";
+
+    vm::Value result = executeSource(source);
+    EXPECT_EQ(result.type, vm::ValueType::INT64);
+    EXPECT_EQ(result.as.as_i64, 999);
+}
+
+TEST_F(VMEndToEndTest, StringPrintIntegration) {
+    // Test string printing through the print builtin
+    // This test verifies the complete pipeline: allocation -> GC -> printing
+    std::string source = R"(
+fn main() -> int {
+    message: str = "Test message"
+    print(message)
+    return 0
+}
+    )";
+
+    // This should not crash - strings should be GC-managed correctly
+    vm::Value result = executeSource(source);
+    EXPECT_EQ(result.type, vm::ValueType::INT64);
+    EXPECT_EQ(result.as.as_i64, 0);
+}

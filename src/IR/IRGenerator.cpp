@@ -5,6 +5,48 @@
 namespace volta::ir {
 
 // ============================================================================
+// Helper Functions
+// ============================================================================
+
+std::string IRGenerator::mangleFunctionName(const std::string& name,
+                                           const std::vector<std::shared_ptr<IRType>>& paramTypes) {
+    // Simple name mangling: name + "_" + type suffixes
+    // Example: print(i64) -> print_i64, print(str) -> print_str
+    if (paramTypes.empty()) {
+        return name;  // No mangling for no parameters
+    }
+
+    std::string mangled = name;
+    for (const auto& type : paramTypes) {
+        mangled += "_";
+        switch (type->kind()) {
+            case IRType::Kind::I64:
+                mangled += "i64";
+                break;
+            case IRType::Kind::F64:
+                mangled += "f64";
+                break;
+            case IRType::Kind::I1:
+                mangled += "bool";
+                break;
+            case IRType::Kind::String:
+                mangled += "str";
+                break;
+            case IRType::Kind::Void:
+                mangled += "void";
+                break;
+            case IRType::Kind::Array:
+                mangled += "array";
+                break;
+            default:
+                mangled += "unknown";
+                break;
+        }
+    }
+    return mangled;
+}
+
+// ============================================================================
 // Constructor
 // ============================================================================
 
@@ -44,13 +86,12 @@ bool IRGenerator::generate(const ast::Program* program) {
     std::vector<const ast::Statement*> executableStmts;
 
     for (const auto& stmt : program->statements) {
-        // Check if this is a declaration (function or global variable)
-        if (dynamic_cast<const ast::FnDeclaration*>(stmt.get()) ||
-            dynamic_cast<const ast::VarDeclaration*>(stmt.get())) {
-            // Generate declarations directly at module level
+        // Check if this is a function declaration (only functions at module level)
+        if (dynamic_cast<const ast::FnDeclaration*>(stmt.get())) {
+            // Generate function declarations directly at module level
             generateStatement(stmt.get());
         } else {
-            // Collect executable statements to wrap in __main
+            // All other statements (including variable declarations) go into __main
             executableStmts.push_back(stmt.get());
         }
     }
@@ -110,6 +151,10 @@ void IRGenerator::generateStatement(const ast::Statement* stmt) {
         generateForStmt(forStmt);
     } else if (auto* retStmt = dynamic_cast<const ast::ReturnStatement*>(stmt)) {
         generateReturnStmt(retStmt);
+    } else if (auto* breakStmt = dynamic_cast<const ast::BreakStatement*>(stmt)) {
+        generateBreakStmt(breakStmt);
+    } else if (auto* continueStmt = dynamic_cast<const ast::ContinueStatement*>(stmt)) {
+        generateContinueStmt(continueStmt);
     } else if (auto* exprStmt = dynamic_cast<const ast::ExpressionStatement*>(stmt)) {
         generateExprStmt(exprStmt);
     } else if (auto* block = dynamic_cast<const ast::Block*>(stmt)) {
@@ -178,16 +223,9 @@ void IRGenerator::generateFunctionDecl(const ast::FnDeclaration* decl) {
         const auto& param = decl->parameters[i];
         Argument* arg = func->getParam(i);
 
-        // Create alloca for parameter
-        Value* alloca = builder_.createAlloca(arg->getType(), param->identifier);
-
-        // Store parameter value to alloca
-        builder_.createStore(arg, alloca);
-
-        // Add to symbol table
-        declareVariable(param->identifier, alloca);
+        // Map parameter name directly to the argument value
+        declareVariable(param->identifier, arg);
     }
-
     // 6. Generate function body
     if (decl->body) {
         generateBlock(decl->body.get());
@@ -365,13 +403,157 @@ void IRGenerator::generateWhileStmt(const ast::WhileStatement* stmt) {
 }
 
 void IRGenerator::generateForStmt(const ast::ForStatement* stmt) {
-    (void)stmt;  // TODO: Implement
-    reportError("For loops not yet implemented in IR generation");
-    // Desugar to while loop:
-    // let iterator = expr.iter()
-    // while iterator.hasNext():
-    //   let identifier = iterator.next()
-    //   ... body ...
+    // Desugar for-in loop to while loop
+    // Two cases:
+    // 1. for x in 0..10 => range iteration
+    // 2. for x in arr => array iteration
+
+    enterScope();
+
+    // Check if expression is a range (BinaryExpression with Range operator)
+    auto* rangeExpr = dynamic_cast<const ast::BinaryExpression*>(stmt->expression.get());
+    bool isRange = rangeExpr && (rangeExpr->op == ast::BinaryExpression::Operator::Range ||
+                                  rangeExpr->op == ast::BinaryExpression::Operator::RangeInclusive);
+
+    if (isRange) {
+        // Handle range: for i in start..end
+        Value* startVal = generateExpression(rangeExpr->left.get());
+        Value* endVal = generateExpression(rangeExpr->right.get());
+
+        if (!startVal || !endVal) {
+            reportError("For loop: failed to generate range bounds");
+            exitScope();
+            return;
+        }
+
+        // Create loop variable: i = start
+        auto indexType = builder_.getIntType();
+        Value* loopVarAlloca = builder_.createAlloca(indexType, stmt->identifier);
+        builder_.createStore(startVal, loopVarAlloca);
+        declareVariable(stmt->identifier, loopVarAlloca);
+
+        // Create loop blocks
+        auto* headerBlock = builder_.createBasicBlock("for.header", currentFunction_);
+        auto* bodyBlock = builder_.createBasicBlock("for.body", currentFunction_);
+        auto* incrementBlock = builder_.createBasicBlock("for.increment", currentFunction_);
+        auto* exitBlock = builder_.createBasicBlock("for.exit", currentFunction_);
+
+        setLoopTargets(exitBlock, incrementBlock);
+
+        // Jump to header
+        builder_.createBr(headerBlock);
+
+        // Generate header: check i < end (or i <= end for RangeInclusive)
+        builder_.setInsertionPoint(headerBlock);
+        Value* currentVal = builder_.createLoad(loopVarAlloca, stmt->identifier);
+        Value* cond;
+        if (rangeExpr->op == ast::BinaryExpression::Operator::RangeInclusive) {
+            cond = builder_.createLe(currentVal, endVal);
+        } else {
+            cond = builder_.createLt(currentVal, endVal);
+        }
+        builder_.createCondBr(cond, bodyBlock, exitBlock);
+
+        // Generate body
+        builder_.setInsertionPoint(bodyBlock);
+        if (stmt->thenBlock) {
+            generateBlock(stmt->thenBlock.get());
+        }
+
+        // Jump to increment if not already terminated
+        if (!isBlockTerminated()) {
+            builder_.createBr(incrementBlock);
+        }
+
+        // Generate increment block: i = i + 1
+        builder_.setInsertionPoint(incrementBlock);
+        Value* current = builder_.createLoad(loopVarAlloca, "__loop_var");
+        Value* one = builder_.getInt(1);
+        Value* next = builder_.createAdd(current, one);
+        builder_.createStore(next, loopVarAlloca);
+        builder_.createBr(headerBlock);
+
+        clearLoopTargets();
+        builder_.setInsertionPoint(exitBlock);
+
+    } else {
+        // Handle array iteration: for x in arr
+        Value* iterable = generateExpression(stmt->expression.get());
+        if (!iterable) {
+            reportError("For loop: failed to generate iterable expression");
+            exitScope();
+            return;
+        }
+
+        // Store array pointer so it's accessible across blocks
+        auto arrayPtrType = iterable->getType();
+        Value* arrayAlloca = builder_.createAlloca(arrayPtrType, "__for_arr");
+        builder_.createStore(iterable, arrayAlloca);
+
+        // Create index variable: __idx = 0
+        auto indexType = builder_.getIntType();
+        Value* indexAlloca = builder_.createAlloca(indexType, "__for_idx");
+        Value* zeroVal = builder_.getInt(0);
+        builder_.createStore(zeroVal, indexAlloca);
+
+        // Get array length
+        Value* arrayPtr = builder_.createLoad(arrayAlloca, "__for_arr_ptr");
+        Value* lengthVal = builder_.createArrayLen(arrayPtr, "__for_len");
+
+        // Create loop blocks
+        auto* headerBlock = builder_.createBasicBlock("for.header", currentFunction_);
+        auto* bodyBlock = builder_.createBasicBlock("for.body", currentFunction_);
+        auto* incrementBlock = builder_.createBasicBlock("for.increment", currentFunction_);
+        auto* exitBlock = builder_.createBasicBlock("for.exit", currentFunction_);
+
+        setLoopTargets(exitBlock, incrementBlock);
+
+        // Jump to header
+        builder_.createBr(headerBlock);
+
+        // Generate header: check __idx < __len
+        builder_.setInsertionPoint(headerBlock);
+        Value* currentIdx = builder_.createLoad(indexAlloca, "__idx_val");
+        Value* cond = builder_.createLt(currentIdx, lengthVal);
+        builder_.createCondBr(cond, bodyBlock, exitBlock);
+
+        // Generate body
+        builder_.setInsertionPoint(bodyBlock);
+
+        // Get current element: x = arr[__idx]
+        Value* currentIdxBody = builder_.createLoad(indexAlloca, "__idx_body");
+        Value* arrayPtrBody = builder_.createLoad(arrayAlloca, "__for_arr_body");
+        Value* element = builder_.createArrayGet(arrayPtrBody, currentIdxBody, stmt->identifier);
+
+        // Create alloca for loop variable and store element
+        auto elementType = element->getType();
+        Value* loopVarAlloca = builder_.createAlloca(elementType, stmt->identifier);
+        builder_.createStore(element, loopVarAlloca);
+        declareVariable(stmt->identifier, loopVarAlloca);
+
+        // Generate loop body
+        if (stmt->thenBlock) {
+            generateBlock(stmt->thenBlock.get());
+        }
+
+        // Jump to increment if not already terminated
+        if (!isBlockTerminated()) {
+            builder_.createBr(incrementBlock);
+        }
+
+        // Generate increment block: __idx = __idx + 1
+        builder_.setInsertionPoint(incrementBlock);
+        Value* idx = builder_.createLoad(indexAlloca, "__idx_inc");
+        Value* one = builder_.getInt(1);
+        Value* nextIdx = builder_.createAdd(idx, one);
+        builder_.createStore(nextIdx, indexAlloca);
+        builder_.createBr(headerBlock);
+
+        clearLoopTargets();
+        builder_.setInsertionPoint(exitBlock);
+    }
+
+    exitScope();
 }
 
 void IRGenerator::generateReturnStmt(const ast::ReturnStatement* stmt) {
@@ -385,6 +567,26 @@ void IRGenerator::generateReturnStmt(const ast::ReturnStatement* stmt) {
         // Void return
         builder_.createRet();
     }
+}
+
+void IRGenerator::generateBreakStmt(const ast::BreakStatement* stmt) {
+    (void)stmt;  // Location not used yet
+    auto* target = getBreakTarget();
+    if (!target) {
+        reportError("Break statement outside of loop");
+        return;
+    }
+    builder_.createBr(target);
+}
+
+void IRGenerator::generateContinueStmt(const ast::ContinueStatement* stmt) {
+    (void)stmt;  // Location not used yet
+    auto* target = getContinueTarget();
+    if (!target) {
+        reportError("Continue statement outside of loop");
+        return;
+    }
+    builder_.createBr(target);
 }
 
 void IRGenerator::generateExprStmt(const ast::ExpressionStatement* stmt) {
@@ -502,26 +704,61 @@ Value* IRGenerator::generateSomeLiteral(const ast::SomeLiteral* lit) {
 }
 
 Value* IRGenerator::generateArrayLiteral(const ast::ArrayLiteral* lit) {
-    (void)lit;  // TODO: Implement
-    reportError("Array literals not yet implemented in IR generation");
-    // 1. Create array with ArrayNew
-    // 2. Store each element using ArraySet
-    // 3. Return array pointer
-    return nullptr;
+    if (lit->elements.empty()) {
+        // Create empty array
+        Value* sizeVal = builder_.getInt(0);
+        std::shared_ptr<ir::IRType> elementType = builder_.getIntType();  // Default to int64 for empty arrays
+        return builder_.createArrayNew(elementType, sizeVal);
+    }
+
+    // 1. Create array with size = number of elements
+    size_t numElements = lit->elements.size();
+    Value* sizeVal = builder_.getInt(static_cast<int64_t>(numElements));
+
+    // Determine element type from first element (assume all elements have same type)
+    Value* firstElem = generateExpression(lit->elements[0].get());
+    if (!firstElem) {
+        return nullptr;
+    }
+    std::shared_ptr<ir::IRType> elementType = firstElem->getType();
+
+    // 2. Create array
+    Value* array = builder_.createArrayNew(elementType, sizeVal);
+
+    // 3. Store each element using ArraySet
+    for (size_t i = 0; i < numElements; i++) {
+        Value* indexVal = builder_.getInt(static_cast<int64_t>(i));
+        Value* elemVal;
+
+        if (i == 0) {
+            elemVal = firstElem;  // Reuse already generated first element
+        } else {
+            elemVal = generateExpression(lit->elements[i].get());
+            if (!elemVal) {
+                return nullptr;
+            }
+        }
+
+        builder_.createArraySet(array, indexVal, elemVal);
+    }
+
+    return array;
 }
 
 Value* IRGenerator::generateIdentifier(const ast::IdentifierExpression* expr) {
-    Value* allocaPtr = lookupVariable(expr->name);
+    Value* val = lookupVariable(expr->name);
 
-    if (!allocaPtr) {
+    if (!val) {
         std::string scopeInfo = "symbol table has " + std::to_string(symbolTable_.size()) + " scopes";
         reportError("Undefined variable '" + expr->name + "' (" + scopeInfo + ")");
         return nullptr;
     }
 
-    // Load value from alloca
-    // IMPORTANT: Variables are stored as allocas, so we must load!
-    return builder_.createLoad(allocaPtr, expr->name);
+    if (dynamic_cast<Argument*>(val)) {
+        return val;  
+    }
+
+    return builder_.createLoad(val, expr->name);
 }
 
 Value* IRGenerator::generateBinaryExpr(const ast::BinaryExpression* expr) {
@@ -611,15 +848,9 @@ Value* IRGenerator::generateCallExpr(const ast::CallExpression* expr) {
         return nullptr;
     }
 
-    // 2. Look up function in module
-    Function* func = module_.getFunction(identExpr->name);
-    if (!func) {
-        reportError("Call expression: undefined function '" + identExpr->name + "'");
-        return nullptr;
-    }
-
-    // 3. Generate arguments
+    // 2. Generate arguments
     std::vector<Value*> args;
+    std::vector<std::shared_ptr<IRType>> argTypes;
     for (const auto& argExpr : expr->arguments) {
         Value* arg = generateExpression(argExpr.get());
         if (!arg) {
@@ -627,6 +858,21 @@ Value* IRGenerator::generateCallExpr(const ast::CallExpression* expr) {
             return nullptr;
         }
         args.push_back(arg);
+        argTypes.push_back(arg->getType());
+    }
+
+    // 3. Look up function with mangled name (for overload resolution)
+    std::string mangledName = mangleFunctionName(identExpr->name, argTypes);
+    Function* func = module_.getFunction(mangledName);
+
+    // If mangled name not found, try original name (for non-overloaded functions)
+    if (!func) {
+        func = module_.getFunction(identExpr->name);
+    }
+
+    if (!func) {
+        reportError("Call expression: undefined function '" + identExpr->name + "'");
+        return nullptr;
     }
 
     // 4. Create call instruction
@@ -634,12 +880,33 @@ Value* IRGenerator::generateCallExpr(const ast::CallExpression* expr) {
 }
 
 Value* IRGenerator::generateIndexExpr(const ast::IndexExpression* expr) {
-    (void)expr;  // TODO: Implement
-    reportError("Index expressions not yet implemented in IR generation");
     // 1. Generate array expression
+    Value* arrayVal = generateExpression(expr->object.get());
+    if (!arrayVal) {
+        return nullptr;
+    }
+
     // 2. Generate index expression
-    // 3. Create ArrayGet instruction
-    return nullptr;
+    Value* indexVal = generateExpression(expr->index.get());
+    if (!indexVal) {
+        return nullptr;
+    }
+
+    // 3. Verify array type is pointer
+    auto arrayType = arrayVal->getType();
+    if (!arrayType) {
+        reportError("Index expression: array value has no type");
+        return nullptr;
+    }
+
+    if (!arrayType->asPointer()) {
+        reportError("Index expression: array value is not a pointer type (got " +
+                   arrayType->toString() + ")");
+        return nullptr;
+    }
+
+    // 4. Create ArrayGet instruction
+    return builder_.createArrayGet(arrayVal, indexVal);
 }
 
 Value* IRGenerator::generateMemberExpr(const ast::MemberExpression* expr) {
@@ -688,6 +955,12 @@ Value* IRGenerator::generateAssignment(const ast::BinaryExpression* expr) {
             return nullptr;
         }
 
+        // Check if trying to assign to a parameter (immutable)
+        if (dynamic_cast<Argument*>(allocaPtr)) {
+            reportError("Cannot assign to function parameter '" + ident->name + "' (parameters are immutable)");
+            return nullptr;
+        }
+
         Value* rhs;
 
         if (expr->op == ast::BinaryExpression::Operator::Assign) {
@@ -695,7 +968,13 @@ Value* IRGenerator::generateAssignment(const ast::BinaryExpression* expr) {
             rhs = generateExpression(expr->right.get());
         } else {
             // Compound assignment: x += rhs -> x = x + rhs
-            Value* oldValue = builder_.createLoad(allocaPtr, ident->name);
+            Value* oldValue;
+            if (dynamic_cast<Argument*>(allocaPtr)) {
+                oldValue = allocaPtr;  // Arguments are values, use directly
+            } else {
+                oldValue = builder_.createLoad(allocaPtr, ident->name);  // Load from alloca
+            }
+            
             Value* rhsValue = generateExpression(expr->right.get());
             if (!rhsValue) return nullptr;
 
@@ -856,12 +1135,30 @@ std::unique_ptr<Module> generateIR(
 ) {
     auto module = std::make_unique<Module>(moduleName);
 
-    // Register builtin/native functions
+    // Register builtin/native functions with mangled names for overload resolution
     // print(int) -> void
     {
         std::vector<std::shared_ptr<IRType>> params = { module->getIntType() };
         auto returnType = module->getVoidType();
-        module->createFunction("print", returnType, params);
+        module->createFunction("print_i64", returnType, params);
+    }
+    // print(float) -> void
+    {
+        std::vector<std::shared_ptr<IRType>> params = { module->getFloatType() };
+        auto returnType = module->getVoidType();
+        module->createFunction("print_f64", returnType, params);
+    }
+    // print(bool) -> void
+    {
+        std::vector<std::shared_ptr<IRType>> params = { module->getBoolType() };
+        auto returnType = module->getVoidType();
+        module->createFunction("print_bool", returnType, params);
+    }
+    // print(str) -> void
+    {
+        std::vector<std::shared_ptr<IRType>> params = { module->getStringType() };
+        auto returnType = module->getVoidType();
+        module->createFunction("print_str", returnType, params);
     }
 
     IRGenerator generator(*module, &analyzer);

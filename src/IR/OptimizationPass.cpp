@@ -27,8 +27,8 @@ bool DeadCodeEliminationPass::hasSideEffects(const Instruction* inst) const {
     // Terminators always have side effects
     if (inst->isTerminator()) return true;
 
-    // Store, Call have side effects
-    if (isa<StoreInst>(inst) || isa<CallInst>(inst)) return true;
+    // Store, Call, ArraySet have side effects
+    if (isa<StoreInst>(inst) || isa<CallInst>(inst) || isa<ArraySetInst>(inst)) return true;
 
     // Pure computations have no side effects
     return false;
@@ -355,30 +355,29 @@ bool Mem2RegPass::isPromotable(const AllocaInst* alloca) const {
 }
 
 void Mem2RegPass::promoteAlloca(AllocaInst* alloca) {
-    // Find the store and load
+    // Find ALL stores and loads
     StoreInst* store = nullptr;
-    LoadInst* load = nullptr;
+    std::vector<LoadInst*> loads;
 
     for (auto* use : alloca->getUses()) {
         if (auto* s = dyn_cast<StoreInst>(use->getUser())) {
-            store = s;
+            store = s;  // Assuming single store for now (simple case)
         } else if (auto* l = dyn_cast<LoadInst>(use->getUser())) {
-            load = l;
+            loads.push_back(l);
         }
     }
 
-    // Replace load with stored value
-    if (store && load) {
-        load->replaceAllUsesWith(store->getValue());
-
-        // Remove load, store, and alloca
-        load->getParent()->removeInstruction(load);
+    // Replace ALL loads with stored value
+    if (store) {
+        Value* storedValue = store->getValue();
+        for (auto* load : loads) {
+            load->replaceAllUsesWith(storedValue);
+            load->getParent()->removeInstruction(load);
+        }
         store->getParent()->removeInstruction(store);
         alloca->getParent()->removeInstruction(alloca);
-    } else if (store && !load) {
-        store->getParent()->removeInstruction(store);
-        alloca->getParent()->removeInstruction(alloca);
-    } else if (!store && !load) {
+    } else if (loads.empty()) {
+        // No stores or loads - just remove unused alloca
         alloca->getParent()->removeInstruction(alloca);
     }
 }

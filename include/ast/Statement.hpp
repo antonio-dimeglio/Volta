@@ -105,6 +105,16 @@ struct ReturnStatement : Statement {
         expression(std::move(expression)) {}
 };
 
+struct BreakStatement : Statement {
+    BreakStatement(volta::errors::SourceLocation location)
+        : Statement(location) {}
+};
+
+struct ContinueStatement : Statement {
+    ContinueStatement(volta::errors::SourceLocation location)
+        : Statement(location) {}
+};
+
 struct ImportStatement : Statement {
     std::string identifier;
 

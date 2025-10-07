@@ -356,6 +356,16 @@ void SemanticAnalyzer::analyzeStatement(const volta::ast::Statement* stmt) {
         analyzeForStatement(forStmt);
     } else if (auto* retStmt = dynamic_cast<const volta::ast::ReturnStatement*>(stmt)) {
         analyzeReturnStatement(retStmt);
+    } else if (dynamic_cast<const volta::ast::BreakStatement*>(stmt)) {
+        // Check if we're in a loop
+        if (loopDepth_ == 0) {
+            error("Break statement outside of loop", stmt->location);
+        }
+    } else if (dynamic_cast<const volta::ast::ContinueStatement*>(stmt)) {
+        // Check if we're in a loop
+        if (loopDepth_ == 0) {
+            error("Continue statement outside of loop", stmt->location);
+        }
     } else if (auto* exprStmt = dynamic_cast<const volta::ast::ExpressionStatement*>(stmt)) {
         analyzeExpression(exprStmt->expr.get());
     } else if (auto* block = dynamic_cast<const volta::ast::Block*>(stmt)) {
@@ -669,6 +679,37 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeUnaryExpression(const volta::ast:
 }
 
 std::shared_ptr<Type> SemanticAnalyzer::analyzeCallExpression(const volta::ast::CallExpression* callExpr) {
+    // First, analyze all argument types
+    std::vector<std::shared_ptr<Type>> argTypes;
+    for (const auto& arg : callExpr->arguments) {
+        argTypes.push_back(analyzeExpression(arg.get()));
+    }
+
+    // Check if callee is an identifier (for overload resolution)
+    if (auto* identExpr = dynamic_cast<const volta::ast::IdentifierExpression*>(callExpr->callee.get())) {
+        // Try to resolve overload based on argument types
+        auto symbol = symbolTable_->lookupOverload(identExpr->name, argTypes);
+
+        if (symbol.has_value()) {
+            auto* fnType = dynamic_cast<const FunctionType*>(symbol->type.get());
+            if (fnType) {
+                return fnType->returnType();
+            }
+        }
+
+        // No matching overload found - provide helpful error
+        auto allOverloads = symbolTable_->lookupAllOverloads(identExpr->name);
+        if (!allOverloads.empty()) {
+            error("No matching overload for function '" + identExpr->name + "' with given argument types", callExpr->location);
+            return typeCache_.getUnknown();
+        }
+
+        // Function doesn't exist at all
+        error("Undefined function '" + identExpr->name + "'", callExpr->location);
+        return typeCache_.getUnknown();
+    }
+
+    // Not an identifier - analyze as a regular expression
     auto calleeType = analyzeExpression(callExpr->callee.get());
 
     auto* fnType = dynamic_cast<const FunctionType*>(calleeType.get());
@@ -683,10 +724,9 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeCallExpression(const volta::ast::
     }
 
     for (size_t i = 0; i < callExpr->arguments.size(); ++i) {
-        auto argType = analyzeExpression(callExpr->arguments[i].get());
         auto expectedType = fnType->paramTypes()[i];
-        if (!areTypesCompatible(expectedType.get(), argType.get())) {
-            typeError("Argument type mismatch", expectedType.get(), argType.get(), callExpr->location);
+        if (!areTypesCompatible(expectedType.get(), argTypes[i].get())) {
+            typeError("Argument type mismatch", expectedType.get(), argTypes[i].get(), callExpr->location);
         }
     }
 

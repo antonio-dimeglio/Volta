@@ -49,12 +49,16 @@ struct FunctionCompilationContext {
     /**
      * Constructor - Pre-allocates registers for function parameters
      *
-     * Parameters are allocated to r0, r1, r2... to match calling convention.
+     * Parameters arrive in r0, r1, r2... per calling convention.
+     * We allocate NEW registers for them so r0-rN can be reused for calls.
+     *
+     * Reserve r0-r2 for call arguments and return values.
      */
     FunctionCompilationContext(ir::Function* func, uint32_t startOffset):
         irFunction(func),
-        nextRegister(0),
+        nextRegister(std::max<byte>(3, func->getNumParams())),  // Reserve r0-r2, or skip param regs if more
         functionStartOffset(startOffset) {
+            // Map each parameter to a fresh register AFTER the param registers
             for (size_t i = 0; i < func->getNumParams(); i++) {
                 auto* param = func->getParam(i);
                 valueToRegister[param] = nextRegister++;

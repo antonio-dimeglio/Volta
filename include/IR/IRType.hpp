@@ -310,7 +310,17 @@ public:
                 return std::make_shared<IRPrimitiveType>(IRType::Kind::Void);
             }
 
-            // TODO: Handle Array, Struct, etc.
+            case semantic::Type::Kind::Array: {
+                // Lower Array[T] to IR ptr<T> (arrays are heap-allocated pointers)
+                auto* arrType = dynamic_cast<semantic::ArrayType*>(semType.get());
+                if (arrType) {
+                    auto elementIRType = lower(arrType->elementType());
+                    return std::make_shared<IRPointerType>(elementIRType);
+                }
+                return std::make_shared<IRPrimitiveType>(IRType::Kind::Void);
+            }
+
+            // TODO: Handle Struct, etc.
 
             default:
                 // Fallback

@@ -6,6 +6,7 @@
 #include <string>
 #include <memory>
 #include "FunctionInfo.hpp"
+#include "gc/TypeRegistry.hpp"
 
 namespace volta::vm {    
 using byte = uint8_t;
@@ -42,6 +43,9 @@ public:
 
     // === Code Stream ===
     std::vector<byte> bytecode;
+
+    // === Type medatadata ===
+    std::unordered_map<uint32_t, Volta::GC::TypeInfo> typeTable_;
 
     index addFunction(
         std::string name,
@@ -107,6 +111,8 @@ public:
     uint16_t fetchU16(uint32_t& ip) const;
     int16_t fetchI16(uint32_t& ip) const;
     uint8_t peekByte(uint32_t ip) const;
+    uint16_t peekU16(uint32_t ip) const;
+    int16_t peekI16(uint32_t ip) const;
 
 
     // Validation function
@@ -127,6 +133,22 @@ public:
     auto begin() const { return functions.begin(); }
     auto end() const { return functions.end(); }
 
+    // ========== TYPE METADATA (for GC) ==========
+
+    /**
+     * Register a type for GC tracing
+     */
+    void registerType(uint32_t typeId, const Volta::GC::TypeInfo& info);
+
+    /**
+     * Get type information for GC
+     */
+    const Volta::GC::TypeInfo* getTypeInfo(uint32_t typeId) const;
+
+    /**
+     * Check if a type is registered
+     */
+    bool hasType(uint32_t typeId) const;
     /* Future stuff
         void serialize(std::ostream& out) const;
         static std::unique_ptr<BytecodeModule> deserialize(std::istream& in);

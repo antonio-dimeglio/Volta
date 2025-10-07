@@ -1,0 +1,21 @@
+# Comprehensive array operations test
+arr1: Array[int] = [1, 2, 3, 4, 5]
+for val in arr1 {
+    print(val)
+}
+
+arr2: Array[int] = [10, 20, 30, 40, 50]
+for val in arr2 {
+    if val == 30 {
+        continue
+    }
+    print(val)
+}
+
+arr3: Array[int] = [100, 200, 300, 400, 500]
+for val in arr3 {
+    if val == 300 {
+        break
+    }
+    print(val)
+}

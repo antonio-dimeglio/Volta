@@ -1,0 +1,16 @@
+# Nested loop tests
+outer: Array[int] = [1, 2]
+inner: Array[int] = [10, 20]
+for o in outer {
+    for i in inner {
+        sum: int = o + i
+        print(sum)
+    }
+}
+
+for i in 0..2 {
+    for j in 0..2 {
+        product: int = i * 10 + j
+        print(product)
+    }
+}

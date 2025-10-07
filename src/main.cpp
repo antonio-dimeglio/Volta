@@ -9,7 +9,9 @@
 #include "IR/Verifier.hpp"
 #include "IR/OptimizationPass.hpp"
 #include "vm/BytecodeCompiler.hpp"
+#include "vm/BytecodeDecompiler.hpp"
 #include "vm/VM.hpp"
+#include "CLI11.hpp"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -22,12 +24,17 @@ using namespace volta::errors;
 using namespace volta::ir;
 using namespace volta::vm;
 
-void printUsage(const char* programName) {
-    std::cout << "Volta Programming Language\n";
-    std::cout << "Usage:\n";
-    std::cout << "  " << programName << "              Start REPL\n";
-    std::cout << "  " << programName << " <file.vlt>  Run Volta script\n";
-}
+struct CompilerOptions {
+    std::string inputFile;
+    bool dumpTokens = false;
+    bool dumpAST = false;
+    bool dumpIR = false;
+    bool dumpBytecode = false;
+    bool optimize = true;
+    bool verifyIR = false;
+    bool execute = true;
+    bool repl = false;
+};
 
 std::string readFile(const std::string& filename) {
     std::ifstream file(filename);
@@ -40,84 +47,113 @@ std::string readFile(const std::string& filename) {
     return buffer.str();
 }
 
-void runFile(const std::string& filename) {
-    try {
-        std::string source = readFile(filename);
-        Lexer lexer (source);
-        auto tokens = lexer.tokenize();
+void compileAndRun(const std::string& source, const CompilerOptions& options) {
+    // ===== Lexer =====
+    Lexer lexer(source);
+    auto tokens = lexer.tokenize();
 
-        // For now, just print tokens
-        std::cout << "Tokens:\n";
+    if (options.dumpTokens) {
+        std::cout << "=== TOKENS ===\n";
         for (const auto& token : tokens) {
-            std::cout << "  " << tokenTypeToString(token.type)
-                      << " '" << token.lexeme << "'"
-                      << " (line " << token.line << ", col " << token.column << ")\n";
+            if (token.type != TokenType::END_OF_FILE) {
+                std::cout << "  " << tokenTypeToString(token.type)
+                          << " '" << token.lexeme << "'"
+                          << " (line " << token.line << ", col " << token.column << ")\n";
+            }
         }
+        std::cout << "\n";
+    }
 
-        Parser parser(tokens);
-        auto ast = parser.parseProgram();
+    // ===== Parser =====
+    Parser parser(tokens);
+    auto ast = parser.parseProgram();
+
+    if (options.dumpAST) {
+        std::cout << "=== AST ===\n";
         ASTDumper astDumper;
-
-        std::cout << "\nAST:\n";
         std::cout << astDumper.dump(*ast);
+        std::cout << "\n";
+    }
 
-        // Semantic analysis
-        ErrorReporter semanticReporter;
-        volta::semantic::SemanticAnalyzer analyzer(semanticReporter);
-        analyzer.analyze(*ast);
+    // ===== Semantic Analysis =====
+    ErrorReporter semanticReporter;
+    volta::semantic::SemanticAnalyzer analyzer(semanticReporter);
+    analyzer.analyze(*ast);
 
-        if (semanticReporter.hasErrors()) {
-            std::cerr << "\nSemantic Analysis Errors:\n";
-            semanticReporter.printErrors(std::cerr);
-            return;
-        }
+    if (semanticReporter.hasErrors()) {
+        std::cerr << "\n=== SEMANTIC ANALYSIS ERRORS ===\n";
+        semanticReporter.printErrors(std::cerr);
+        return;
+    }
 
-        std::cout << "\nSemantic analysis passed!\n";
+    std::cout << "Semantic analysis passed!\n";
 
-        auto module = generateIR(*ast, analyzer, "program");
-        if (!module) {
-            std::cerr << "IR generation failed\n";
-            exit(1);
-        }
+    // ===== IR Generation =====
+    auto module = generateIR(*ast, analyzer, "program");
+    if (!module) {
+        std::cerr << "IR generation failed\n";
+        exit(1);
+    }
 
-        PassManager pm; 
+    // ===== Optimization =====
+    if (options.optimize) {
+        PassManager pm;
         pm.addPass(std::make_unique<ConstantFoldingPass>());
         pm.addPass(std::make_unique<ConstantPropagationPass>());
-        pm.addPass(std::make_unique<Mem2RegPass>());
+        // pm.addPass(std::make_unique<Mem2RegPass>());  // TODO: Fix for multi-store variables (loops)
         pm.addPass(std::make_unique<InstructionSimplifyPass>());
         pm.addPass(std::make_unique<DeadCodeEliminationPass>());
         pm.addPass(std::make_unique<SimplifyCFG>());
         pm.addPass(std::make_unique<DeadCodeEliminationPass>());
 
         if (pm.run(*module)) {
-            std::cout << "Performed IR code optimization \n";
+            std::cout << "Optimizations applied\n";
         }
+    }
 
-        IRPrinter irPrinter;
-        std::cout << irPrinter.printModule(*module) << "\n";
-
+    // ===== IR Verification =====
+    if (options.verifyIR) {
         Verifier verifier;
         if (!verifier.verify(*module)) {
-            std::cerr << "IR verification failed:\n";
+            std::cerr << "\n=== IR VERIFICATION FAILED ===\n";
             for (const auto& error : verifier.getErrors()) {
                 std::cerr << "  - " << error << "\n";
             }
             exit(1);
         }
+        std::cout << "IR verification passed\n";
+    }
 
+    // ===== IR Dump =====
+    if (options.dumpIR) {
+        std::cout << "\n=== IR ===\n";
+        IRPrinter irPrinter;
+        std::cout << irPrinter.printModule(*module) << "\n";
+    }
 
-        BytecodeCompiler bc;
-        auto bcModule = bc.compile(std::move(module));
+    // ===== Bytecode Compilation =====
+    BytecodeCompiler bc;
+    auto bcModule = bc.compile(std::move(module));
 
-        std::cout << "\n";
-        bcModule->printSummary(std::cout);
-        bcModule->printFunctionTable(std::cout);
-        bcModule->printConstantPools(std::cout);
+    if (options.dumpBytecode) {
+        std::cout << "\n=== BYTECODE DISASSEMBLY ===\n";
+        BytecodeDecompiler decompiler(*bcModule, std::cout);
+        decompiler.disassemble();
+    }
 
+    // ===== Execution =====
+    if (options.execute) {
+        std::cout << "\n=== EXECUTION ===\n";
         VM vm;
         auto res = vm.execute(*bcModule, "__main");
-        std::cout << "Final value after execution: " << res.toString() << "\n";
+        std::cout << "\nFinal value: " << res.toString() << "\n";
+    }
+}
 
+void runFile(const std::string& filename, const CompilerOptions& options) {
+    try {
+        std::string source = readFile(filename);
+        compileAndRun(source, options);
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
     }
@@ -160,20 +196,49 @@ void runRepl() {
 }
 
 int main(int argc, char* argv[]) {
-    if (argc == 1) {
-        // No arguments - start REPL
+    CLI::App app{"Volta Programming Language Compiler"};
+
+    CompilerOptions options;
+
+    // Positional argument for input file
+    app.add_option("input", options.inputFile, "Input Volta source file (.volta)")
+        ->check(CLI::ExistingFile);
+
+    // Dump flags
+    app.add_flag("--dump-tokens", options.dumpTokens, "Dump lexer tokens");
+    app.add_flag("--dump-ast", options.dumpAST, "Dump abstract syntax tree");
+    app.add_flag("--dump-ir", options.dumpIR, "Dump intermediate representation");
+    app.add_flag("--dump-bytecode", options.dumpBytecode, "Dump bytecode disassembly");
+
+    // Optimization flags
+    auto* optGroup = app.add_option_group("Optimization", "Optimization options");
+    optGroup->add_flag("-O,--optimize", options.optimize, "Enable optimizations (default: on)")
+        ->default_val(true);
+    optGroup->add_flag("--no-optimize", [&](int64_t) { options.optimize = false; },
+        "Disable optimizations (-O0)");
+
+    // Verification
+    app.add_flag("--verify-ir", options.verifyIR, "Enable IR verification");
+
+    // Execution flags
+    auto* execGroup = app.add_option_group("Execution", "Execution options");
+    execGroup->add_flag("-e,--execute", options.execute, "Execute the compiled bytecode (default: on)")
+        ->default_val(true);
+    execGroup->add_flag("--no-execute", [&](int64_t) { options.execute = false; },
+        "Compile only, don't execute");
+
+    // REPL mode
+    app.add_flag("-r,--repl", options.repl, "Start REPL (interactive mode)");
+
+    CLI11_PARSE(app, argc, argv);
+
+    // If no input file and not REPL mode, start REPL
+    if (options.inputFile.empty() && !options.repl) {
         runRepl();
-    } else if (argc == 2) {
-        // One argument - run file
-        std::string filename = argv[1];
-        if (filename == "--help" || filename == "-h") {
-            printUsage(argv[0]);
-            return 0;
-        }
-        runFile(filename);
+    } else if (options.repl) {
+        runRepl();
     } else {
-        printUsage(argv[0]);
-        return 1;
+        runFile(options.inputFile, options);
     }
 
     return 0;

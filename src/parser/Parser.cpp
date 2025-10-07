@@ -26,6 +26,8 @@ std::unique_ptr<volta::ast::Statement> Parser::parseStatement() {
     if (match(TokenType::WHILE)) return parseWhileStatement();
     if (match(TokenType::FOR)) return parseForStatement();
     if (match(TokenType::RETURN)) return parseReturnStatement();
+    if (match(TokenType::BREAK)) return parseBreakStatement();
+    if (match(TokenType::CONTINUE)) return parseContinueStatement();
     if (match(TokenType::IMPORT)) return parseImportStatement();
     if (match(TokenType::FUNCTION)) return parseFnDeclaration();
     if (match(TokenType::STRUCT)) return parseStructDeclaration();
@@ -142,6 +144,16 @@ std::unique_ptr<volta::ast::ReturnStatement> Parser::parseReturnStatement() {
             startLoc
         );
     }
+}
+
+std::unique_ptr<volta::ast::BreakStatement> Parser::parseBreakStatement() {
+    auto startLoc = currentLocation();
+    return std::make_unique<BreakStatement>(startLoc);
+}
+
+std::unique_ptr<volta::ast::ContinueStatement> Parser::parseContinueStatement() {
+    auto startLoc = currentLocation();
+    return std::make_unique<ContinueStatement>(startLoc);
 }
 
 std::unique_ptr<volta::ast::ImportStatement> Parser::parseImportStatement() {
@@ -676,7 +688,22 @@ std::unique_ptr<volta::ast::Expression> Parser::parsePrimary() {
             if (check(TokenType::IDENTIFIER)) {
                 advance(); // consume identifier
                 if (check(TokenType::COLON)) {
-                    isStructLiteral = true;
+                    advance(); // consume :
+                    // Distinguish between:
+                    // - struct literal: { field: value }
+                    // - variable decl: { name: type = value }
+                    // If followed by identifier and then =, it's a variable declaration
+                    if (check(TokenType::IDENTIFIER)) {
+                        advance(); // consume type
+                        if (!check(TokenType::ASSIGN)) {
+                            // No = sign, so it's a struct literal
+                            isStructLiteral = true;
+                        }
+                        // else: has = sign, so it's a variable declaration in a block
+                    } else {
+                        // Not an identifier after colon, must be struct literal
+                        isStructLiteral = true;
+                    }
                 }
             } else if (check(TokenType::RBRACE)) {
                 // Empty braces - could be empty struct

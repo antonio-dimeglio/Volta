@@ -28,6 +28,8 @@ public:
     std::unique_ptr<volta::ast::WhileStatement> parseWhileStatement();
     std::unique_ptr<volta::ast::ForStatement> parseForStatement();
     std::unique_ptr<volta::ast::ReturnStatement> parseReturnStatement();
+    std::unique_ptr<volta::ast::BreakStatement> parseBreakStatement();
+    std::unique_ptr<volta::ast::ContinueStatement> parseContinueStatement();
     std::unique_ptr<volta::ast::ImportStatement> parseImportStatement();
 
     // Declaration parsing

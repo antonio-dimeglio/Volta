@@ -43,8 +43,8 @@ TEST_F(BytecodeCompilerTest, CompileEmptyFunction) {
     ASSERT_NE(bytecode, nullptr);
     EXPECT_TRUE(bytecode->verify());
 
-    // Should have 1 native function (print) + 1 user function
-    EXPECT_EQ(bytecode->getFunctionCount(), 2);
+    // Should have 4 native functions (print_i64, print_f64, print_bool, print_str) + 1 user function
+    EXPECT_EQ(bytecode->getFunctionCount(), 5);
 }
 
 TEST_F(BytecodeCompilerTest, CompileSimpleReturn) {
@@ -257,7 +257,7 @@ TEST_F(BytecodeCompilerTest, RegisterAllocationWithParameters) {
     EXPECT_TRUE(bytecode->verify());
 
     // Check function metadata
-    auto funcInfo = bytecode->getFunction(1);  // Index 0 is print
+    auto funcInfo = bytecode->getFunction(4);  // Index 0-3 are print functions
     EXPECT_EQ(funcInfo.getParamCount(), 3);
     EXPECT_GE(funcInfo.getRegisterCount(), 3);  // At least 3 for params
 }
@@ -290,7 +290,7 @@ TEST_F(BytecodeCompilerTest, CompileFunctionCall) {
 
     ASSERT_NE(bytecode, nullptr);
     EXPECT_TRUE(bytecode->verify());
-    EXPECT_EQ(bytecode->getFunctionCount(), 3);  // print + callee + caller
+    EXPECT_EQ(bytecode->getFunctionCount(), 6);  // 4 print functions + callee + caller
 }
 
 // ============================================================================
@@ -397,11 +397,16 @@ TEST_F(BytecodeCompilerTest, PrintFunctionRegistered) {
 
     ASSERT_NE(bytecode, nullptr);
 
-    // Check print is registered at index 0
-    auto printFunc = bytecode->getFunction(0);
-    EXPECT_EQ(printFunc.getName(), "print");
-    EXPECT_EQ(printFunc.getParamCount(), 1);
-    EXPECT_TRUE(printFunc.isNative());
+    // Check print functions are registered at indices 0-3
+    auto printFunc0 = bytecode->getFunction(0);
+    EXPECT_EQ(printFunc0.getName(), "print_i64");
+    EXPECT_EQ(printFunc0.getParamCount(), 1);
+    EXPECT_TRUE(printFunc0.isNative());
+
+    auto printFunc3 = bytecode->getFunction(3);
+    EXPECT_EQ(printFunc3.getName(), "print_str");
+    EXPECT_EQ(printFunc3.getParamCount(), 1);
+    EXPECT_TRUE(printFunc3.isNative());
 }
 
 // ============================================================================

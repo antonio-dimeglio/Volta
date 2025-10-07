@@ -3,11 +3,16 @@
 #include <stdexcept>
 #include <cmath>
 #include <iostream>
+#include <cstring>
+#include "vm/VMTypeRegistry.hpp"
+#include "gc/GarbageCollector.hpp"
 
 namespace volta::vm {
 
 VM::~VM() {
-    // Nothing to clean up (RAII handles everything)
+
+    delete gc_;
+    delete typeRegistry_;
 }
 
 Value VM::execute(BytecodeModule& module, const std::string& functionName) {
@@ -20,6 +25,35 @@ Value VM::execute(
     const std::vector<Value>& args) {
     
     module_ = &mod;
+    typeRegistry_->setModule(&mod);
+
+    // Register built-in types if not already registered
+    if (!mod.hasType(4)) {  // TYPE_ID_STRING = 4
+        Volta::GC::TypeInfo stringType;
+        stringType.kind = Volta::GC::TypeInfo::OBJECT;
+        stringType.elementTypeId = 0;
+        stringType.pointerFieldOffsets = {};  // Strings don't contain pointers
+        mod.registerType(4, stringType);
+    }
+
+    // Register primitive type for int64 (used by arrays)
+    if (!mod.hasType(1)) {  // TYPE_ID_INT64 = 1
+        Volta::GC::TypeInfo int64Type;
+        int64Type.kind = Volta::GC::TypeInfo::PRIMITIVE;
+        int64Type.elementTypeId = 0;
+        int64Type.pointerFieldOffsets = {};
+        mod.registerType(1, int64Type);
+    }
+
+    // Register array of int64 type
+    if (!mod.hasType(100)) {  // TYPE_ID_ARRAY_INT64 = 100
+        Volta::GC::TypeInfo arrayInt64Type;
+        arrayInt64Type.kind = Volta::GC::TypeInfo::OBJECT;
+        arrayInt64Type.elementTypeId = 1;  // Elements are int64 (primitive)
+        arrayInt64Type.pointerFieldOffsets = {};  // int64 elements don't contain pointers
+        mod.registerType(100, arrayInt64Type);
+    }
+
     
     if (!module_->hasFunction(functionName)) {
         throw std::runtime_error("Function not found: " + functionName);
@@ -208,8 +242,18 @@ Value VM::run() {
             case Opcode::LOAD_CONST_STRING: {
                 uint8_t dest = readByte(frame);
                 uint16_t constIdx = readShort(frame);
-                (void)dest;  // TODO: Need to create a String object from the string constant
-                (void)constIdx;  // For now, stub it out or skip
+
+                // Get string from constant pool
+                const std::string& str = module_->getStringConstant(constIdx);
+
+                // Allocate string using GC
+                Volta::GC::StringObject* strObj = gc_->allocateString(str.length());
+                
+                // Copy string data
+                memcpy(strObj->data, str.c_str(), str.length());
+                strObj->data[str.length()] = '\0';
+
+                frame.registers[dest] = Value::makeObject((Volta::GC::Object*)strObj);
                 break;
             }
 
@@ -309,16 +353,145 @@ Value VM::run() {
                 }
                 break;
             }
-            case Opcode::ARRAY_GET:
-            case Opcode::ARRAY_SET:
-            case Opcode::ARRAY_LEN:
-            case Opcode::ARRAY_NEW:
+            case Opcode::ARRAY_NEW: {
+                // Format: ARRAY_NEW dest, size_reg
+                // Creates an array with 'size' elements, stores pointer in dest
+                // For now, we'll create int64 arrays (type ID will be added later)
+                uint8_t dest = readByte(frame);
+                uint8_t sizeReg = readByte(frame);
+
+                Value sizeVal = frame.registers[sizeReg];
+                if (sizeVal.type != ValueType::INT64) {
+                    throw std::runtime_error("ARRAY_NEW: size must be an integer");
+                }
+
+                int64_t arraySizeInt = sizeVal.as.as_i64;
+                if (arraySizeInt < 0) {
+                    throw std::runtime_error("ARRAY_NEW: array size cannot be negative");
+                }
+                size_t arraySize = static_cast<size_t>(arraySizeInt);
+
+                // Allocate array via GC
+                // For now: assume int64 elements (8 bytes each), type ID = 1 (primitive)
+                uint32_t elementTypeId = 1; // TODO: get from bytecode or infer
+                size_t elementSize = 8; // int64
+
+                Volta::GC::ArrayObject* arr = gc_->allocateArray(arraySize, elementTypeId, elementSize);
+
+                // Initialize elements to 0
+                for (size_t i = 0; i < arraySize; i++) {
+                    int64_t* slot = (int64_t*)&arr->elements[i * elementSize];
+                    *slot = 0;
+                }
+
+                frame.registers[dest] = Value::makeObject((Volta::GC::Object*)arr);
+                break;
+            }
+
+            case Opcode::ARRAY_LEN: {
+                // Format: ARRAY_LEN dest, array_reg
+                // Gets the length of an array
+                uint8_t dest = readByte(frame);
+                uint8_t arrayReg = readByte(frame);
+
+                Value arrayVal = frame.registers[arrayReg];
+                if (arrayVal.type != ValueType::OBJECT || arrayVal.as.as_obj == nullptr) {
+                    throw std::runtime_error("ARRAY_LEN: not an object");
+                }
+
+                Volta::GC::Object* obj = arrayVal.as.as_obj;
+                if (obj->header.type != Volta::GC::OBJ_ARRAY) {
+                    throw std::runtime_error("ARRAY_LEN: not an array");
+                }
+
+                Volta::GC::ArrayObject* arr = (Volta::GC::ArrayObject*)obj;
+                frame.registers[dest] = Value::makeInt(static_cast<int64_t>(arr->length));
+                break;
+            }
+
+            case Opcode::ARRAY_GET: {
+                // Format: ARRAY_GET dest, array_reg, index_reg
+                // Gets element at index from array
+                uint8_t dest = readByte(frame);
+                uint8_t arrayReg = readByte(frame);
+                uint8_t indexReg = readByte(frame);
+
+                Value arrayVal = frame.registers[arrayReg];
+                Value indexVal = frame.registers[indexReg];
+
+                if (arrayVal.type != ValueType::OBJECT || arrayVal.as.as_obj == nullptr) {
+                    throw std::runtime_error("ARRAY_GET: not an object");
+                }
+                if (indexVal.type != ValueType::INT64) {
+                    throw std::runtime_error("ARRAY_GET: index must be an integer");
+                }
+
+                Volta::GC::Object* obj = arrayVal.as.as_obj;
+                if (obj->header.type != Volta::GC::OBJ_ARRAY) {
+                    throw std::runtime_error("ARRAY_GET: not an array");
+                }
+
+                Volta::GC::ArrayObject* arr = (Volta::GC::ArrayObject*)obj;
+                int64_t index = indexVal.as.as_i64;
+
+                if (index < 0 || static_cast<size_t>(index) >= arr->length) {
+                    throw std::runtime_error("ARRAY_GET: index out of bounds");
+                }
+
+                // For now, assume int64 elements
+                size_t elementSize = 8;
+                int64_t* elementPtr = (int64_t*)&arr->elements[index * elementSize];
+                frame.registers[dest] = Value::makeInt(*elementPtr);
+                break;
+            }
+
+            case Opcode::ARRAY_SET: {
+                // Format: ARRAY_SET array_reg, index_reg, value_reg
+                // Sets element at index in array
+                uint8_t arrayReg = readByte(frame);
+                uint8_t indexReg = readByte(frame);
+                uint8_t valueReg = readByte(frame);
+
+                Value arrayVal = frame.registers[arrayReg];
+                Value indexVal = frame.registers[indexReg];
+                Value valueVal = frame.registers[valueReg];
+
+                if (arrayVal.type != ValueType::OBJECT || arrayVal.as.as_obj == nullptr) {
+                    throw std::runtime_error("ARRAY_SET: not an object");
+                }
+                if (indexVal.type != ValueType::INT64) {
+                    throw std::runtime_error("ARRAY_SET: index must be an integer");
+                }
+
+                Volta::GC::Object* obj = arrayVal.as.as_obj;
+                if (obj->header.type != Volta::GC::OBJ_ARRAY) {
+                    throw std::runtime_error("ARRAY_SET: not an array");
+                }
+
+                Volta::GC::ArrayObject* arr = (Volta::GC::ArrayObject*)obj;
+                int64_t index = indexVal.as.as_i64;
+
+                if (index < 0 || static_cast<size_t>(index) >= arr->length) {
+                    throw std::runtime_error("ARRAY_SET: index out of bounds");
+                }
+
+                // For now, assume int64 elements
+                if (valueVal.type != ValueType::INT64) {
+                    throw std::runtime_error("ARRAY_SET: value must be int64 for now");
+                }
+
+                size_t elementSize = 8;
+                int64_t* elementPtr = (int64_t*)&arr->elements[index * elementSize];
+                *elementPtr = valueVal.as.as_i64;
+                break;
+            }
+
             case Opcode::ARRAY_SLICE:
             case Opcode::STRING_LEN:
             case Opcode::IS_SOME:
             case Opcode::OPTION_WRAP:
             case Opcode::OPTION_UNWRAP:
-                throw std::runtime_error("Array/string/option operations not yet implemented");
+                throw std::runtime_error("String/option operations not yet implemented");
         }
     }
 }
@@ -670,4 +843,22 @@ void VM::callFunction(FunctionInfo* function, const std::vector<Value>& args, ui
 Value VM::callNativeFunction(RuntimeFunctionPtr function, const std::vector<Value>& args) {
     return function(this, const_cast<Value*>(args.data()), args.size());
 }
+
+std::vector<Volta::GC::Object**> VM::getRoots() {
+    std::vector<Volta::GC::Object**> roots;
+    
+    // Iterate through all frames in the call stack
+    for (Frame& frame : callStack) {
+        // Check each register in the frame
+        for (Value& val : frame.registers) {
+            if (val.type == ValueType::OBJECT && val.as.as_obj != nullptr) {
+                // Get pointer to the object pointer inside the Value
+                roots.push_back(&val.as.as_obj);
+            }
+        }
+    }
+    
+    return roots;
+}
+
 }

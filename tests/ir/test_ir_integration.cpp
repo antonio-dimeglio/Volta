@@ -440,12 +440,7 @@ protected:
 
         return module;
     }
-
-    void printIR(const Module& module) {
-        IRPrinter printer;
-        std::cout << printer.printModule(module) << std::endl;
-    }
-
+    
     bool verifyIRModule(const Module& module) {
         Verifier verifier;
         if (!verifier.verify(module)) {
@@ -483,7 +478,6 @@ fn test(x: int) -> int {
     ASSERT_TRUE(module);
 
     std::cout << "\n=== SimpleIfElse ===\n";
-    printIR(*module);
 
     EXPECT_TRUE(verifyIRModule(*module));
 
@@ -509,7 +503,6 @@ fn test(x: int) -> int {
     ASSERT_TRUE(module);
 
     std::cout << "\n=== SingleElseIf ===\n";
-    printIR(*module);
 
     EXPECT_TRUE(verifyIRModule(*module));
 
@@ -541,7 +534,6 @@ fn test(x: int) -> int {
     ASSERT_TRUE(module);
 
     std::cout << "\n=== MultipleElseIfs ===\n";
-    printIR(*module);
 
     EXPECT_TRUE(verifyIRModule(*module));
 
@@ -570,7 +562,6 @@ fn test(x: int) -> int {
     ASSERT_TRUE(module);
 
     std::cout << "\n=== ElseIfWithAssignments ===\n";
-    printIR(*module);
 
     EXPECT_TRUE(verifyIRModule(*module));
 
@@ -600,7 +591,6 @@ fn test(x: int, y: int) -> int {
     ASSERT_TRUE(module);
 
     std::cout << "\n=== NestedIfElseIf ===\n";
-    printIR(*module);
 
     EXPECT_TRUE(verifyIRModule(*module));
 }
@@ -622,7 +612,6 @@ fn classify(x: int) -> int {
     ASSERT_TRUE(module);
 
     std::cout << "\n=== DetailedBlockAnalysis ===\n";
-    printIR(*module);
 
     EXPECT_TRUE(verifyIRModule(*module));
 

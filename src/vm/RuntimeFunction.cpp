@@ -30,9 +30,16 @@ Value runtime_print(VM* vm, Value* args, int arg_count) {
         case ValueType::BOOL:
             std::cout << (arg.as.as_b ? "true" : "false") << std::endl;
             break;
-        case ValueType::OBJECT:
-            std::cout << "<object>" << std::endl;
+        case ValueType::OBJECT: {
+            Volta::GC::Object* obj = arg.as.as_obj;
+            if (obj && obj->header.type == Volta::GC::OBJ_STRING) {
+                Volta::GC::StringObject* str = (Volta::GC::StringObject*)obj;
+                std::cout << std::string(str->data, str->length) << std::endl;
+            } else {
+                std::cout << "<object>" << std::endl;
+            }
             break;
+        }
         case ValueType::NONE:
             std::cout << "none" << std::endl;
             break;

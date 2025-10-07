@@ -45,13 +45,20 @@ public:
     std::optional<Symbol> lookup(const std::string& name);
     std::optional<Symbol> lookupInCurrentScope(const std::string& name);
 
+    // Overload resolution
+    std::vector<Symbol> lookupAllOverloads(const std::string& name);
+    std::vector<Symbol> lookupAllOverloadsInCurrentScope(const std::string& name);
+    std::optional<Symbol> lookupOverload(const std::string& name,
+                                         const std::vector<std::shared_ptr<Type>>& argTypes);
+
     // Check if variable is mutable (for assignment checking)
     bool isMutable(const std::string& name);
 
 private:
     struct Scope {
-        std::unordered_map<std::string, Symbol> symbols;
+        std::unordered_map<std::string, std::vector<Symbol>> symbols;
     };
+    bool signaturesMatch(const Type* t1, const Type* t2);
 
     std::vector<Scope> scopes_;
 };

@@ -83,6 +83,8 @@ const std::unordered_map<std::string, TokenType>& getKeywords() {
         {"while", TokenType::WHILE},
         {"for", TokenType::FOR},
         {"in", TokenType::IN},
+        {"break", TokenType::BREAK},
+        {"continue", TokenType::CONTINUE},
         {"match", TokenType::MATCH},
         {"struct", TokenType::STRUCT},
         {"mut", TokenType::MUT},

@@ -2,36 +2,10 @@
 
 #include <stdint.h>
 #include <sstream>
+#include "gc/Object.hpp"
 
 namespace volta::vm {
 #define GC_MARKED_BIT 0x01
-
-
-enum class ObjectType {
-    ARRAY,
-    STRING,
-    CLOSURE,
-    OPTION_SOME,
-    TUPLE,
-    STRUCT
-};
-
-
-struct Object {
-    ObjectType type;
-
-    // GC Metadata
-    uint8_t gc_flags;
-    uint8_t generation;
-    uint8_t age;
-
-    // Allocation list
-    Object* gc_next;
-
-    inline bool isMarked() { return gc_flags & GC_MARKED_BIT; }
-    inline void set_marked() { gc_flags |= GC_MARKED_BIT; }
-    inline void clear_marked() { gc_flags &= ~GC_MARKED_BIT; }
-};
 
 enum class ValueType {
     INT64,
@@ -47,7 +21,7 @@ struct Value {
         int64_t as_i64;
         double as_f64;
         bool as_b;
-        Object* as_obj;
+        Volta::GC::Object* as_obj;
     } as;
 
     // Helper factory functions for clean initialization
@@ -72,7 +46,7 @@ struct Value {
         return v;
     }
 
-    static inline Value makeObject(Object* obj) {
+    static inline Value makeObject(Volta::GC::Object* obj) {
         Value v;
         v.type = ValueType::OBJECT;
         v.as.as_obj = obj;
@@ -99,15 +73,8 @@ struct Value {
             case ValueType::OBJECT:
                 if (as.as_obj == nullptr)
                     return "<null object>";
-                switch (as.as_obj->type) {
-                    case ObjectType::ARRAY:   return "<array>";
-                    case ObjectType::STRING:  return "<string>";
-                    case ObjectType::CLOSURE: return "<closure>";
-                    case ObjectType::OPTION_SOME: return "<option>";
-                    case ObjectType::TUPLE:   return "<tuple>";
-                    case ObjectType::STRUCT:  return "<struct>";
-                    default:                  return "<object>";
-                }
+                
+                return "<object>";
             case ValueType::NONE:
                 return "none";
             default:

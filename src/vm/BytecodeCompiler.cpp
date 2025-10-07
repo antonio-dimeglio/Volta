@@ -52,6 +52,18 @@ void BytecodeCompiler::compileFunction(ir::Function* func) {
         module_->getCurrentOffset()
     );
 
+    // Emit moves to copy incoming parameters from r0, r1, ... to their allocated registers
+    // This prevents parameters from being clobbered when we use r0, r1, ... for function calls
+    for (size_t i = 0; i < func->getNumParams(); i++) {
+        auto* param = func->getParam(i);
+        byte paramReg = i;                                    // Incoming param in r0, r1, r2, ...
+        byte allocatedReg = currentFunction_->valueToRegister[param];  // Allocated safe register
+
+        if (paramReg != allocatedReg) {
+            emitMove(allocatedReg, paramReg);
+        }
+    }
+
     for (auto* block : func->getBlocks()) {
         compileBasicBlock(block);
     }
@@ -779,12 +791,11 @@ void BytecodeCompiler::compileUnaryOp(ir::Instruction* inst, void (BytecodeCompi
 }
 
 void BytecodeCompiler::registerRuntimeFunctions() {
-    // Register print at function index 0
-    module_->addNativeFunction(
-        "print",
-        runtime_print,
-        1  
-    );
+    // Register all print overloads with mangled names
+    module_->addNativeFunction("print_i64", runtime_print, 1);
+    module_->addNativeFunction("print_f64", runtime_print, 1);
+    module_->addNativeFunction("print_bool", runtime_print, 1);
+    module_->addNativeFunction("print_str", runtime_print, 1);
 }
 
 } // namespace volta::vm

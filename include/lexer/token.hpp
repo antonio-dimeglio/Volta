@@ -56,6 +56,8 @@ enum class TokenType {
     WHILE,
     FOR,
     IN,
+    BREAK,
+    CONTINUE,
     MATCH,
     STRUCT,
     MUT,

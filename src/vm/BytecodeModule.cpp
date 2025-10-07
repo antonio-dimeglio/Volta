@@ -211,6 +211,18 @@ uint8_t BytecodeModule::peekByte(uint32_t ip) const {
     return bytecode[ip];
 }
 
+uint16_t BytecodeModule::peekU16(uint32_t ip) const {
+    uint16_t b1 = bytecode[ip];
+    uint16_t b2 = bytecode[ip + 1];
+    return static_cast<uint16_t>(b1 | (b2 << 8));
+}
+
+int16_t BytecodeModule::peekI16(uint32_t ip) const {
+    uint16_t b1 = bytecode[ip];
+    uint16_t b2 = bytecode[ip + 1];
+    return static_cast<int16_t>(b1 | (b2 << 8));
+}
+
 bool BytecodeModule::verify(std::string* error_msg) const {
     // Helper macro for setting error message
     auto set_error = [error_msg](const std::string& msg) {
@@ -367,6 +379,24 @@ void BytecodeModule::printConstantPools(std::ostream& out) const {
     }
 
     out << "════════════════════════════════════════════\n";
+}
+
+// ========== TYPE METADATA ==========
+
+void BytecodeModule::registerType(uint32_t typeId, const Volta::GC::TypeInfo& info) {
+    typeTable_[typeId] = info;
+}
+
+const Volta::GC::TypeInfo* BytecodeModule::getTypeInfo(uint32_t typeId) const {
+    auto it = typeTable_.find(typeId);
+    if (it == typeTable_.end()) {
+        return nullptr;
+    }
+    return &it->second;
+}
+
+bool BytecodeModule::hasType(uint32_t typeId) const {
+    return typeTable_.find(typeId) != typeTable_.end();
 }
 
 

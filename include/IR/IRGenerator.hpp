@@ -141,6 +141,18 @@ public:
     void generateReturnStmt(const ast::ReturnStatement* stmt);
 
     /**
+     * Generate IR for break statement
+     * Branches to loop exit block
+     */
+    void generateBreakStmt(const ast::BreakStatement* stmt);
+
+    /**
+     * Generate IR for continue statement
+     * Branches to loop header block
+     */
+    void generateContinueStmt(const ast::ContinueStatement* stmt);
+
+    /**
      * Generate IR for expression statement
      * Evaluates expression, discards result
      */
@@ -379,6 +391,17 @@ public:
     void clearLoopTargets();
 
 private:
+    // ========================================================================
+    // Helper Functions
+    // ========================================================================
+
+    /**
+     * Mangle function name for overload resolution
+     * Example: print(int) -> print_i64, print(str) -> print_str
+     */
+    std::string mangleFunctionName(const std::string& name,
+                                   const std::vector<std::shared_ptr<IRType>>& paramTypes);
+
     // ========================================================================
     // State
     // ========================================================================

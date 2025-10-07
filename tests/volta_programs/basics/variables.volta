@@ -1,0 +1,15 @@
+# Basic variable tests
+x: int = 5
+y: int = 10
+sum: int = x + y
+print(sum)
+
+a: mut int = 0
+a = a + 5
+print(a)
+
+counter: mut int = 0
+for i in 0..5 {
+    counter = counter + 1
+}
+print(counter)
