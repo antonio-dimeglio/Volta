@@ -41,6 +41,8 @@ void ASTDumper::dumpStatement(const Statement& stmt) {
         dumpBlock(*block);
     } else if (auto* ifStmt = dynamic_cast<const IfStatement*>(&stmt)) {
         dumpIfStatement(*ifStmt);
+    } else if (auto* enumDecl = dynamic_cast<const EnumDeclaration*>(&stmt)) { 
+        dumpEnumDeclaration(*enumDecl);
     } else if (auto* whileStmt = dynamic_cast<const WhileStatement*>(&stmt)) {
         dumpWhileStatement(*whileStmt);
     } else if (auto* forStmt = dynamic_cast<const ForStatement*>(&stmt)) {
@@ -83,6 +85,43 @@ void ASTDumper::dumpBlock(const Block& block) {
     for (const auto& stmt : block.statements) {
         dumpStatement(*stmt);
     }
+    decreaseIndent();
+}
+
+void ASTDumper::dumpEnumDeclaration(const EnumDeclaration& stmt) {
+    indent();
+    ss << "EnumDeclaration: " << stmt.name;
+
+    // Print generic type parameters if present
+    if (!stmt.typeParams.empty()) {
+        ss << "[";
+        for (size_t i = 0; i < stmt.typeParams.size(); ++i) {
+            if (i > 0) ss << ", ";
+            ss << stmt.typeParams[i];
+        }
+        ss << "]";
+    }
+    ss << "\n";
+
+    increaseIndent();
+
+    // Dump each variant
+    for (const auto& variant : stmt.variants) {
+        indent();
+        ss << "Variant: " << variant->name;
+
+        if (!variant->associatedTypes.empty()) {
+            ss << "(";
+            for (size_t i = 0; i < variant->associatedTypes.size(); ++i) {
+                if (i > 0) ss << ", ";
+                // Simplified type printing - just show it has types
+                ss << "[type]";
+            }
+            ss << ")";
+        }
+        ss << "\n";
+    }
+
     decreaseIndent();
 }
 
@@ -288,11 +327,8 @@ void ASTDumper::dumpExpression(const Expression& expr) {
         dumpStringLiteral(*strLit);
     } else if (auto* boolLit = dynamic_cast<const BooleanLiteral*>(&expr)) {
         dumpBooleanLiteral(*boolLit);
-    } else if (auto* noneLit = dynamic_cast<const NoneLiteral*>(&expr)) {
-        dumpNoneLiteral(*noneLit);
-    } else if (auto* someLit = dynamic_cast<const SomeLiteral*>(&expr)) {
-        dumpSomeLiteral(*someLit);
-    } else if (auto* arrLit = dynamic_cast<const ArrayLiteral*>(&expr)) {
+    } // Note: NoneLiteral and SomeLiteral removed - now enum variants
+    else if (auto* arrLit = dynamic_cast<const ArrayLiteral*>(&expr)) {
         dumpArrayLiteral(*arrLit);
     } else if (auto* tupLit = dynamic_cast<const TupleLiteral*>(&expr)) {
         dumpTupleLiteral(*tupLit);
@@ -346,18 +382,7 @@ void ASTDumper::dumpBooleanLiteral(const BooleanLiteral& lit) {
     ss << "BooleanLiteral: " << (lit.value ? "true" : "false") << "\n";
 }
 
-void ASTDumper::dumpNoneLiteral(const NoneLiteral& lit) {
-    indent();
-    ss << "NoneLiteral\n";
-}
-
-void ASTDumper::dumpSomeLiteral(const SomeLiteral& lit) {
-    indent();
-    ss << "SomeLiteral\n";
-    increaseIndent();
-    dumpExpression(*lit.value);
-    decreaseIndent();
-}
+// Note: dumpNoneLiteral and dumpSomeLiteral removed - now enum variants
 
 void ASTDumper::dumpArrayLiteral(const ArrayLiteral& lit) {
     indent();

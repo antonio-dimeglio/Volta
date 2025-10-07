@@ -61,11 +61,10 @@ enum class TokenType {
     MATCH,
     STRUCT,
     MUT,
-    SOME_KEYWORD,
-    NONE_KEYWORD,
     IMPORT,
     AS,
     TYPE,
+    ENUM,
 
     // Delimiters
     LPAREN,

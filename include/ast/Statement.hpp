@@ -214,4 +214,33 @@ struct StructDeclaration : Statement {
         fields(std::move(fields)) {}
 };
 
+struct EnumVariant : Statement {
+    std::string name;
+    std::vector<std::unique_ptr<Type>> associatedTypes;  // Optional: types for variant data
+
+    EnumVariant(
+        std::string name,
+        std::vector<std::unique_ptr<Type>> associatedTypes,
+        volta::errors::SourceLocation location
+    ) : Statement(location), name(std::move(name)),
+        associatedTypes(std::move(associatedTypes)) {}
+};
+
+struct EnumDeclaration : Statement {
+    std::string name;
+    std::vector<std::string> typeParams; 
+    std::vector<std::unique_ptr<EnumVariant>> variants;
+
+    EnumDeclaration(
+        std::string name,
+        std::vector<std::string> typeParams,
+        std::vector<std::unique_ptr<EnumVariant>> variants,
+        volta::errors::SourceLocation location
+    ) : Statement(location),
+        name(name),
+        typeParams(std::move(typeParams)),
+        variants(std::move(variants)) {}
+};
+
+
 }

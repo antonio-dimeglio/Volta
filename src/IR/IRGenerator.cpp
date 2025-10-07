@@ -638,9 +638,7 @@ Value* IRGenerator::generateExpression(const ast::Expression* expr) {
     if (auto* strLit = dynamic_cast<const ast::StringLiteral*>(expr)) {
         return generateStringLiteral(strLit);
     }
-    if (auto* noneLit = dynamic_cast<const ast::NoneLiteral*>(expr)) {
-        return generateNoneLiteral(noneLit);
-    }
+    // Note: Some and None are now enum variants, handled as constructor calls
     if (auto* ident = dynamic_cast<const ast::IdentifierExpression*>(expr)) {
         return generateIdentifier(ident);
     }
@@ -688,20 +686,7 @@ Value* IRGenerator::generateStringLiteral(const ast::StringLiteral* lit) {
     return builder_.getString(lit->value);
 }
 
-Value* IRGenerator::generateNoneLiteral(const ast::NoneLiteral* lit) {
-    // Need to know the Option type - this might come from type annotations
-    // For now, return None with a placeholder type
-    auto optType = builder_.getOptionType(builder_.getIntType());  // Placeholder
-    return builder_.getNone(optType);
-}
-
-Value* IRGenerator::generateSomeLiteral(const ast::SomeLiteral* lit) {
-    (void)lit;  // TODO: Implement
-    reportError("Some literals not yet implemented in IR generation");
-    // 1. Generate inner value
-    // 2. Wrap in Option using OptionWrap
-    return nullptr;
-}
+// Note: generateNoneLiteral and generateSomeLiteral removed - these are now enum variants
 
 Value* IRGenerator::generateArrayLiteral(const ast::ArrayLiteral* lit) {
     if (lit->elements.empty()) {

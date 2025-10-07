@@ -33,6 +33,8 @@ public:
     void dumpProgram(const Program& prog);
     void dumpExpressionStatement(const ExpressionStatement& stmt);
     void dumpBlock(const Block& block);
+    void dumpEnumDeclaration(const EnumDeclaration& stmt);
+    void dumpEnumVariant(const EnumVariant& stmt);
     void dumpIfStatement(const IfStatement& stmt);
     void dumpWhileStatement(const WhileStatement& stmt);
     void dumpForStatement(const ForStatement& stmt);
@@ -49,8 +51,7 @@ public:
     void dumpFloatLiteral(const FloatLiteral& lit);
     void dumpStringLiteral(const StringLiteral& lit);
     void dumpBooleanLiteral(const BooleanLiteral& lit);
-    void dumpNoneLiteral(const NoneLiteral& lit);
-    void dumpSomeLiteral(const SomeLiteral& lit);
+    // Note: None and Some are now enum variants, not special literals
     void dumpArrayLiteral(const ArrayLiteral& lit);
     void dumpTupleLiteral(const TupleLiteral& lit);
     void dumpStructLiteral(const StructLiteral& lit);

@@ -54,17 +54,7 @@ struct BooleanLiteral : Expression {
         : Expression(location), value(value) {}
 };
 
-struct NoneLiteral : Expression {
-    NoneLiteral(volta::errors::SourceLocation location)
-        : Expression(location) {}
-};
-
-struct SomeLiteral : Expression {
-    std::unique_ptr<Expression> value;
-
-    SomeLiteral(std::unique_ptr<Expression> value, volta::errors::SourceLocation location)
-        : Expression(location), value(std::move(value)) {}
-};
+// Note: NoneLiteral and SomeLiteral removed - Some and None are now enum variants
 
 struct ArrayLiteral : Expression {
     std::vector<std::unique_ptr<Expression>> elements;

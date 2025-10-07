@@ -375,6 +375,84 @@ TEST_F(ParserTest, ParseStructDeclarationEmpty) {
 }
 
 // ============================================================================
+// Enum Declaration Tests
+// ============================================================================
+
+TEST_F(ParserTest, ParseEnumDeclarationSimple) {
+    auto parser = createParser("enum Color { Red, Green, Blue }");
+    auto stmt = parser->parseStatement();
+    ASSERT_NE(stmt, nullptr);
+    auto* enumDecl = dynamic_cast<EnumDeclaration*>(stmt.get());
+    ASSERT_NE(enumDecl, nullptr);
+    EXPECT_EQ(enumDecl->name, "Color");
+    EXPECT_EQ(enumDecl->typeParams.size(), 0);
+    EXPECT_EQ(enumDecl->variants.size(), 3);
+    EXPECT_EQ(enumDecl->variants[0]->name, "Red");
+    EXPECT_EQ(enumDecl->variants[1]->name, "Green");
+    EXPECT_EQ(enumDecl->variants[2]->name, "Blue");
+    EXPECT_EQ(enumDecl->variants[0]->associatedTypes.size(), 0);
+}
+
+TEST_F(ParserTest, ParseEnumDeclarationWithData) {
+    auto parser = createParser("enum Option { Some(int), None }");
+    auto stmt = parser->parseStatement();
+    ASSERT_NE(stmt, nullptr);
+    auto* enumDecl = dynamic_cast<EnumDeclaration*>(stmt.get());
+    ASSERT_NE(enumDecl, nullptr);
+    EXPECT_EQ(enumDecl->name, "Option");
+    EXPECT_EQ(enumDecl->typeParams.size(), 0);
+    EXPECT_EQ(enumDecl->variants.size(), 2);
+    EXPECT_EQ(enumDecl->variants[0]->name, "Some");
+    EXPECT_EQ(enumDecl->variants[0]->associatedTypes.size(), 1);
+    EXPECT_EQ(enumDecl->variants[1]->name, "None");
+    EXPECT_EQ(enumDecl->variants[1]->associatedTypes.size(), 0);
+}
+
+TEST_F(ParserTest, ParseEnumDeclarationGeneric) {
+    auto parser = createParser("enum Option[T] { Some(T), None }");
+    auto stmt = parser->parseStatement();
+    ASSERT_NE(stmt, nullptr);
+    auto* enumDecl = dynamic_cast<EnumDeclaration*>(stmt.get());
+    ASSERT_NE(enumDecl, nullptr);
+    EXPECT_EQ(enumDecl->name, "Option");
+    EXPECT_EQ(enumDecl->typeParams.size(), 1);
+    EXPECT_EQ(enumDecl->typeParams[0], "T");
+    EXPECT_EQ(enumDecl->variants.size(), 2);
+    EXPECT_EQ(enumDecl->variants[0]->name, "Some");
+    EXPECT_EQ(enumDecl->variants[0]->associatedTypes.size(), 1);
+    EXPECT_EQ(enumDecl->variants[1]->name, "None");
+}
+
+TEST_F(ParserTest, ParseEnumDeclarationGenericMultipleParams) {
+    auto parser = createParser("enum Result[T, E] { Ok(T), Err(E) }");
+    auto stmt = parser->parseStatement();
+    ASSERT_NE(stmt, nullptr);
+    auto* enumDecl = dynamic_cast<EnumDeclaration*>(stmt.get());
+    ASSERT_NE(enumDecl, nullptr);
+    EXPECT_EQ(enumDecl->name, "Result");
+    EXPECT_EQ(enumDecl->typeParams.size(), 2);
+    EXPECT_EQ(enumDecl->typeParams[0], "T");
+    EXPECT_EQ(enumDecl->typeParams[1], "E");
+    EXPECT_EQ(enumDecl->variants.size(), 2);
+    EXPECT_EQ(enumDecl->variants[0]->name, "Ok");
+    EXPECT_EQ(enumDecl->variants[1]->name, "Err");
+}
+
+TEST_F(ParserTest, ParseEnumDeclarationVariantMultipleTypes) {
+    auto parser = createParser("enum Message { Move(int, int), Write(str) }");
+    auto stmt = parser->parseStatement();
+    ASSERT_NE(stmt, nullptr);
+    auto* enumDecl = dynamic_cast<EnumDeclaration*>(stmt.get());
+    ASSERT_NE(enumDecl, nullptr);
+    EXPECT_EQ(enumDecl->name, "Message");
+    EXPECT_EQ(enumDecl->variants.size(), 2);
+    EXPECT_EQ(enumDecl->variants[0]->name, "Move");
+    EXPECT_EQ(enumDecl->variants[0]->associatedTypes.size(), 2);
+    EXPECT_EQ(enumDecl->variants[1]->name, "Write");
+    EXPECT_EQ(enumDecl->variants[1]->associatedTypes.size(), 1);
+}
+
+// ============================================================================
 // Type Tests
 // ============================================================================
 

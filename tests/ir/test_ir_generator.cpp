@@ -91,15 +91,7 @@ TEST_F(IRGeneratorTest, StringLiteral) {
     // String could be ConstantString or GlobalVariable
 }
 
-TEST_F(IRGeneratorTest, NoneLiteral) {
-    NoneLiteral lit(loc());
-
-    auto* result = generator->generateNoneLiteral(&lit);
-
-    ASSERT_NE(result, nullptr);
-    auto* constant = dyn_cast<ConstantNone>(result);
-    ASSERT_NE(constant, nullptr);
-}
+// Note: NoneLiteral test removed - None is now an enum variant
 
 // ============================================================================
 // Binary Expression Tests

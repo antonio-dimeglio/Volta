@@ -24,6 +24,8 @@ public:
     std::unique_ptr<volta::ast::Statement> parseStatement();
     std::unique_ptr<volta::ast::Block> parseBlock();
     std::unique_ptr<volta::ast::ExpressionStatement> parseExpressionStatement();
+    std::unique_ptr<volta::ast::EnumDeclaration> parseEnumDeclaration();
+    std::unique_ptr<volta::ast::EnumVariant> parseEnumVariant();
     std::unique_ptr<volta::ast::IfStatement> parseIfStatement();
     std::unique_ptr<volta::ast::WhileStatement> parseWhileStatement();
     std::unique_ptr<volta::ast::ForStatement> parseForStatement();

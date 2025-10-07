@@ -32,6 +32,8 @@ theme:
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
+      use_pygments: false  # Disable pygments, use highlight.js instead
+      linenums: false
   - pymdownx.inlinehilite
   - pymdownx.snippets
   - pymdownx.superfences
@@ -42,6 +44,15 @@ markdown_extensions:
   - tables
   - toc:
       permalink: true
+
+extra_javascript:
+  - https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js
+  - javascripts/highlight-volta.js
+  - javascripts/init-highlight.js
+
+extra_css:
+  - https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css
+  - stylesheets/volta-highlight.css
 
 nav:
   - Home: index.md
@@ -64,6 +75,7 @@ nav:
       - Parameters & Return Values: guide/functions/parameters.md
       - Expression Bodies: guide/functions/expressions.md
     - Data Structures:
+      - Enums: guide/data-structures/enums.md
       - Structs: guide/data-structures/structs.md
       - Arrays: guide/data-structures/arrays.md
       - Tuples: guide/data-structures/tuples.md

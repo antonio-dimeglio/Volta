@@ -31,6 +31,7 @@ std::unique_ptr<volta::ast::Statement> Parser::parseStatement() {
     if (match(TokenType::IMPORT)) return parseImportStatement();
     if (match(TokenType::FUNCTION)) return parseFnDeclaration();
     if (match(TokenType::STRUCT)) return parseStructDeclaration();
+    if (match(TokenType::ENUM)) return parseEnumDeclaration();
     if (check(TokenType::IDENTIFIER)) {
         const Token& next = peekNext();
         if (next.type == TokenType::INFER_ASSIGN || next.type == TokenType::COLON) {
@@ -61,6 +62,63 @@ std::unique_ptr<volta::ast::ExpressionStatement> Parser::parseExpressionStatemen
     auto startLoc = currentLocation();
     auto expr = parseExpression();
     return std::make_unique<ExpressionStatement>(std::move(expr), startLoc);
+}
+
+std::unique_ptr<volta::ast::EnumDeclaration> Parser::parseEnumDeclaration() {
+    auto startLoc = currentLocation();
+    auto tokenName = consume(TokenType::IDENTIFIER, "Expected identifier after enum declaration");
+    std::string enumName = tokenName.lexeme;
+
+    std::vector<std::string> typeParams;
+    if (match(TokenType::LSQUARE)) { // parse generic type
+        do {
+            auto typeParam = consume(TokenType::IDENTIFIER, "Expeceted type parameter");
+            typeParams.push_back(typeParam.lexeme);
+        } while (match(TokenType::COMMA));
+
+        consume(TokenType::RSQUARE, "Expected ']' after tyoe paramters");
+    }
+
+    consume(TokenType::LBRACE, "Expected '{' after enum name");
+
+    std::vector<std::unique_ptr<EnumVariant>> variants;
+
+    if (!check(TokenType::RBRACE)) {    
+        do {
+            variants.push_back(parseEnumVariant());        
+        } while (match(TokenType::COMMA));
+    }
+
+    consume(TokenType::RBRACE, "Expected '] after enum variants");
+    return std::make_unique<EnumDeclaration>(
+        enumName,
+        std::move(typeParams),
+        std::move(variants),
+        startLoc
+    );
+}
+
+std::unique_ptr<volta::ast::EnumVariant> Parser::parseEnumVariant() {
+    auto startLoc = currentLocation();
+    auto tokenName = consume(TokenType::IDENTIFIER, "Expected identifier for enum variant");
+    std::string variantName = tokenName.lexeme;
+
+    std::vector<std::unique_ptr<Type>> associatedTypes;
+
+    if (match(TokenType::LPAREN)) {
+        do {
+            auto type = parseType();
+            associatedTypes.push_back(std::move(type));
+        } while (match(TokenType::COMMA));
+        consume(TokenType::RPAREN, "Expected ')' after enum variant");
+    }
+
+
+    return std::make_unique<EnumVariant>(
+        variantName,
+        std::move(associatedTypes),
+        startLoc
+    );
 }
 
 std::unique_ptr<volta::ast::IfStatement> Parser::parseIfStatement() {
@@ -644,18 +702,8 @@ std::unique_ptr<volta::ast::Expression> Parser::parsePrimary() {
         return std::make_unique<BooleanLiteral>(value, loc);
     }
 
-    // None literal
-    if (match(TokenType::NONE_KEYWORD)) {
-        return std::make_unique<NoneLiteral>(loc);
-    }
-
-    // Some literal
-    if (match(TokenType::SOME_KEYWORD)) {
-        consume(TokenType::LPAREN, "Expected '(' after 'Some'");
-        auto value = parseExpression();
-        consume(TokenType::RPAREN, "Expected ')' after Some value");
-        return std::make_unique<SomeLiteral>(std::move(value), loc);
-    }
+    // Note: Some and None are now enum variants, not special keywords
+    // They will be parsed as regular identifiers/constructor calls
 
     // Number literals
     if (match(TokenType::INTEGER)) {
@@ -1044,7 +1092,8 @@ std::unique_ptr<volta::ast::Pattern> Parser::parsePattern() {
     }
 
     // Identifier, wildcard, or constructor pattern
-    if (check(TokenType::IDENTIFIER) || check(TokenType::SOME_KEYWORD) || check(TokenType::NONE_KEYWORD)) {
+    // Note: Some and None are now regular identifiers (enum variants)
+    if (check(TokenType::IDENTIFIER)) {
         auto name = advance().lexeme;
         auto ident = std::make_unique<IdentifierExpression>(name, loc);
 
@@ -1053,7 +1102,7 @@ std::unique_ptr<volta::ast::Pattern> Parser::parsePattern() {
             return std::make_unique<WildcardPattern>(loc);
         }
 
-        // Constructor pattern: Some(x), Point(a, b)
+        // Constructor pattern: Some(x), Point(a, b), None is also an enum variant
         if (match(TokenType::LPAREN)) {
             std::vector<std::unique_ptr<Pattern>> args;
 
@@ -1067,7 +1116,7 @@ std::unique_ptr<volta::ast::Pattern> Parser::parsePattern() {
             return std::make_unique<ConstructorPattern>(std::move(ident), std::move(args), loc);
         }
 
-        // Simple identifier pattern (or None without parentheses)
+        // Simple identifier pattern (binds value to name, or enum variant without data like None)
         return std::make_unique<IdentifierPattern>(std::move(ident), loc);
     }
 

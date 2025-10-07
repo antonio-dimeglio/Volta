@@ -202,17 +202,7 @@ public:
      */
     Value* generateStringLiteral(const ast::StringLiteral* lit);
 
-    /**
-     * Generate IR for None literal
-     * @return ConstantNone value
-     */
-    Value* generateNoneLiteral(const ast::NoneLiteral* lit);
-
-    /**
-     * Generate IR for Some(value) literal
-     * @return Option value wrapping the inner expression
-     */
-    Value* generateSomeLiteral(const ast::SomeLiteral* lit);
+    // Note: Some and None are now enum variants, not special literals
 
     /**
      * Generate IR for array literal [1, 2, 3]

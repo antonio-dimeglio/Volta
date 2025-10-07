@@ -422,27 +422,17 @@ TEST_F(LexerMissingFeaturesTest, Keyword_Import) {
     EXPECT_EQ(tokens[2].type, TokenType::END_OF_FILE);
 }
 
-TEST_F(LexerMissingFeaturesTest, Keyword_Some) {
-    Lexer lexer("Some(5)");
-    auto tokens = lexer.tokenize();
+// Removed: Some and None are now enum variants, not keywords
+// They will be tested as part of enum functionality
 
-    ASSERT_EQ(tokens.size(), 5);
-    EXPECT_EQ(tokens[0].type, TokenType::SOME_KEYWORD);
-    EXPECT_EQ(tokens[0].lexeme, "Some");
-    EXPECT_EQ(tokens[1].type, TokenType::LPAREN);
-    EXPECT_EQ(tokens[2].type, TokenType::INTEGER);
-    EXPECT_EQ(tokens[3].type, TokenType::RPAREN);
-    EXPECT_EQ(tokens[4].type, TokenType::END_OF_FILE);
-}
-
-TEST_F(LexerMissingFeaturesTest, Keyword_None) {
-    Lexer lexer("return None");
+TEST_F(LexerMissingFeaturesTest, Keyword_Enum) {
+    Lexer lexer("enum Option");
     auto tokens = lexer.tokenize();
 
     ASSERT_EQ(tokens.size(), 3);
-    EXPECT_EQ(tokens[0].type, TokenType::RETURN);
-    EXPECT_EQ(tokens[1].type, TokenType::NONE_KEYWORD);
-    EXPECT_EQ(tokens[1].lexeme, "None");
+    EXPECT_EQ(tokens[0].type, TokenType::ENUM);
+    EXPECT_EQ(tokens[0].lexeme, "enum");
+    EXPECT_EQ(tokens[1].type, TokenType::IDENTIFIER); // Option
     EXPECT_EQ(tokens[2].type, TokenType::END_OF_FILE);
 }
 
@@ -458,17 +448,16 @@ TEST_F(LexerMissingFeaturesTest, Keyword_Type) {
 }
 
 TEST_F(LexerMissingFeaturesTest, Keywords_AllNew) {
-    Lexer lexer("match struct import Some None type");
+    Lexer lexer("match struct import enum type");
     auto tokens = lexer.tokenize();
 
-    ASSERT_EQ(tokens.size(), 7);
+    ASSERT_EQ(tokens.size(), 6);
     EXPECT_EQ(tokens[0].type, TokenType::MATCH);
     EXPECT_EQ(tokens[1].type, TokenType::STRUCT);
     EXPECT_EQ(tokens[2].type, TokenType::IMPORT);
-    EXPECT_EQ(tokens[3].type, TokenType::SOME_KEYWORD);
-    EXPECT_EQ(tokens[4].type, TokenType::NONE_KEYWORD);
-    EXPECT_EQ(tokens[5].type, TokenType::TYPE);
-    EXPECT_EQ(tokens[6].type, TokenType::END_OF_FILE);
+    EXPECT_EQ(tokens[3].type, TokenType::ENUM);
+    EXPECT_EQ(tokens[4].type, TokenType::TYPE);
+    EXPECT_EQ(tokens[5].type, TokenType::END_OF_FILE);
 }
 
 // ============================================================================
@@ -514,20 +503,43 @@ TEST_F(LexerMissingFeaturesTest, Integration_MatchWithOption) {
     Lexer lexer("match result { Some(x) => x, None => 0 }");
     auto tokens = lexer.tokenize();
 
-    // Should have MATCH, SOME_KEYWORD, NONE_KEYWORD tokens
+    // Should have MATCH keyword, Some and None are now regular identifiers (enum variants)
     bool hasMatch = false;
     bool hasSome = false;
     bool hasNone = false;
 
     for (const auto& token : tokens) {
         if (token.type == TokenType::MATCH) hasMatch = true;
-        if (token.type == TokenType::SOME_KEYWORD) hasSome = true;
-        if (token.type == TokenType::NONE_KEYWORD) hasNone = true;
+        if (token.type == TokenType::IDENTIFIER && token.lexeme == "Some") hasSome = true;
+        if (token.type == TokenType::IDENTIFIER && token.lexeme == "None") hasNone = true;
     }
 
     EXPECT_TRUE(hasMatch) << "Should have MATCH keyword";
-    EXPECT_TRUE(hasSome) << "Should have Some keyword";
-    EXPECT_TRUE(hasNone) << "Should have None keyword";
+    EXPECT_TRUE(hasSome) << "Should have Some identifier (enum variant)";
+    EXPECT_TRUE(hasNone) << "Should have None identifier (enum variant)";
+}
+
+TEST_F(LexerMissingFeaturesTest, Integration_EnumDeclaration) {
+    Lexer lexer("enum Option { Some(int), None }");
+    auto tokens = lexer.tokenize();
+
+    // Check for enum keyword and basic structure
+    bool hasEnum = false;
+    bool hasOption = false;
+    bool hasSome = false;
+    bool hasNone = false;
+
+    for (const auto& token : tokens) {
+        if (token.type == TokenType::ENUM) hasEnum = true;
+        if (token.type == TokenType::IDENTIFIER && token.lexeme == "Option") hasOption = true;
+        if (token.type == TokenType::IDENTIFIER && token.lexeme == "Some") hasSome = true;
+        if (token.type == TokenType::IDENTIFIER && token.lexeme == "None") hasNone = true;
+    }
+
+    EXPECT_TRUE(hasEnum) << "Should have ENUM keyword";
+    EXPECT_TRUE(hasOption) << "Should have Option identifier";
+    EXPECT_TRUE(hasSome) << "Should have Some identifier (variant)";
+    EXPECT_TRUE(hasNone) << "Should have None identifier (variant)";
 }
 
 TEST_F(LexerMissingFeaturesTest, Integration_CompoundAssignWithComment) {
