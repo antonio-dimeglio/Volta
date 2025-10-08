@@ -210,6 +210,7 @@ public:
      * @return Pointer to array
      */
     Value* generateArrayLiteral(const ast::ArrayLiteral* lit);
+    Value* generateStructLiteral(const ast::StructLiteral* lit);
 
     /**
      * Generate IR for identifier (variable reference)

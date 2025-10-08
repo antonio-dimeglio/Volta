@@ -248,9 +248,18 @@ public:
     const Field* getField(const std::string& fieldName) const {
         auto it = fieldIndex_.find(fieldName);
         if (it != fieldIndex_.end()) {
-            return &fields_[it->second];  
+            return &fields_[it->second];
         }
         return nullptr;
+    }
+
+    // Get field index by name (returns -1 if not found)
+    int getFieldIndex(const std::string& fieldName) const {
+        auto it = fieldIndex_.find(fieldName);
+        if (it != fieldIndex_.end()) {
+            return static_cast<int>(it->second);
+        }
+        return -1;
     }
 
 private:

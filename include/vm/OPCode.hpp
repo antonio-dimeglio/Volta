@@ -50,6 +50,10 @@ enum class Opcode : uint8_t {
     ARRAY_LEN = 0x53,
     ARRAY_SLICE = 0x54,
 
+    // Struct Operations (0x55-0x59)
+    STRUCT_GET = 0x55,     // Extract field from struct
+    STRUCT_SET = 0x56,     // Insert field into struct (creates new struct)
+
     // String Operations (0x60-0x6F)
     STRING_LEN = 0x60,
 
@@ -125,6 +129,8 @@ inline uint8_t getInstructionLength(Opcode op) {
         case Opcode::CALL:
         case Opcode::ARRAY_GET:
         case Opcode::ARRAY_SET:
+        case Opcode::STRUCT_GET:
+        case Opcode::STRUCT_SET:
             return 4;
 
         case Opcode::ARRAY_SLICE:

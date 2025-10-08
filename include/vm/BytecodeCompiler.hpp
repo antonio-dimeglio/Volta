@@ -239,6 +239,9 @@ private:
     void emitArrayLen(byte rD, byte rArray);
     void emitArraySlice(byte rD, byte rArray, byte rStart, byte rEnd);
 
+    void emitStructGet(byte rD, byte rStruct, byte fieldIdx);
+    void emitStructSet(byte rD, byte rStruct, byte rValue, byte fieldIdx);
+
     // String operations (Phase 2+)
     void emitStringLen(byte rD, byte rString);
 

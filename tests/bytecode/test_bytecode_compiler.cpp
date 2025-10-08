@@ -628,3 +628,303 @@ fn classify(x: int) -> int {
     }
     std::cout << std::dec;
 }
+
+// ============================================================================
+// Struct Operations Tests
+// ============================================================================
+
+TEST_F(BytecodeCompilerTest, CompileSimpleStructCreation) {
+    // Test: Point { x: 3.0, y: 4.0 }
+    // Creates struct type, allocates, and inserts fields
+
+    std::vector<std::shared_ptr<IRType>> fieldTypes = {
+        builder->getFloatType(),
+        builder->getFloatType()
+    };
+    auto structType = std::make_shared<IRStructType>(fieldTypes);
+
+    auto* func = builder->createFunction("test", structType, {});
+    auto* entry = func->getEntryBlock();
+    builder->setInsertionPoint(entry);
+
+    // Allocate struct
+    auto* structAlloc = builder->createGCAlloc(structType, "point");
+
+    // Insert field 0 (x = 3.0)
+    auto* f3 = builder->getFloat(3.0);
+    auto* struct1 = builder->createInsertValue(structAlloc, f3, 0, "");
+
+    // Insert field 1 (y = 4.0)
+    auto* f4 = builder->getFloat(4.0);
+    auto* struct2 = builder->createInsertValue(struct1, f4, 1, "");
+
+    builder->createRet(struct2);
+
+    // Should throw because GCAlloc not yet implemented
+    BytecodeCompiler compiler;
+    EXPECT_THROW({
+        auto bytecode = compiler.compile(std::move(module));
+    }, std::runtime_error);
+}
+
+TEST_F(BytecodeCompilerTest, CompileStructFieldAccess) {
+    // Test: point.x (extract field 0)
+
+    std::vector<std::shared_ptr<IRType>> fieldTypes = {
+        builder->getFloatType(),
+        builder->getFloatType()
+    };
+    auto structType = std::make_shared<IRStructType>(fieldTypes);
+
+    auto* func = builder->createFunction("getX", builder->getFloatType(), {structType});
+    auto* entry = func->getEntryBlock();
+    builder->setInsertionPoint(entry);
+
+    auto* param = func->getParam(0);
+
+    // Extract field 0
+    auto* x = builder->createExtractValue(param, 0, "x");
+    builder->createRet(x);
+
+    // Compile
+    BytecodeCompiler compiler;
+    auto bytecode = compiler.compile(std::move(module));
+
+    ASSERT_NE(bytecode, nullptr);
+    EXPECT_TRUE(bytecode->verify());
+
+    // Verify STRUCT_GET instruction was emitted
+    // (We can't execute yet, but bytecode generation should work)
+}
+
+TEST_F(BytecodeCompilerTest, CompileStructFieldUpdate) {
+    // Test: point with x = newValue (insert field 0)
+
+    std::vector<std::shared_ptr<IRType>> fieldTypes = {
+        builder->getFloatType(),
+        builder->getFloatType()
+    };
+    auto structType = std::make_shared<IRStructType>(fieldTypes);
+
+    auto* func = builder->createFunction("setX", structType,
+                                         {structType, builder->getFloatType()});
+    auto* entry = func->getEntryBlock();
+    builder->setInsertionPoint(entry);
+
+    auto* param = func->getParam(0);
+    auto* newX = func->getParam(1);
+
+    // Insert new value at field 0
+    auto* updated = builder->createInsertValue(param, newX, 0, "");
+    builder->createRet(updated);
+
+    // Compile
+    BytecodeCompiler compiler;
+    auto bytecode = compiler.compile(std::move(module));
+
+    ASSERT_NE(bytecode, nullptr);
+    EXPECT_TRUE(bytecode->verify());
+}
+
+TEST_F(BytecodeCompilerTest, CompileNestedStructAccess) {
+    // Test: line.start.x (nested field access)
+    // Line { start: Point, end: Point }
+    // Point { x: float, y: float }
+
+    std::vector<std::shared_ptr<IRType>> pointFields = {
+        builder->getFloatType(),
+        builder->getFloatType()
+    };
+    auto pointType = std::make_shared<IRStructType>(pointFields);
+
+    std::vector<std::shared_ptr<IRType>> lineFields = {
+        pointType,
+        pointType
+    };
+    auto lineType = std::make_shared<IRStructType>(lineFields);
+
+    auto* func = builder->createFunction("getStartX", builder->getFloatType(), {lineType});
+    auto* entry = func->getEntryBlock();
+    builder->setInsertionPoint(entry);
+
+    auto* line = func->getParam(0);
+
+    // Extract start (field 0) - returns Point
+    auto* start = builder->createExtractValue(line, 0, "start");
+
+    // Extract x (field 0 of Point) - returns float
+    auto* x = builder->createExtractValue(start, 0, "x");
+
+    builder->createRet(x);
+
+    // Compile
+    BytecodeCompiler compiler;
+    auto bytecode = compiler.compile(std::move(module));
+
+    ASSERT_NE(bytecode, nullptr);
+    EXPECT_TRUE(bytecode->verify());
+}
+
+TEST_F(BytecodeCompilerTest, CompileStructWithMixedTypes) {
+    // Test: Person { age: int, height: float, name: str }
+    // Mix of different types
+
+    std::vector<std::shared_ptr<IRType>> fieldTypes = {
+        builder->getIntType(),
+        builder->getFloatType(),
+        builder->getStringType()
+    };
+    auto structType = std::make_shared<IRStructType>(fieldTypes);
+
+    auto* func = builder->createFunction("getAge", builder->getIntType(), {structType});
+    auto* entry = func->getEntryBlock();
+    builder->setInsertionPoint(entry);
+
+    auto* person = func->getParam(0);
+    auto* age = builder->createExtractValue(person, 0, "age");
+
+    builder->createRet(age);
+
+    // Compile
+    BytecodeCompiler compiler;
+    auto bytecode = compiler.compile(std::move(module));
+
+    ASSERT_NE(bytecode, nullptr);
+    EXPECT_TRUE(bytecode->verify());
+}
+
+TEST_F(BytecodeCompilerTest, CompileStructMultipleUpdates) {
+    // Test: Update multiple fields in sequence
+    // point.x = 1.0, point.y = 2.0
+
+    std::vector<std::shared_ptr<IRType>> fieldTypes = {
+        builder->getFloatType(),
+        builder->getFloatType()
+    };
+    auto structType = std::make_shared<IRStructType>(fieldTypes);
+
+    auto* func = builder->createFunction("updateBoth", structType, {structType});
+    auto* entry = func->getEntryBlock();
+    builder->setInsertionPoint(entry);
+
+    auto* point = func->getParam(0);
+
+    // Update x to 1.0
+    auto* f1 = builder->getFloat(1.0);
+    auto* point1 = builder->createInsertValue(point, f1, 0, "");
+
+    // Update y to 2.0
+    auto* f2 = builder->getFloat(2.0);
+    auto* point2 = builder->createInsertValue(point1, f2, 1, "");
+
+    builder->createRet(point2);
+
+    // Compile
+    BytecodeCompiler compiler;
+    auto bytecode = compiler.compile(std::move(module));
+
+    ASSERT_NE(bytecode, nullptr);
+    EXPECT_TRUE(bytecode->verify());
+}
+
+TEST_F(BytecodeCompilerTest, CompileEmptyStruct) {
+    // Edge case: Struct with no fields (Unit type)
+
+    std::vector<std::shared_ptr<IRType>> fieldTypes = {};
+    auto structType = std::make_shared<IRStructType>(fieldTypes);
+
+    auto* func = builder->createFunction("makeUnit", structType, {});
+    auto* entry = func->getEntryBlock();
+    builder->setInsertionPoint(entry);
+
+    auto* emptyStruct = builder->createGCAlloc(structType, "unit");
+    builder->createRet(emptyStruct);
+
+    // Should throw - GCAlloc not implemented
+    BytecodeCompiler compiler;
+    EXPECT_THROW({
+        auto bytecode = compiler.compile(std::move(module));
+    }, std::runtime_error);
+}
+
+TEST_F(BytecodeCompilerTest, CompileLargeStruct) {
+    // Edge case: Struct with many fields (10+)
+
+    std::vector<std::shared_ptr<IRType>> fieldTypes;
+    for (int i = 0; i < 15; i++) {
+        fieldTypes.push_back(builder->getIntType());
+    }
+    auto structType = std::make_shared<IRStructType>(fieldTypes);
+
+    auto* func = builder->createFunction("getField7", builder->getIntType(), {structType});
+    auto* entry = func->getEntryBlock();
+    builder->setInsertionPoint(entry);
+
+    auto* bigStruct = func->getParam(0);
+    auto* field7 = builder->createExtractValue(bigStruct, 7, "field7");
+
+    builder->createRet(field7);
+
+    // Compile
+    BytecodeCompiler compiler;
+    auto bytecode = compiler.compile(std::move(module));
+
+    ASSERT_NE(bytecode, nullptr);
+    EXPECT_TRUE(bytecode->verify());
+}
+
+TEST_F(BytecodeCompilerTest, CompileStructPassThrough) {
+    // Test: Return struct parameter unchanged (no operations)
+
+    std::vector<std::shared_ptr<IRType>> fieldTypes = {
+        builder->getIntType(),
+        builder->getIntType()
+    };
+    auto structType = std::make_shared<IRStructType>(fieldTypes);
+
+    auto* func = builder->createFunction("identity", structType, {structType});
+    auto* entry = func->getEntryBlock();
+    builder->setInsertionPoint(entry);
+
+    auto* param = func->getParam(0);
+    builder->createRet(param);
+
+    // Compile
+    BytecodeCompiler compiler;
+    auto bytecode = compiler.compile(std::move(module));
+
+    ASSERT_NE(bytecode, nullptr);
+    EXPECT_TRUE(bytecode->verify());
+}
+
+TEST_F(BytecodeCompilerTest, CompileStructExtractInsertSameField) {
+    // Edge case: Extract and immediately re-insert the same field
+    // value = point.x; point.x = value (no-op semantically)
+
+    std::vector<std::shared_ptr<IRType>> fieldTypes = {
+        builder->getFloatType(),
+        builder->getFloatType()
+    };
+    auto structType = std::make_shared<IRStructType>(fieldTypes);
+
+    auto* func = builder->createFunction("noOp", structType, {structType});
+    auto* entry = func->getEntryBlock();
+    builder->setInsertionPoint(entry);
+
+    auto* point = func->getParam(0);
+
+    // Extract x
+    auto* x = builder->createExtractValue(point, 0, "x");
+
+    // Insert it back
+    auto* newPoint = builder->createInsertValue(point, x, 0, "");
+
+    builder->createRet(newPoint);
+
+    // Compile
+    BytecodeCompiler compiler;
+    auto bytecode = compiler.compile(std::move(module));
+
+    ASSERT_NE(bytecode, nullptr);
+    EXPECT_TRUE(bytecode->verify());
+}

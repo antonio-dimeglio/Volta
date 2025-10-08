@@ -407,6 +407,18 @@ Value* IRBuilder::createGCAlloc(std::shared_ptr<IRType> type, const std::string&
     return alloc;
 }
 
+Value* IRBuilder::createExtractValue(Value* structVal, unsigned fieldIndex, const std::string& name) {
+    auto* inst = module_.createExtractValue(structVal, fieldIndex, name);
+    insert(inst);
+    return inst;
+}
+
+Value* IRBuilder::createInsertValue(Value* structVal, Value* newValue, unsigned fieldIndex, const std::string& name) {
+    auto* inst = module_.createInsertValue(structVal, newValue, fieldIndex, name);
+    insert(inst);
+    return inst;
+}
+
 // ============================================================================
 // Array Instructions
 // ============================================================================

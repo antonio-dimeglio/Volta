@@ -215,7 +215,6 @@ public:
 
     /**
      * Create an instruction of type T
-     * LEARNING TIP: Use this instead of T::create() for arena allocation
      */
     template<typename T, typename... Args>
     T* createInstruction(Args&&... args) {
@@ -249,6 +248,8 @@ public:
     LoadInst* createLoad(Value* ptr, const std::string& name = "");
     StoreInst* createStore(Value* value, Value* ptr);
     GCAllocInst* createGCAlloc(std::shared_ptr<IRType> type, const std::string& name = "");
+    ExtractValueInst* createExtractValue(Value* structVal, unsigned fieldIndex, const std::string& name = "");
+    InsertValueInst* createInsertValue(Value* structVal, Value* newValue, unsigned fieldIndex, const std::string& name = "");
 
     // Array operations
     ArrayNewInst* createArrayNew(std::shared_ptr<IRType> elementType, Value* size, const std::string& name = "");

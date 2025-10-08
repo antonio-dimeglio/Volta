@@ -241,6 +241,26 @@ std::string IRPrinter::printInstruction(const Instruction* inst) {
         return ss.str();
     }
 
+    // Struct operations
+    if (auto* extractVal = dyn_cast<ExtractValueInst>(inst)) {
+        if (showTypes_) {
+            ss << " " << printType(extractVal->getType()) << " ";
+        }
+        ss << printValue(extractVal->getStruct());
+        ss << ", " << extractVal->getFieldIndex();
+        return ss.str();
+    }
+
+    if (auto* insertVal = dyn_cast<InsertValueInst>(inst)) {
+        if (showTypes_) {
+            ss << " " << printType(insertVal->getType()) << " ";
+        }
+        ss << printValue(insertVal->getStruct());
+        ss << ", " << printValue(insertVal->getNewValue());
+        ss << ", " << insertVal->getFieldIndex();
+        return ss.str();
+    }
+
     // Cast
     if (auto* cast = dyn_cast<CastInst>(inst)) {
         ss << " " << printValue(cast->getValue());

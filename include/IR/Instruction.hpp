@@ -666,4 +666,48 @@ private:
     std::vector<IncomingValue> incomingValues_;
 };
 
+class ExtractValueInst : public Instruction {
+public:
+    Value* getStruct() const { return getOperand(0); }
+    unsigned getFieldIndex() const { return fieldIndex_;}
+
+    friend class Arena;
+    static bool classof(const Instruction* I) {
+        return I->getOpcode() == Opcode::ExtractValue;
+    }
+
+private:
+    unsigned fieldIndex_;
+    ExtractValueInst(
+        std::shared_ptr<IRType> type,
+        unsigned fieldIndex,
+        Value* structValue,
+        const std::string& name 
+    ) : Instruction(Opcode::ExtractValue, type, {structValue}, name),
+        fieldIndex_(fieldIndex) {}
+};
+
+class InsertValueInst : public Instruction {
+public:
+    Value* getStruct() const { return getOperand(0); }
+    Value* getNewValue() const { return getOperand(1); }
+    unsigned getFieldIndex() const { return fieldIndex_; }
+
+    friend class Arena;
+    static bool classof(const Instruction* I) {
+        return I->getOpcode() == Opcode::InsertValue;
+    }
+private:
+    unsigned fieldIndex_;
+
+    InsertValueInst(
+        std::shared_ptr<IRType> type,
+        Value* structValue,
+        Value* fieldValue,
+        unsigned fieldIndex,
+        const std::string& name
+    ) : Instruction(Opcode::InsertValue, type, {structValue, fieldValue}, name),
+        fieldIndex_(fieldIndex) {}
+};
+
 } // namespace volta::ir

@@ -66,6 +66,8 @@ public:
     const class IRPointerType* asPointer() const;
     class IRArrayType* asArray();
     const class IRArrayType* asArray() const;
+    class IRStructType* asStruct();
+    const class IRStructType* asStruct() const;
     class IROptionType* asOption();
     const class IROptionType* asOption() const;
 };
@@ -184,6 +186,67 @@ public:
 private:
     std::shared_ptr<IRType> elementType_;
     size_t size_;
+};
+
+class IRStructType : public IRType {
+public:
+    IRStructType(
+    std::vector<std::shared_ptr<IRType>> fieldTypes,
+    std::vector<std::string> fieldNames = {}  // Optional names for debugging
+    ) : fieldTypes_(std::move(fieldTypes)), fieldNames_(std::move(fieldNames)) {}
+
+
+    Kind kind() const override { return Kind::Struct; }
+    
+    std::string toString() const override {    
+        std::string result = "{ ";
+        for (size_t i = 0; i < fieldTypes_.size(); i++) {
+            if (i > 0) result += ", ";
+            
+            // If you have field names, include them:
+            if (!fieldNames_.empty() && i < fieldNames_.size()) {
+                result += fieldNames_[i] + ": ";
+            }
+            
+            result += fieldTypes_[i]->toString();
+        }
+        result += " }";
+        return result;
+    }
+
+    size_t getSizeInBytes() const override {
+        size_t total = 0;
+        for (const auto& fieldType : fieldTypes_) {
+            total += fieldType->getSizeInBytes();
+        }
+        return total;
+    }
+
+    size_t getAlignment() const override {
+        size_t maxAlign = 1;
+        for (const auto& fieldType : fieldTypes_) {
+            maxAlign = std::max(maxAlign, fieldType->getAlignment());
+        }
+        return maxAlign;
+    }
+
+    bool equals(const IRType* other) const override {
+        if (auto* structType = dynamic_cast<const IRStructType*>(other)) {
+            if (fieldTypes_.size() != structType->fieldTypes_.size()) return false;
+            for (size_t i = 0; i < fieldTypes_.size(); i++) {
+                if (!fieldTypes_[i]->equals(structType->fieldTypes_[i].get())) return false;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    unsigned getNumFields() const { return fieldTypes_.size(); }
+    std::shared_ptr<IRType> getFieldTypeAtIdx(unsigned idx) const { return fieldTypes_.at(idx);}
+    
+private:
+    std::vector<std::shared_ptr<IRType>> fieldTypes_;
+    std::vector<std::string> fieldNames_;
 };
 
 // Option type (for null safety)
@@ -320,7 +383,20 @@ public:
                 return std::make_shared<IRPrimitiveType>(IRType::Kind::Void);
             }
 
-            // TODO: Handle Struct, etc.
+            case semantic::Type::Kind::Struct: {
+                // Lower Struct to IR struct type
+                auto* structType = dynamic_cast<semantic::StructType*>(semType.get());
+                if (structType) {
+                    std::vector<std::shared_ptr<IRType>> fieldTypes;
+                    for (const auto& field : structType->fields()) {
+                        fieldTypes.push_back(lower(field.type));
+                    }
+                    return std::make_shared<IRStructType>(fieldTypes);
+                }
+                return std::make_shared<IRPrimitiveType>(IRType::Kind::Void);
+            }
+
+            // TODO: Handle Enum, etc.
 
             default:
                 // Fallback
@@ -373,6 +449,14 @@ inline IROptionType* IRType::asOption() {
 
 inline const IROptionType* IRType::asOption() const {
     return isOption() ? static_cast<const IROptionType*>(this) : nullptr;
+}
+
+inline class IRStructType* IRType::asStruct() {
+    return isStruct() ? static_cast<IRStructType*>(this) : nullptr;
+}
+
+inline const class IRStructType* IRType::asStruct() const {
+    return isStruct() ? static_cast<const IRStructType*>(this) : nullptr;
 }
 
 struct IRTypeHash {

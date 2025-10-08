@@ -274,6 +274,26 @@ GCAllocInst* Module::createGCAlloc(std::shared_ptr<IRType> type, const std::stri
     return arena_.allocate<GCAllocInst>(type, name);
 }
 
+ExtractValueInst* Module::createExtractValue(Value* structVal, unsigned fieldIndex, const std::string& name) {
+    auto structType = structVal->getType();
+
+    auto* irStructType = structType->asStruct();
+
+    if (irStructType == nullptr) {
+        throw std::runtime_error("ExtractValue: value is not a struct type");
+    }
+
+    auto fieldType = irStructType->getFieldTypeAtIdx(fieldIndex);
+
+    return arena_.allocate<ExtractValueInst>(fieldType, fieldIndex, structVal, name);
+}
+
+InsertValueInst* Module::createInsertValue(Value* structVal, Value* newValue, unsigned fieldIndex, const std::string& name) {
+    auto structType = structVal->getType();
+
+    return arena_.allocate<InsertValueInst>(structType, structVal, newValue, fieldIndex, name);
+}
+
 // Array operations
 ArrayNewInst* Module::createArrayNew(std::shared_ptr<IRType> elementType, Value* size, const std::string& name) {
     return arena_.allocate<ArrayNewInst>(elementType, size, name);

@@ -1,0 +1,11 @@
+struct Point {
+    x: float,
+    y: float
+}
+
+p: mut Point = Point { x: 3.0, y: 4.0 }
+print(p.x)
+print(p.y)
+
+p.x = 10.0
+print(p.x)

@@ -280,6 +280,25 @@ void BytecodeCompiler::compileInstruction(ir::Instruction* instr) {
             emitArraySet(rArr, rIdx, rVal);
             break;
         }
+        case ir::Instruction::Opcode::ExtractValue: {
+            auto* extractVal = dyn_cast<ir::ExtractValueInst>(instr);
+            byte rD = getOrAllocateRegister(instr);
+            byte rStruct = getOrAllocateRegister(extractVal->getStruct());
+            byte fieldIdx = static_cast<byte>(extractVal->getFieldIndex());
+
+            emitStructGet(rD, rStruct, fieldIdx);
+            break;
+        }
+        case ir::Instruction::Opcode::InsertValue: {
+            auto* insertVal = dyn_cast<ir::InsertValueInst>(instr);
+            byte rD = getOrAllocateRegister(instr);
+            byte rStruct = getOrAllocateRegister(insertVal->getStruct());
+            byte rValue = getOrAllocateRegister(insertVal->getNewValue());
+            byte fieldIdx = static_cast<byte>(insertVal->getFieldIndex());
+
+            emitStructSet(rD, rStruct, rValue, fieldIdx);
+            break;
+        }
         case ir::Instruction::Opcode::ArrayLen: {
             compileUnaryOp(instr, &BytecodeCompiler::emitArrayLen);
             break;
@@ -301,7 +320,11 @@ void BytecodeCompiler::compileInstruction(ir::Instruction* instr) {
         }
         case ir::Instruction::Opcode::Alloca: {
             getOrAllocateRegister(instr);
-            break; 
+            break;
+        }
+        case ir::Instruction::Opcode::GCAlloc: {
+            // TODO: Implement struct GC allocation
+            throw std::runtime_error("GCAlloc for structs not yet implemented in bytecode compiler. Structs are only supported at IR level.");
         }
         case ir::Instruction::Opcode::Load: {
             byte rD = getOrAllocateRegister(instr);
@@ -587,6 +610,21 @@ void BytecodeCompiler::emitArraySet(byte rArray, byte rIndex, byte rValue) {
     emitByte(rArray);
     emitByte(rIndex);
     emitByte(rValue);
+}
+
+void BytecodeCompiler::emitStructGet(byte rD, byte rStruct, byte fieldIdx) {
+    emitByte(static_cast<byte>(Opcode::STRUCT_GET));
+    emitByte(rD);
+    emitByte(rStruct);
+    emitByte(fieldIdx);
+}
+
+void BytecodeCompiler::emitStructSet(byte rD, byte rStruct, byte rValue, byte fieldIdx) {
+    emitByte(static_cast<byte>(Opcode::STRUCT_SET));
+    emitByte(rD);
+    emitByte(rStruct);
+    emitByte(rValue);
+    emitByte(fieldIdx);
 }
 
 void BytecodeCompiler::emitArrayLen(byte rD, byte rArray) {

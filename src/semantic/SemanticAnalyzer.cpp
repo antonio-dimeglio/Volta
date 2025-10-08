@@ -1,4 +1,5 @@
 #include "semantic/SemanticAnalyzer.hpp"
+#include <algorithm>
 #include <cassert>
 #include <unordered_set>
 
@@ -1005,6 +1006,8 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeStructLiteral(const volta::ast::S
     }
 
     auto structType = std::dynamic_pointer_cast<StructType>(symbol->type);
+
+    // Validate and type-check all fields
     for (const auto& fieldInit : structLit->fields) {
         const std::string& fieldName = fieldInit->identifier->name;
         const auto* field = structType->getField(fieldName);
@@ -1021,6 +1024,15 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeStructLiteral(const volta::ast::S
                      field->type.get(), valueType.get(), structLit->location);
         }
     }
+
+    // Sort fields to match struct definition order for easier IR generation
+    auto& fields = const_cast<volta::ast::StructLiteral*>(structLit)->fields;
+    std::sort(fields.begin(), fields.end(),
+        [&structType](const auto& a, const auto& b) {
+            int indexA = structType->getFieldIndex(a->identifier->name);
+            int indexB = structType->getFieldIndex(b->identifier->name);
+            return indexA < indexB;
+        });
 
     return symbol->type;
 }

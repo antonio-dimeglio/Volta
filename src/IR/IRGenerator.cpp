@@ -159,6 +159,11 @@ void IRGenerator::generateStatement(const ast::Statement* stmt) {
         generateExprStmt(exprStmt);
     } else if (auto* block = dynamic_cast<const ast::Block*>(stmt)) {
         generateBlock(block);
+    } else if (dynamic_cast<const ast::StructDeclaration*>(stmt)) {
+        // Struct declarations are type definitions - no IR generation needed
+        // They're handled during type lowering
+    } else if (dynamic_cast<const ast::EnumDeclaration*>(stmt)) {
+        // Enum declarations are type definitions - no IR generation needed
     } else {
         reportError("Unknown statement type");
     }
@@ -660,6 +665,12 @@ Value* IRGenerator::generateExpression(const ast::Expression* expr) {
     if (auto* castExpr = dynamic_cast<const ast::CastExpression*>(expr)) {
        return generateCastExpr(castExpr);
     }
+    if (auto* structLit = dynamic_cast<const ast::StructLiteral*>(expr)) {
+        return generateStructLiteral(structLit);
+    }
+    if (auto* memberExpr = dynamic_cast<const ast::MemberExpression*>(expr)) {
+        return generateMemberExpr(memberExpr);
+    }
 
     // Try to get type info for debugging
     std::string typeName = "unknown";
@@ -895,10 +906,41 @@ Value* IRGenerator::generateIndexExpr(const ast::IndexExpression* expr) {
 }
 
 Value* IRGenerator::generateMemberExpr(const ast::MemberExpression* expr) {
-    (void)expr;  // TODO: Implement
-    reportError("Member expressions not yet implemented in IR generation");
-    // For structs, use ExtractValue or GEP
-    return nullptr;
+    // HOW STRUCT FIELD ACCESS WORKS:
+    // 1. Generate IR for the struct value (e.g., 'point')
+    // 2. Look up which field number we're accessing from semantic type (e.g., 'x' = field 0)
+    // 3. Use ExtractValue instruction to pull out that field
+    //
+    // EXAMPLE IR for: point.x
+    //   %point = <some struct value>
+    //   %x_value = extractvalue %point, 0  ; Extract field at index 0
+    //
+    // WHY NOT GEP?
+    // - GEP works with pointers (gives you pointer to field)
+    // - ExtractValue works with values (gives you the actual field value)
+    // - We're using value-based approach (like LLVM's extractvalue)
+
+    Value* structVal = generateExpression(expr->object.get());
+    if (!structVal) return nullptr;
+
+    // Get the semantic struct type to find field index
+    auto objectSemanticType = analyzer_->getExpressionType(expr->object.get());
+    auto* semanticStructType = dynamic_cast<const volta::semantic::StructType*>(objectSemanticType.get());
+
+    if (!semanticStructType) {
+        reportError("Member access on non-struct type");
+        return nullptr;
+    }
+
+    // Look up which field this is (e.g., "x" -> 0, "y" -> 1)
+    int fieldIndex = semanticStructType->getFieldIndex(expr->member->name);
+    if (fieldIndex < 0) {
+        reportError("Unknown field: " + expr->member->name);
+        return nullptr;
+    }
+
+    // Generate the ExtractValue instruction
+    return builder_.createExtractValue(structVal, static_cast<unsigned>(fieldIndex), expr->member->name);
 }
 
 Value* IRGenerator::generateCastExpr(const ast::CastExpression* expr) {
@@ -1004,7 +1046,67 @@ Value* IRGenerator::generateAssignment(const ast::BinaryExpression* expr) {
     }
 
     // Case 3: Field assignment (obj.field = value)
-    // TODO: Handle struct field assignment
+    // HOW STRUCT FIELD ASSIGNMENT WORKS:
+    // Since structs are values in SSA, we can't modify them in place.
+    // Instead: Load old struct → InsertValue new field → Store back
+    //
+    // EXAMPLE IR for: point.x = 10
+    //   %point_ptr = <alloca for point>
+    //   %old_point = load %point_ptr
+    //   %new_point = insertvalue %old_point, 10, 0  ; Update field 0
+    //   store %new_point, %point_ptr
+    //
+    // WHY THIS WAY?
+    // - SSA: Values are immutable, can't modify in place
+    // - InsertValue: Creates NEW struct with one field changed
+    // - Like functional programming: return new object instead of mutating
+
+    if (auto* memberExpr = dynamic_cast<const ast::MemberExpression*>(expr->left.get())) {
+        // The object must be a variable (identifier) that we can load/store
+        auto* identExpr = dynamic_cast<const ast::IdentifierExpression*>(memberExpr->object.get());
+        if (!identExpr) {
+            reportError("Can only assign to fields of variables");
+            return nullptr;
+        }
+
+        // Look up the variable (should be an alloca)
+        Value* structPtr = lookupVariable(identExpr->name);
+        if (!structPtr) {
+            reportError("Undefined variable: " + identExpr->name);
+            return nullptr;
+        }
+
+        // Get semantic type to find field index
+        auto objectSemanticType = analyzer_->getExpressionType(memberExpr->object.get());
+        auto* semanticStructType = dynamic_cast<const volta::semantic::StructType*>(objectSemanticType.get());
+
+        if (!semanticStructType) {
+            reportError("Field assignment on non-struct type");
+            return nullptr;
+        }
+
+        int fieldIndex = semanticStructType->getFieldIndex(memberExpr->member->name);
+        if (fieldIndex < 0) {
+            reportError("Unknown field: " + memberExpr->member->name);
+            return nullptr;
+        }
+
+        // Generate the new value for the field
+        Value* newFieldValue = generateExpression(expr->right.get());
+        if (!newFieldValue) return nullptr;
+
+        // Load the old struct value
+        Value* oldStruct = builder_.createLoad(structPtr, identExpr->name);
+
+        // Create new struct with updated field
+        Value* newStruct = builder_.createInsertValue(oldStruct, newFieldValue,
+                                                       static_cast<unsigned>(fieldIndex), "");
+
+        // Store the new struct back
+        builder_.createStore(newStruct, structPtr);
+
+        return newFieldValue;  // Assignment returns the assigned value
+    }
 
     reportError("Invalid assignment target");
     return nullptr;
@@ -1159,6 +1261,32 @@ std::unique_ptr<Module> generateIR(
     }
 
     return module;
+}
+
+Value* IRGenerator::generateStructLiteral(const ast::StructLiteral* lit) {
+    // Generate all field values first
+    std::vector<Value*> fieldValues;
+    std::vector<std::shared_ptr<ir::IRType>> fieldTypes;
+
+    for (const auto& field : lit->fields) {
+        Value* fieldVal = generateExpression(field->value.get());
+        if (!fieldVal) return nullptr;
+        fieldValues.push_back(fieldVal);
+        fieldTypes.push_back(fieldVal->getType());
+    }
+
+    // Create IRStructType
+    auto structType = std::make_shared<ir::IRStructType>(fieldTypes, std::vector<std::string>{});
+
+    // Allocate struct
+    Value* structVal = builder_.createGCAlloc(structType, "struct");
+
+    // Insert each field
+    for (size_t i = 0; i < fieldValues.size(); i++) {
+        structVal = builder_.createInsertValue(structVal, fieldValues[i], i, "");
+    }
+
+    return structVal;
 }
 
 } // namespace volta::ir

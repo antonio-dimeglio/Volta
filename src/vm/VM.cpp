@@ -486,6 +486,10 @@ Value VM::run() {
                 break;
             }
 
+            case Opcode::STRUCT_GET:
+            case Opcode::STRUCT_SET:
+                throw std::runtime_error("Struct operations not yet implemented in VM");
+
             case Opcode::ARRAY_SLICE:
             case Opcode::STRING_LEN:
             case Opcode::IS_SOME:

@@ -238,6 +238,16 @@ public:
      */
     Value* createGCAlloc(std::shared_ptr<IRType> type, const std::string& name = "");
 
+    /*
+    * Creates extraction value for struct
+    */
+    Value* createExtractValue(Value* structVal, unsigned fieldIndex, const std::string& name = "");
+
+    /*
+    * Creates insertion value for struct
+    */
+    Value* createInsertValue(Value* structVal, Value* newValue, unsigned fieldIndex, const std::string& name = "");
+
     // ========================================================================
     // Array Instructions
     // ========================================================================
