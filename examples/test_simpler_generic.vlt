@@ -1,9 +1,0 @@
-# Simpler test without methods using return type T
-
-struct Box[T] {
-    value: T
-}
-
-# Explicit type - should work
-box1: Box[int] = Box { value: 42 }
-print(box1.value)
