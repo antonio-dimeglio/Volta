@@ -2,8 +2,10 @@
 
 #include <memory>
 #include <unordered_map>
+#include <map>
 #include <vector>
 #include <string>
+#include <set>
 #include "ast/Expression.hpp"
 #include "ast/Statement.hpp"
 #include "error/ErrorReporter.hpp"
@@ -11,6 +13,30 @@
 #include "semantic/SymbolTable.hpp"
 
 namespace volta::semantic {
+
+// Forward declaration for recursive structure
+struct PatternCoverage;
+
+struct NestedCoverage {
+    bool hasWildcard;
+    std::set<std::string> coveredVariants;
+    // For each nested variant, track its own nested coverage
+    // This allows arbitrary nesting depth
+    std::map<std::string, std::vector<NestedCoverage>> nestedByVariant;
+
+    NestedCoverage() : hasWildcard(false) {}
+};
+
+struct PatternCoverage {
+    bool coversEverything;
+    std::set<std::string> coveredVariants;
+    // For each variant we cover, track the nested coverage
+    // Key: variant name, Value: coverage for each nested argument position
+    std::map<std::string, std::vector<NestedCoverage>> nestedCoverageByVariant;
+
+    PatternCoverage() : coversEverything(false) {}
+};
+
 
 /**
  * SemanticAnalyzer performs static analysis on the AST:
@@ -77,6 +103,19 @@ private:
     std::shared_ptr<Type> analyzeStructLiteral(const volta::ast::StructLiteral* structLit,
                                               std::shared_ptr<Type> expectedType = nullptr);
     std::shared_ptr<Type> analyzeCastExpression(const volta::ast::CastExpression* castExpr);
+    void bindPatternVariables(const volta::ast::Pattern* pattern,
+                             std::shared_ptr<Type> patternType);
+    PatternCoverage analyzePattern(const volta::ast::Pattern* pattern,
+                                 std::shared_ptr<Type> matchedType);
+    void mergeNestedCoverage(std::vector<NestedCoverage>& target,
+                            const std::vector<NestedCoverage>& source);
+    bool isNestedCoverageExhaustive(const std::vector<NestedCoverage>& coverage,
+                                   const std::vector<std::shared_ptr<Type>>& types);
+    void checkExhaustiveness(std::shared_ptr<Type> matchedType,
+                            const std::set<std::string>& coveredVariants,
+                            bool hasWildcard,
+                            const std::map<std::string, std::vector<NestedCoverage>>& nestedCoverageByVariant,
+                            const volta::errors::SourceLocation& loc);
 
     // Type operations
     bool areTypesCompatible(const Type* expected, const Type* actual);

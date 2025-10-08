@@ -8,9 +8,6 @@
 #include "IR/IRPrinter.hpp"
 #include "IR/Verifier.hpp"
 #include "IR/OptimizationPass.hpp"
-#include "vm/BytecodeCompiler.hpp"
-#include "vm/BytecodeDecompiler.hpp"
-#include "vm/VM.hpp"
 #include "lsp/LSPProvider.hpp"
 #include "CLI11.hpp"
 #include <iostream>
@@ -22,8 +19,6 @@ using namespace volta::lexer;
 using namespace volta::parser;
 using namespace volta::ast;
 using namespace volta::errors;
-using namespace volta::ir;
-using namespace volta::vm;
 
 struct CompilerOptions {
     std::string inputFile;
@@ -90,66 +85,7 @@ void compileAndRun(const std::string& source, const CompilerOptions& options) {
 
     std::cout << "Semantic analysis passed!\n";
 
-    // ===== IR Generation =====
-    auto module = generateIR(*ast, analyzer, "program");
-    if (!module) {
-        std::cerr << "IR generation failed\n";
-        exit(1);
-    }
-
-    // ===== Optimization =====
-    if (options.optimize) {
-        PassManager pm;
-        pm.addPass(std::make_unique<ConstantFoldingPass>());
-        pm.addPass(std::make_unique<ConstantPropagationPass>());
-        // pm.addPass(std::make_unique<Mem2RegPass>());  // TODO: Fix for multi-store variables (loops)
-        pm.addPass(std::make_unique<InstructionSimplifyPass>());
-        pm.addPass(std::make_unique<DeadCodeEliminationPass>());
-        pm.addPass(std::make_unique<SimplifyCFG>());
-        pm.addPass(std::make_unique<DeadCodeEliminationPass>());
-
-        if (pm.run(*module)) {
-            std::cout << "Optimizations applied\n";
-        }
-    }
-
-    // ===== IR Verification =====
-    if (options.verifyIR) {
-        Verifier verifier;
-        if (!verifier.verify(*module)) {
-            std::cerr << "\n=== IR VERIFICATION FAILED ===\n";
-            for (const auto& error : verifier.getErrors()) {
-                std::cerr << "  - " << error << "\n";
-            }
-            exit(1);
-        }
-        std::cout << "IR verification passed\n";
-    }
-
-    // ===== IR Dump =====
-    if (options.dumpIR) {
-        std::cout << "\n=== IR ===\n";
-        IRPrinter irPrinter;
-        std::cout << irPrinter.printModule(*module) << "\n";
-    }
-
-    // ===== Bytecode Compilation =====
-    BytecodeCompiler bc;
-    auto bcModule = bc.compile(std::move(module));
-
-    if (options.dumpBytecode) {
-        std::cout << "\n=== BYTECODE DISASSEMBLY ===\n";
-        BytecodeDecompiler decompiler(*bcModule, std::cout);
-        decompiler.disassemble();
-    }
-
-    // ===== Execution =====
-    if (options.execute) {
-        std::cout << "\n=== EXECUTION ===\n";
-        VM vm;
-        auto res = vm.execute(*bcModule, "__main");
-        std::cout << "\nFinal value: " << res.toString() << "\n";
-    }
+    
 }
 
 void runFile(const std::string& filename, const CompilerOptions& options) {

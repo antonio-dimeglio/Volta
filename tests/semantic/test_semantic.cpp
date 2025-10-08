@@ -42,17 +42,17 @@ protected:
 // ============================================================================
 
 TEST_F(SemanticAnalyzerTest, PrimitiveTypeEquality) {
-    auto int1 = std::make_shared<semantic::PrimitiveType>(semantic::PrimitiveType::PrimitiveKind::Int);
-    auto int2 = std::make_shared<semantic::PrimitiveType>(semantic::PrimitiveType::PrimitiveKind::Int);
-    auto float1 = std::make_shared<semantic::PrimitiveType>(semantic::PrimitiveType::PrimitiveKind::Float);
+    auto int1 = std::make_shared<semantic::PrimitiveType>(semantic::PrimitiveType::PrimitiveKind::I32);
+    auto int2 = std::make_shared<semantic::PrimitiveType>(semantic::PrimitiveType::PrimitiveKind::I32);
+    auto float1 = std::make_shared<semantic::PrimitiveType>(semantic::PrimitiveType::PrimitiveKind::F32);
 
     EXPECT_TRUE(int1->equals(int2.get()));
     EXPECT_FALSE(int1->equals(float1.get()));
 }
 
 TEST_F(SemanticAnalyzerTest, ArrayTypeEquality) {
-    auto intType = std::make_shared<semantic::PrimitiveType>(semantic::PrimitiveType::PrimitiveKind::Int);
-    auto floatType = std::make_shared<semantic::PrimitiveType>(semantic::PrimitiveType::PrimitiveKind::Float);
+    auto intType = std::make_shared<semantic::PrimitiveType>(semantic::PrimitiveType::PrimitiveKind::I32);
+    auto floatType = std::make_shared<semantic::PrimitiveType>(semantic::PrimitiveType::PrimitiveKind::F32);
 
     auto arrayInt1 = std::make_shared<semantic::ArrayType>(intType);
     auto arrayInt2 = std::make_shared<semantic::ArrayType>(intType);
@@ -63,8 +63,8 @@ TEST_F(SemanticAnalyzerTest, ArrayTypeEquality) {
 }
 
 TEST_F(SemanticAnalyzerTest, FunctionTypeEquality) {
-    auto intType = std::make_shared<semantic::PrimitiveType>(semantic::PrimitiveType::PrimitiveKind::Int);
-    auto floatType = std::make_shared<semantic::PrimitiveType>(semantic::PrimitiveType::PrimitiveKind::Float);
+    auto intType = std::make_shared<semantic::PrimitiveType>(semantic::PrimitiveType::PrimitiveKind::I32);
+    auto floatType = std::make_shared<semantic::PrimitiveType>(semantic::PrimitiveType::PrimitiveKind::F32);
 
     std::vector<std::shared_ptr<semantic::Type>> params1 = {intType, intType};
     std::vector<std::shared_ptr<semantic::Type>> params2 = {intType, floatType};
@@ -82,7 +82,7 @@ TEST_F(SemanticAnalyzerTest, FunctionTypeEquality) {
 // ============================================================================
 
 TEST_F(SemanticAnalyzerTest, SimpleVariableDeclaration) {
-    EXPECT_TRUE(analyzeSource("x: int = 42"));
+    EXPECT_TRUE(analyzeSource("x: i32 = 42"));
     EXPECT_FALSE(errorReporter->hasErrors());
 }
 
@@ -92,13 +92,14 @@ TEST_F(SemanticAnalyzerTest, TypeInference) {
 }
 
 TEST_F(SemanticAnalyzerTest, TypeMismatch) {
-    EXPECT_FALSE(analyzeSource("x: int = 3.14"));
-    EXPECT_TRUE(errorReporter->hasErrors());
+    // With implicit numeric conversions, f32 -> i32 is allowed
+    EXPECT_TRUE(analyzeSource("x: i32 = 3.14"));
+    EXPECT_FALSE(errorReporter->hasErrors());
 }
 
 TEST_F(SemanticAnalyzerTest, MutableVariable) {
     EXPECT_TRUE(analyzeSource(R"(
-        x: mut int = 5
+        x: mut i32 = 5
         x = 10
     )"));
     EXPECT_FALSE(errorReporter->hasErrors());
@@ -106,7 +107,7 @@ TEST_F(SemanticAnalyzerTest, MutableVariable) {
 
 TEST_F(SemanticAnalyzerTest, ImmutableVariableAssignment) {
     EXPECT_FALSE(analyzeSource(R"(
-        x: int = 5
+        x: i32 = 5
         x = 10
     )"));
     EXPECT_TRUE(errorReporter->hasErrors());
@@ -119,8 +120,8 @@ TEST_F(SemanticAnalyzerTest, UndefinedVariable) {
 
 TEST_F(SemanticAnalyzerTest, VariableRedeclaration) {
     EXPECT_FALSE(analyzeSource(R"(
-        x: int = 5
-        x: int = 10
+        x: i32 = 5
+        x: i32 = 10
     )"));
     EXPECT_TRUE(errorReporter->hasErrors());
 }
@@ -131,7 +132,7 @@ TEST_F(SemanticAnalyzerTest, VariableRedeclaration) {
 
 TEST_F(SemanticAnalyzerTest, SimpleFunctionDeclaration) {
     EXPECT_TRUE(analyzeSource(R"(
-        fn add(a: int, b: int) -> int {
+        fn add(a: i32, b: i32) -> i32 {
             return a + b
         }
     )"));
@@ -140,23 +141,24 @@ TEST_F(SemanticAnalyzerTest, SimpleFunctionDeclaration) {
 
 TEST_F(SemanticAnalyzerTest, FunctionWithExpressionBody) {
     EXPECT_TRUE(analyzeSource(R"(
-        fn square(x: int) -> int = x * x
+        fn square(x: i32) -> i32 = x * x
     )"));
     EXPECT_FALSE(errorReporter->hasErrors());
 }
 
 TEST_F(SemanticAnalyzerTest, FunctionReturnTypeMismatch) {
-    EXPECT_FALSE(analyzeSource(R"(
-        fn add(a: int, b: int) -> int {
+    // With implicit numeric conversions, f32 -> i32 is allowed
+    EXPECT_TRUE(analyzeSource(R"(
+        fn add(a: i32, b: i32) -> i32 {
             return 3.14
         }
     )"));
-    EXPECT_TRUE(errorReporter->hasErrors());
+    EXPECT_FALSE(errorReporter->hasErrors());
 }
 
 TEST_F(SemanticAnalyzerTest, FunctionCallWithCorrectArgs) {
     EXPECT_TRUE(analyzeSource(R"(
-        fn add(a: int, b: int) -> int {
+        fn add(a: i32, b: i32) -> i32 {
             return a + b
         }
         result := add(5, 10)
@@ -166,7 +168,7 @@ TEST_F(SemanticAnalyzerTest, FunctionCallWithCorrectArgs) {
 
 TEST_F(SemanticAnalyzerTest, FunctionCallWrongArgCount) {
     EXPECT_FALSE(analyzeSource(R"(
-        fn add(a: int, b: int) -> int {
+        fn add(a: i32, b: i32) -> i32 {
             return a + b
         }
         result := add(5)
@@ -176,7 +178,7 @@ TEST_F(SemanticAnalyzerTest, FunctionCallWrongArgCount) {
 
 TEST_F(SemanticAnalyzerTest, FunctionCallWrongArgType) {
     EXPECT_FALSE(analyzeSource(R"(
-        fn add(a: int, b: int) -> int {
+        fn add(a: i32, b: i32) -> i32 {
             return a + b
         }
         result := add(5, 3.14)
@@ -186,10 +188,10 @@ TEST_F(SemanticAnalyzerTest, FunctionCallWrongArgType) {
 
 TEST_F(SemanticAnalyzerTest, ForwardFunctionReference) {
     EXPECT_TRUE(analyzeSource(R"(
-        fn main() -> int {
+        fn main() -> i32 {
             return helper()
         }
-        fn helper() -> int {
+        fn helper() -> i32 {
             return 42
         }
     )"));
@@ -198,7 +200,7 @@ TEST_F(SemanticAnalyzerTest, ForwardFunctionReference) {
 
 TEST_F(SemanticAnalyzerTest, RecursiveFunction) {
     EXPECT_TRUE(analyzeSource(R"(
-        fn factorial(n: int) -> int {
+        fn factorial(n: i32) -> i32 {
             if n <= 1 {
                 return 1
             }
@@ -245,7 +247,7 @@ TEST_F(SemanticAnalyzerTest, IfElseStatement) {
 
 TEST_F(SemanticAnalyzerTest, WhileLoop) {
     EXPECT_TRUE(analyzeSource(R"(
-        counter: mut int = 0
+        counter: mut i32 = 0
         while counter < 10 {
             counter = counter + 1
         }
@@ -365,7 +367,7 @@ TEST_F(SemanticAnalyzerTest, VariableShadowing) {
 
 TEST_F(SemanticAnalyzerTest, FunctionParameterScope) {
     EXPECT_TRUE(analyzeSource(R"(
-        fn test(x: int) -> int {
+        fn test(x: i32) -> i32 {
             y := x + 5
             return y
         }
@@ -384,7 +386,7 @@ TEST_F(SemanticAnalyzerTest, ReturnOutsideFunction) {
 
 TEST_F(SemanticAnalyzerTest, ReturnCorrectType) {
     EXPECT_TRUE(analyzeSource(R"(
-        fn getValue() -> int {
+        fn getValue() -> i32 {
             return 42
         }
     )"));
@@ -393,7 +395,7 @@ TEST_F(SemanticAnalyzerTest, ReturnCorrectType) {
 
 TEST_F(SemanticAnalyzerTest, ReturnWrongType) {
     EXPECT_FALSE(analyzeSource(R"(
-        fn getValue() -> int {
+        fn getValue() -> i32 {
             return "hello"
         }
     )"));
@@ -427,7 +429,7 @@ TEST_F(SemanticAnalyzerTest, ArrayLiteral) {
 
 TEST_F(SemanticAnalyzerTest, EmptyArray) {
     EXPECT_TRUE(analyzeSource(R"(
-        empty: Array[int] = []
+        empty: Array[i32] = []
     )"));
     EXPECT_FALSE(errorReporter->hasErrors());
 }
@@ -438,14 +440,14 @@ TEST_F(SemanticAnalyzerTest, EmptyArray) {
 
 TEST_F(SemanticAnalyzerTest, ComplexProgramWithMultipleFunctions) {
     EXPECT_TRUE(analyzeSource(R"(
-        fn fibonacci(n: int) -> int {
+        fn fibonacci(n: i32) -> i32 {
             if n <= 1 {
                 return n
             }
             return fibonacci(n - 1) + fibonacci(n - 2)
         }
 
-        fn main() -> int {
+        fn main() -> i32 {
             result := fibonacci(10)
             return result
         }
@@ -455,11 +457,11 @@ TEST_F(SemanticAnalyzerTest, ComplexProgramWithMultipleFunctions) {
 
 TEST_F(SemanticAnalyzerTest, VariablesAndFunctionsInteraction) {
     EXPECT_TRUE(analyzeSource(R"(
-        fn square(x: int) -> int {
+        fn square(x: i32) -> i32 {
             return x * x
         }
 
-        fn sumOfSquares(a: int, b: int) -> int {
+        fn sumOfSquares(a: i32, b: i32) -> i32 {
             return square(a) + square(b)
         }
 
@@ -470,8 +472,8 @@ TEST_F(SemanticAnalyzerTest, VariablesAndFunctionsInteraction) {
 
 TEST_F(SemanticAnalyzerTest, NestedControlFlow) {
     EXPECT_TRUE(analyzeSource(R"(
-        fn findMax(arr: Array[int]) -> int {
-            max: mut int = 0
+        fn findMax(arr: Array[i32]) -> i32 {
+            max: mut i32 = 0
             for num in arr {
                 if num > max {
                     max = num
@@ -496,7 +498,7 @@ TEST_F(SemanticAnalyzerTest, EnumDeclarationSimple) {
 
 TEST_F(SemanticAnalyzerTest, EnumDeclarationWithData) {
     EXPECT_TRUE(analyzeSource(R"(
-        enum Option { Some(int), None }
+        enum Option { Some(i32), None }
     )"));
     EXPECT_FALSE(errorReporter->hasErrors());
 }
@@ -526,7 +528,7 @@ TEST_F(SemanticAnalyzerTest, EnumConstructionSimple) {
     EXPECT_TRUE(analyzeSource(R"(
         enum Color { Red, Green, Blue }
 
-        fn test() -> int {
+        fn test() -> i32 {
             c := Color.Red
             return 0
         }
@@ -536,13 +538,461 @@ TEST_F(SemanticAnalyzerTest, EnumConstructionSimple) {
 
 TEST_F(SemanticAnalyzerTest, EnumConstructionWithData) {
     EXPECT_TRUE(analyzeSource(R"(
-        enum Option { Some(int), None }
+        enum Option { Some(i32), None }
 
-        fn test() -> int {
+        fn test() -> i32 {
             x := Option.Some(42)
             y := Option.None
             return 0
         }
     )"));
     EXPECT_FALSE(errorReporter->hasErrors());
+}
+
+// ============================================================================
+// Match Statement Exhaustiveness Tests
+// ============================================================================
+
+TEST_F(SemanticAnalyzerTest, MatchExhaustiveEnum) {
+    EXPECT_TRUE(analyzeSource(R"(
+        enum Color {
+            Red,
+            Green,
+            Blue
+        }
+
+        fn test(c: Color) -> i32 {
+            return match c {
+                Color.Red => 1,
+                Color.Green => 2,
+                Color.Blue => 3
+            }
+        }
+    )"));
+    EXPECT_FALSE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, MatchNonExhaustiveEnum) {
+    EXPECT_FALSE(analyzeSource(R"(
+        enum Color {
+            Red,
+            Green,
+            Blue
+        }
+
+        fn test(c: Color) -> i32 {
+            return match c {
+                Color.Red => 1,
+                Color.Green => 2
+            }
+        }
+    )"));
+    EXPECT_TRUE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, MatchEnumWithWildcard) {
+    EXPECT_TRUE(analyzeSource(R"(
+        enum Status {
+            Active,
+            Inactive,
+            Pending
+        }
+
+        fn test(s: Status) -> i32 {
+            return match s {
+                Status.Active => 1,
+                _ => 0
+            }
+        }
+    )"));
+    EXPECT_FALSE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, MatchExhaustiveBool) {
+    EXPECT_TRUE(analyzeSource(R"(
+        fn test(b: bool) -> str {
+            return match b {
+                true => "yes",
+                false => "no"
+            }
+        }
+    )"));
+    EXPECT_FALSE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, MatchNonExhaustiveBool) {
+    EXPECT_FALSE(analyzeSource(R"(
+        fn test(b: bool) -> str {
+            return match b {
+                true => "yes"
+            }
+        }
+    )"));
+    EXPECT_TRUE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, MatchEnumWithData) {
+    EXPECT_TRUE(analyzeSource(R"(
+        enum Result {
+            Ok(i32),
+            Err(str)
+        }
+
+        fn test(r: Result) -> i32 {
+            return match r {
+                Result.Ok(value) => value,
+                Result.Err(_) => -1
+            }
+        }
+    )"));
+    EXPECT_FALSE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, MatchEnumWithDataNonExhaustive) {
+    EXPECT_FALSE(analyzeSource(R"(
+        enum Result {
+            Ok(i32),
+            Err(str)
+        }
+
+        fn test(r: Result) -> i32 {
+            return match r {
+                Result.Ok(value) => value
+            }
+        }
+    )"));
+    EXPECT_TRUE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, MatchNestedEnums) {
+    EXPECT_TRUE(analyzeSource(R"(
+        enum Option {
+            Some(i32),
+            None
+        }
+
+        enum Result {
+            Ok(Option),
+            Err(str)
+        }
+
+        fn test(r: Result) -> i32 {
+            return match r {
+                Result.Ok(Option.Some(x)) => x,
+                Result.Ok(Option.None) => 0,
+                Result.Err(_) => -1
+            }
+        }
+    )"));
+    EXPECT_FALSE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, MatchIntegerWithWildcard) {
+    EXPECT_TRUE(analyzeSource(R"(
+        fn test(x: i32) -> str {
+            return match x {
+                0 => "zero",
+                1 => "one",
+                _ => "other"
+            }
+        }
+    )"));
+    EXPECT_FALSE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, MatchIntegerNonExhaustive) {
+    EXPECT_FALSE(analyzeSource(R"(
+        fn test(x: i32) -> str {
+            return match x {
+                0 => "zero",
+                1 => "one"
+            }
+        }
+    )"));
+    EXPECT_TRUE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, MatchTypeMismatch) {
+    EXPECT_FALSE(analyzeSource(R"(
+        enum Color {
+            Red,
+            Green,
+            Blue
+        }
+
+        fn test(c: Color) -> i32 {
+            return match c {
+                Color.Red => 1,
+                Color.Green => "two",
+                Color.Blue => 3
+            }
+        }
+    )"));
+    EXPECT_TRUE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, MatchUnreachablePattern) {
+    EXPECT_FALSE(analyzeSource(R"(
+        enum Color {
+            Red,
+            Green,
+            Blue
+        }
+
+        fn test(c: Color) -> i32 {
+            return match c {
+                Color.Red => 1,
+                _ => 0,
+                Color.Green => 2
+            }
+        }
+    )"));
+    EXPECT_TRUE(errorReporter->hasErrors());
+}
+
+// ============================================================================
+// Advanced Match Tests - Edge Cases
+// ============================================================================
+
+TEST_F(SemanticAnalyzerTest, MatchNestedMatchExpressions) {
+    EXPECT_TRUE(analyzeSource(R"(
+        enum Option {
+            Some(i32),
+            None
+        }
+
+        fn test(a: Option, b: Option) -> i32 {
+            return match a {
+                Option.Some(x) => match b {
+                    Option.Some(y) => x + y,
+                    Option.None => x
+                },
+                Option.None => match b {
+                    Option.Some(y) => y,
+                    Option.None => 0
+                }
+            }
+        }
+    )"));
+    EXPECT_FALSE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, MatchNestedMatchNonExhaustive) {
+    EXPECT_FALSE(analyzeSource(R"(
+        enum Option {
+            Some(i32),
+            None
+        }
+
+        fn test(a: Option, b: Option) -> i32 {
+            return match a {
+                Option.Some(x) => match b {
+                    Option.Some(y) => x + y
+                },
+                Option.None => 0
+            }
+        }
+    )"));
+    EXPECT_TRUE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, MatchMultipleBindings) {
+    EXPECT_TRUE(analyzeSource(R"(
+        enum Pair {
+            Values(i32, i32),
+            Empty
+        }
+
+        fn test(p: Pair) -> i32 {
+            return match p {
+                Pair.Values(a, b) => a + b,
+                Pair.Empty => 0
+            }
+        }
+    )"));
+    EXPECT_FALSE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, MatchDeeplyNestedEnums) {
+    EXPECT_TRUE(analyzeSource(R"(
+        enum Inner {
+            Val(i32),
+            Empty
+        }
+
+        enum Middle {
+            Has(Inner),
+            None
+        }
+
+        enum Outer {
+            Data(Middle),
+            Nothing
+        }
+
+        fn test(o: Outer) -> i32 {
+            return match o {
+                Outer.Data(Middle.Has(Inner.Val(x))) => x,
+                Outer.Data(Middle.Has(Inner.Empty)) => -1,
+                Outer.Data(Middle.None) => -2,
+                Outer.Nothing => -3
+            }
+        }
+    )"));
+    EXPECT_FALSE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, MatchDeeplyNestedNonExhaustive) {
+    // This tests nested pattern exhaustiveness
+    // Missing: Outer.Data(Middle.Has(Inner.Empty))
+    EXPECT_FALSE(analyzeSource(R"(
+        enum Inner {
+            Val(i32),
+            Empty
+        }
+
+        enum Middle {
+            Has(Inner),
+            None
+        }
+
+        enum Outer {
+            Data(Middle),
+            Nothing
+        }
+
+        fn test(o: Outer) -> i32 {
+            return match o {
+                Outer.Data(Middle.Has(Inner.Val(x))) => x,
+                Outer.Data(Middle.None) => -2,
+                Outer.Nothing => -3
+            }
+        }
+    )"));
+    EXPECT_TRUE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, MatchMissingTopLevelVariant) {
+    // This tests top-level exhaustiveness which IS checked
+    EXPECT_FALSE(analyzeSource(R"(
+        enum Inner {
+            Val(i32),
+            Empty
+        }
+
+        enum Outer {
+            Data(Inner),
+            Nothing
+        }
+
+        fn test(o: Outer) -> i32 {
+            return match o {
+                Outer.Data(Inner.Val(x)) => x,
+                Outer.Data(Inner.Empty) => -1
+            }
+        }
+    )"));
+    EXPECT_TRUE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, MatchPatternShadowing) {
+    EXPECT_TRUE(analyzeSource(R"(
+        enum Option {
+            Some(i32),
+            None
+        }
+
+        fn test(opt: Option) -> i32 {
+            x := 100
+            return match opt {
+                Option.Some(x) => x,
+                Option.None => x
+            }
+        }
+    )"));
+    EXPECT_FALSE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, MatchWithWildcardInConstructor) {
+    EXPECT_TRUE(analyzeSource(R"(
+        enum Pair {
+            Values(i32, i32),
+            Empty
+        }
+
+        fn test(p: Pair) -> i32 {
+            return match p {
+                Pair.Values(x, _) => x,
+                Pair.Empty => 0
+            }
+        }
+    )"));
+    EXPECT_FALSE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, MatchWithMultipleWildcards) {
+    EXPECT_FALSE(analyzeSource(R"(
+        enum Color {
+            Red,
+            Green,
+            Blue
+        }
+
+        fn test(c: Color) -> i32 {
+            return match c {
+                Color.Red => 1,
+                _ => 2,
+                _ => 3
+            }
+        }
+    )"));
+    EXPECT_TRUE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, MatchBoolWithWildcard) {
+    EXPECT_TRUE(analyzeSource(R"(
+        fn test(b: bool) -> str {
+            return match b {
+                true => "yes",
+                _ => "no"
+            }
+        }
+    )"));
+    EXPECT_FALSE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, MatchUsesPatternBindingInGuard) {
+    EXPECT_TRUE(analyzeSource(R"(
+        enum Option {
+            Some(i32),
+            None
+        }
+
+        fn test(opt: Option) -> i32 {
+            return match opt {
+                Option.Some(x) if x > 0 => x,
+                Option.Some(x) => -x,
+                Option.None => 0
+            }
+        }
+    )"));
+    EXPECT_FALSE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, MatchPatternBindingScope) {
+    EXPECT_FALSE(analyzeSource(R"(
+        enum Option {
+            Some(i32),
+            None
+        }
+
+        fn test(opt: Option) -> i32 {
+            match opt {
+                Option.Some(x) => x,
+                Option.None => 0
+            }
+            return x
+        }
+    )"));
+    EXPECT_TRUE(errorReporter->hasErrors());
 }

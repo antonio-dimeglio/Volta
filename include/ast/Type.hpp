@@ -11,11 +11,25 @@ struct Type {
     virtual ~Type() = default;
 };
 
-// Primitive types: int, float, bool, str, void
+// Primitive types: signed/unsigned integers, floats, bool, str, void
 struct PrimitiveType : Type {
     enum class Kind {
-        Int,
-        Float,
+        // Signed integers
+        I8,
+        I16,
+        I32,
+        I64,
+        // Unsigned integers
+        U8,
+        U16,
+        U32,
+        U64,
+        // Floating point
+        F8,
+        F16,
+        F32,
+        F64,
+        // Other primitives
         Bool,
         Str,
         Void

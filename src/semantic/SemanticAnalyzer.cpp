@@ -12,10 +12,10 @@ SemanticAnalyzer::SemanticAnalyzer(volta::errors::ErrorReporter& reporter)
       symbolTable_(std::make_unique<SymbolTable>()) {}
 
 void SemanticAnalyzer::registerBuiltins() {
-    // print(int) -> void
+    // print(i32) -> void
     {
         std::vector<std::shared_ptr<Type>> params = {
-            typeCache_.getInt()
+            typeCache_.getI32()
         };
         auto returnType = typeCache_.getVoid();
         auto printType = typeCache_.getFunctionType(std::move(params), returnType);
@@ -24,10 +24,10 @@ void SemanticAnalyzer::registerBuiltins() {
         symbolTable_->declare("print", symbol);
     }
 
-    // print(float) -> void
+    // print(f32) -> void
     {
         std::vector<std::shared_ptr<Type>> params = {
-            typeCache_.getFloat()
+            typeCache_.getF32()
         };
         auto returnType = typeCache_.getVoid();
         auto printType = typeCache_.getFunctionType(std::move(params), returnType);
@@ -179,13 +179,37 @@ std::shared_ptr<Type> SemanticAnalyzer::resolveTypeAnnotation(const volta::ast::
         return typeCache_.getUnknown();
     }
 
-    // Handle PrimitiveType (int, float, bool, str, void)
+    // Handle PrimitiveType
     if (auto* prim = dynamic_cast<const volta::ast::PrimitiveType*>(astType)) {
         switch (prim->kind) {
-            case volta::ast::PrimitiveType::Kind::Int:
-                return typeCache_.getInt();
-            case volta::ast::PrimitiveType::Kind::Float:
-                return typeCache_.getFloat();
+            // Signed integers
+            case volta::ast::PrimitiveType::Kind::I8:
+                return typeCache_.getI8();
+            case volta::ast::PrimitiveType::Kind::I16:
+                return typeCache_.getI16();
+            case volta::ast::PrimitiveType::Kind::I32:
+                return typeCache_.getI32();
+            case volta::ast::PrimitiveType::Kind::I64:
+                return typeCache_.getI64();
+            // Unsigned integers
+            case volta::ast::PrimitiveType::Kind::U8:
+                return typeCache_.getU8();
+            case volta::ast::PrimitiveType::Kind::U16:
+                return typeCache_.getU16();
+            case volta::ast::PrimitiveType::Kind::U32:
+                return typeCache_.getU32();
+            case volta::ast::PrimitiveType::Kind::U64:
+                return typeCache_.getU64();
+            // Floating point
+            case volta::ast::PrimitiveType::Kind::F8:
+                return typeCache_.getF8();
+            case volta::ast::PrimitiveType::Kind::F16:
+                return typeCache_.getF16();
+            case volta::ast::PrimitiveType::Kind::F32:
+                return typeCache_.getF32();
+            case volta::ast::PrimitiveType::Kind::F64:
+                return typeCache_.getF64();
+            // Other primitives
             case volta::ast::PrimitiveType::Kind::Bool:
                 return typeCache_.getBool();
             case volta::ast::PrimitiveType::Kind::Str:
@@ -710,9 +734,9 @@ void SemanticAnalyzer::analyzeForStatement(const volta::ast::ForStatement* forSt
         elementType = arrayType->elementType();
     }
     // Check if it's a range (will have int elements)
-    else if (exprType->kind() == Type::Kind::Int) {
+    else if (exprType->isInteger()) {
         // Range expressions (0..10) produce integers
-        elementType = typeCache_.getInt();
+        elementType = exprType;
     }
     else {
         error("Expression is not iterable", forStmt->location);
@@ -804,12 +828,262 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeExpression(const volta::ast::Expr
     return resultType;
 }
 
+// Merge source nested coverage into target (union operation)
+void SemanticAnalyzer::mergeNestedCoverage(std::vector<NestedCoverage>& target, const std::vector<NestedCoverage>& source) {
+    // If target is empty, initialize it with source
+    if (target.empty()) {
+        target = source;
+        return;
+    }
+
+    // Merge each position
+    for (size_t i = 0; i < source.size() && i < target.size(); i++) {
+        // If either has wildcard, the union has wildcard
+        target[i].hasWildcard = target[i].hasWildcard || source[i].hasWildcard;
+
+        // Union the covered variants
+        target[i].coveredVariants.insert(source[i].coveredVariants.begin(), source[i].coveredVariants.end());
+
+        // Recursively merge nested coverage
+        for (const auto& [variantName, nestedVec] : source[i].nestedByVariant) {
+            mergeNestedCoverage(target[i].nestedByVariant[variantName], nestedVec);
+        }
+    }
+}
+
+// Check if nested coverage is exhaustive for given types
+bool SemanticAnalyzer::isNestedCoverageExhaustive(const std::vector<NestedCoverage>& coverage,
+                                                  const std::vector<std::shared_ptr<Type>>& types) {
+    if (coverage.size() != types.size()) {
+        return false;  // Mismatch in argument count
+    }
+
+    for (size_t i = 0; i < coverage.size(); i++) {
+        // If this position has a wildcard, it's exhaustive
+        if (coverage[i].hasWildcard) {
+            continue;
+        }
+
+        // Check if this type requires exhaustiveness
+        if (auto* enumType = dynamic_cast<const EnumType*>(types[i].get())) {
+            // For enum, all variants must be covered
+            for (const auto& variant : enumType->variants()) {
+                if (coverage[i].coveredVariants.count(variant.name) == 0) {
+                    return false;  // Missing variant
+                }
+
+                // If variant has associated types, check nested exhaustiveness
+                if (!variant.associatedTypes.empty()) {
+                    auto it = coverage[i].nestedByVariant.find(variant.name);
+                    if (it != coverage[i].nestedByVariant.end()) {
+                        if (!isNestedCoverageExhaustive(it->second, variant.associatedTypes)) {
+                            return false;  // Nested patterns not exhaustive
+                        }
+                    } else {
+                        return false;  // Variant covered but no nested info
+                    }
+                }
+            }
+        } else if (types[i]->equals(typeCache_.getBool().get())) {
+            // For bool, both true and false must be covered
+            if (coverage[i].coveredVariants.count("true") == 0 ||
+                coverage[i].coveredVariants.count("false") == 0) {
+                return false;
+            }
+        }
+        // For other types (int, string), we don't require exhaustiveness without wildcard
+    }
+
+    return true;
+}
+
+void SemanticAnalyzer::bindPatternVariables(const volta::ast::Pattern* pattern, std::shared_ptr<Type> patternType) {
+    // Wildcard - no binding
+    if (dynamic_cast<const volta::ast::WildcardPattern*>(pattern)) {
+        return;
+    }
+
+    // Identifier pattern - bind the identifier to the type
+    if (auto* identPattern = dynamic_cast<const volta::ast::IdentifierPattern*>(pattern)) {
+        const std::string& name = identPattern->identifier->name;
+        declareVariable(name, patternType, false, identPattern->location);
+        return;
+    }
+
+    // Constructor pattern - bind argument patterns
+    if (auto* ctorPattern = dynamic_cast<const volta::ast::ConstructorPattern*>(pattern)) {
+        // Get the variant to find argument types
+        if (auto* enumType = dynamic_cast<const EnumType*>(patternType.get())) {
+            const std::string& variantName = ctorPattern->constructor->name;
+            const auto* variant = enumType->getVariant(variantName);
+            if (variant) {
+                // Bind each argument pattern with its corresponding type
+                for (size_t i = 0; i < ctorPattern->arguments.size() && i < variant->associatedTypes.size(); i++) {
+                    bindPatternVariables(ctorPattern->arguments[i].get(), variant->associatedTypes[i]);
+                }
+            }
+        }
+        return;
+    }
+
+    // Literal pattern - no binding
+    if (dynamic_cast<const volta::ast::LiteralPattern*>(pattern)) {
+        return;
+    }
+
+    // Tuple pattern - bind each element
+    if (auto* tuplePattern = dynamic_cast<const volta::ast::TuplePattern*>(pattern)) {
+        // TODO: Handle tuple pattern bindings when tuple types are fully implemented
+        return;
+    }
+}
+
+PatternCoverage SemanticAnalyzer::analyzePattern(const volta::ast::Pattern* pattern, std::shared_ptr<Type> matchedType) {
+    PatternCoverage coverage;
+
+    // Wildcard pattern - covers everything
+    if (dynamic_cast<const volta::ast::WildcardPattern*>(pattern)) {
+        coverage.coversEverything = true;
+        return coverage;
+    }
+
+    // Identifier pattern - always a binding (covers everything)
+    // Enum variants must use qualified syntax (Color.Red) which becomes ConstructorPattern
+    if (dynamic_cast<const volta::ast::IdentifierPattern*>(pattern)) {
+        coverage.coversEverything = true;
+        return coverage;
+    }
+
+    // Constructor pattern - covers specific enum variant
+    if (auto* ctorPattern = dynamic_cast<const volta::ast::ConstructorPattern*>(pattern)) {
+        // Extract variant name from constructor
+        std::string variantName = ctorPattern->constructor->name;
+        coverage.coveredVariants.insert(variantName);
+
+        // Analyze nested patterns
+        if (auto* enumType = dynamic_cast<const EnumType*>(matchedType.get())) {
+            const auto* variant = enumType->getVariant(variantName);
+            if (variant && !variant->associatedTypes.empty()) {
+                std::vector<NestedCoverage> nestedCoverages;
+
+                for (size_t i = 0; i < ctorPattern->arguments.size(); i++) {
+                    if (i < variant->associatedTypes.size()) {
+                        // Recursively analyze the nested pattern
+                        PatternCoverage nestedPat = analyzePattern(
+                            ctorPattern->arguments[i].get(),
+                            variant->associatedTypes[i]
+                        );
+
+                        // Convert to NestedCoverage
+                        NestedCoverage nested;
+                        nested.hasWildcard = nestedPat.coversEverything;
+                        nested.coveredVariants = nestedPat.coveredVariants;
+                        // Recursively copy nested coverage
+                        nested.nestedByVariant = nestedPat.nestedCoverageByVariant;
+
+                        nestedCoverages.push_back(nested);
+                    }
+                }
+
+                coverage.nestedCoverageByVariant[variantName] = nestedCoverages;
+            }
+        }
+
+        return coverage;
+    }
+
+    // Literal pattern - special handling for bool
+    if (auto* litPattern = dynamic_cast<const volta::ast::LiteralPattern*>(pattern)) {
+        if (auto* boolLit = dynamic_cast<const volta::ast::BooleanLiteral*>(litPattern->literal.get())) {
+            // Bool literal covers either "true" or "false"
+            coverage.coveredVariants.insert(boolLit->value ? "true" : "false");
+            return coverage;
+        }
+        // Other literals (int, string) - partial coverage, need wildcard
+        return coverage;
+    }
+
+    // Tuple pattern - for now, treat as partial coverage
+    if (dynamic_cast<const volta::ast::TuplePattern*>(pattern)) {
+        // TODO: Could be smarter here - check if all elements are wildcards
+        return coverage;
+    }
+
+    // Unknown pattern type
+    return coverage;
+}
+
+void SemanticAnalyzer::checkExhaustiveness(
+    std::shared_ptr<Type> matchedType,
+    const std::set<std::string>& coveredVariants,
+    bool hasWildcard,
+    const std::map<std::string, std::vector<NestedCoverage>>& nestedCoverageByVariant,
+    const volta::errors::SourceLocation& loc) {
+
+    if (hasWildcard) return;
+
+    if (auto* enumType = dynamic_cast<const EnumType*>(matchedType.get())) {
+        std::vector<std::string> missingVariants;
+        for (const auto& variant : enumType->variants()) {
+            // Check if variant is covered
+            if (coveredVariants.count(variant.name) == 0) {
+                missingVariants.push_back(variant.name);
+                continue;
+            }
+
+            // Variant is covered - check if nested patterns are exhaustive
+            if (!variant.associatedTypes.empty()) {
+                auto it = nestedCoverageByVariant.find(variant.name);
+                if (it != nestedCoverageByVariant.end()) {
+                    // Check if the union of all nested patterns is exhaustive
+                    if (!isNestedCoverageExhaustive(it->second, variant.associatedTypes)) {
+                        missingVariants.push_back(variant.name + " (non-exhaustive nested patterns)");
+                    }
+                }
+                // If no nested coverage info, the variant wasn't actually matched with args
+                // This is fine for variants like Option.None that don't require args
+            }
+        }
+
+        if (!missingVariants.empty()) {
+            std::string errorMsg = "Non-exhaustive match, missing patterns: ";
+            for (size_t i = 0; i < missingVariants.size(); i++) {
+                errorMsg += enumType->name() + "." + missingVariants[i];
+                if (i < missingVariants.size() - 1) errorMsg += ", ";
+            }
+            error(errorMsg, loc);
+        }
+
+        return;
+    }
+
+    if (matchedType->equals(typeCache_.getBool().get())) {
+        bool hasTrue = coveredVariants.count("true") > 0;
+        bool hasFalse = coveredVariants.count("false") > 0;
+
+        if (!hasTrue && !hasFalse) {
+            error("Non-exhaustive match on bool, missing patterns: 'true', 'false'", loc);
+        } else if (!hasTrue) {
+            error("Non-exhaustive match on bool, missing pattern: 'true'", loc);
+        } else if (!hasFalse) {
+            error("Non-exhaustive match on bool, missing pattern: 'false'", loc);
+        }
+
+        return;
+    }
+
+    error("Match on non-exhaustive type (int, string, etc.) requires wildcard '_' or 'else' pattern", loc);
+}
+
+
 std::shared_ptr<Type> SemanticAnalyzer::analyzeLiteral(const volta::ast::Expression* literal) {
     if (dynamic_cast<const volta::ast::IntegerLiteral*>(literal)) {
-        return typeCache_.getInt();
+        // Default integer literals to i32
+        return typeCache_.getI32();
     }
     else if (dynamic_cast<const volta::ast::FloatLiteral*>(literal)) {
-        return typeCache_.getFloat();
+        // Default float literals to f32
+        return typeCache_.getF32();
     }
     else if (dynamic_cast<const volta::ast::BooleanLiteral*>(literal)) {
         return typeCache_.getBool();
@@ -962,19 +1236,68 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeCallExpression(const volta::ast::
 }
 
 std::shared_ptr<Type> SemanticAnalyzer::analyzeMatchExpression(const volta::ast::MatchExpression* matchExpr) {
-    // TODO: Instead of just analyzing the value this should check if the match is exhaustive
-    analyzeExpression(matchExpr->value.get());
+    // 1. Analyze the value being matched
+    auto matchedType = analyzeExpression(matchExpr->value.get());
 
+    // 2. Track coverage
+    bool hasWildcard = false;
+    std::set<std::string> coveredVariants;
+    // Track nested coverage for each variant (union across all arms)
+    std::map<std::string, std::vector<NestedCoverage>> nestedCoverageByVariant;
     std::shared_ptr<Type> resultType;
-    for (const auto& arm : matchExpr->arms) {
-        if (arm->guard) {
-            analyzeExpression(arm->guard.get());
+
+    // 3. Analyze each arm
+    for (size_t i = 0; i < matchExpr->arms.size(); i++) {
+        const auto& arm = matchExpr->arms[i];
+
+        // 3a. Check for unreachable patterns (after wildcard)
+        if (hasWildcard) {
+            error("Unreachable pattern - previous wildcard or 'else' already matches everything", arm->pattern->location);
         }
+
+        // 3b. Analyze pattern - what does it cover?
+        PatternCoverage coverage = analyzePattern(arm->pattern.get(), matchedType);
+
+        if (coverage.coversEverything) {
+            hasWildcard = true;
+        } else {
+            // Add covered variants to our set
+            coveredVariants.insert(coverage.coveredVariants.begin(), coverage.coveredVariants.end());
+
+            // Merge nested coverage for each variant
+            for (const auto& [variantName, nestedCov] : coverage.nestedCoverageByVariant) {
+                mergeNestedCoverage(nestedCoverageByVariant[variantName], nestedCov);
+            }
+        }
+
+        // 3c. Enter a new scope for this arm and bind pattern variables
+        enterScope();
+        bindPatternVariables(arm->pattern.get(), matchedType);
+
+        // 3d. Analyze guard (if present)
+        if (arm->guard) {
+            auto guardType = analyzeExpression(arm->guard.get());
+            if (!guardType->equals(typeCache_.getBool().get())) {
+                error("Match guard must be a boolean expression", arm->guard->location);
+            }
+            // Pattern with guard is NOT exhaustive
+            hasWildcard = false;
+        }
+
+        // 3e. Analyze body and check type consistency
         auto armType = analyzeExpression(arm->body.get());
         if (!resultType) {
             resultType = armType;
+        } else if (!areTypesCompatible(resultType.get(), armType.get())) {
+            typeError("Match arms must all return the same type", resultType.get(), armType.get(), arm->body->location);
         }
+
+        // 3f. Exit scope
+        exitScope();
     }
+
+    // 4. Check exhaustiveness (including nested patterns)
+    checkExhaustiveness(matchedType, coveredVariants, hasWildcard, nestedCoverageByVariant, matchExpr->location);
 
     return resultType ? resultType : typeCache_.getUnknown();
 }
@@ -1357,9 +1680,9 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeIndexExpression(const volta::ast:
     auto arrayType = analyzeExpression(indexExpr->object.get());
     auto indexType = analyzeExpression(indexExpr->index.get());
 
-    if (indexType->kind() != Type::Kind::Int) {
+    if (!indexType->isInteger()) {
         typeError("Array index must be an integer",
-                 typeCache_.getInt().get(),
+                 typeCache_.getI32().get(),
                  indexType.get(), indexExpr->location);
     }
 
@@ -1460,6 +1783,17 @@ bool SemanticAnalyzer::areTypesCompatible(const Type* expected, const Type* actu
         return true;
     }
 
+    // Exact match
+    if (expected->equals(actual)) {
+        return true;
+    }
+
+    // Implicit numeric conversions
+    // Allow any numeric type to be converted to any other numeric type
+    if (expected->isNumeric() && actual->isNumeric()) {
+        return true;
+    }
+
     // For array types, check element compatibility
     if (expected->kind() == Type::Kind::Array && actual->kind() == Type::Kind::Array) {
         auto* expectedArray = dynamic_cast<const ArrayType*>(expected);
@@ -1474,7 +1808,7 @@ bool SemanticAnalyzer::areTypesCompatible(const Type* expected, const Type* actu
                                   actualArray->elementType().get());
     }
 
-    return expected->equals(actual);
+    return false;
 }
 
 std::shared_ptr<Type> SemanticAnalyzer::inferBinaryOpType(
@@ -1488,11 +1822,20 @@ std::shared_ptr<Type> SemanticAnalyzer::inferBinaryOpType(
     if (op == Op::Add || op == Op::Subtract || op == Op::Multiply ||
         op == Op::Divide || op == Op::Modulo || op == Op::Power) {
 
-        if (left->kind() == Type::Kind::Int && right->kind() == Type::Kind::Int) {
-            return typeCache_.getInt();
+        if (left->isInteger() && right->isInteger()) {
+            // Both integers - return the left type (could be improved with widening rules)
+            return std::make_shared<PrimitiveType>(
+                dynamic_cast<const PrimitiveType*>(left)->primitiveKind()
+            );
         }
         if (left->isNumeric() && right->isNumeric()) {
-            return typeCache_.getFloat();
+            // Mixed numeric types - prefer float types
+            if (left->isFloat()) return std::make_shared<PrimitiveType>(
+                dynamic_cast<const PrimitiveType*>(left)->primitiveKind()
+            );
+            if (right->isFloat()) return std::make_shared<PrimitiveType>(
+                dynamic_cast<const PrimitiveType*>(right)->primitiveKind()
+            );
         }
         return typeCache_.getUnknown();
     }
@@ -1508,9 +1851,9 @@ std::shared_ptr<Type> SemanticAnalyzer::inferBinaryOpType(
         return typeCache_.getBool();
     }
 
-    // Range operators
+    // Range operators - return i32 by default
     if (op == Op::Range || op == Op::RangeInclusive) {
-        return typeCache_.getInt();
+        return typeCache_.getI32();
     }
 
     return typeCache_.getUnknown();
@@ -1524,7 +1867,10 @@ std::shared_ptr<Type> SemanticAnalyzer::inferUnaryOpType(
 
     if (op == Op::Negate) {
         if (operand->isNumeric()) {
-            return operand->kind() == Type::Kind::Int ? typeCache_.getInt() : typeCache_.getFloat();
+            // Return the same type as the operand
+            return std::make_shared<PrimitiveType>(
+                dynamic_cast<const PrimitiveType*>(operand)->primitiveKind()
+            );
         }
     }
 
@@ -1566,11 +1912,9 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeCastExpression(const volta::ast::
     
     // 3. Check if the cast is valid
     bool validCast = false;
-    
-    if (sourceType->kind() == Type::Kind::Int && targetType->kind() == Type::Kind::Float) {
-        validCast = true;  // int → float
-    } else if (sourceType->kind() == Type::Kind::Float && targetType->kind() == Type::Kind::Int) {
-        validCast = true;  // float → int
+
+    if (sourceType->isNumeric() && targetType->isNumeric()) {
+        validCast = true;  // any numeric → any numeric
     }
     
     if (!validCast) {

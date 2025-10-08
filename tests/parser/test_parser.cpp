@@ -457,12 +457,12 @@ TEST_F(ParserTest, ParseEnumDeclarationVariantMultipleTypes) {
 // ============================================================================
 
 TEST_F(ParserTest, ParsePrimitiveType) {
-    auto parser = createParser("int");
+    auto parser = createParser("i32");
     auto type = parser->parseType();
     ASSERT_NE(type, nullptr);
     auto* primType = dynamic_cast<PrimitiveType*>(type.get());
     ASSERT_NE(primType, nullptr);
-    EXPECT_EQ(primType->kind, PrimitiveType::Kind::Int);
+    EXPECT_EQ(primType->kind, PrimitiveType::Kind::I32);
 }
 
 TEST_F(ParserTest, ParseArrayType) {
@@ -678,23 +678,19 @@ TEST_F(ParserTest, ParseTypeAliasFunction) {
     ASSERT_NE(stmt, nullptr);
 }
 
-TEST_F(ParserTest, DISABLED_ParseGenericFunction) {
-    // DISABLED: Generic syntax [T] after function name causes infinite loop
-    // Parser expects '(' after function name but finds '['
+TEST_F(ParserTest, ParseGenericFunction) {
     auto parser = createParser("fn first[T](arr: Array[T]) -> T { return arr[0] }");
     auto stmt = parser->parseStatement();
     ASSERT_NE(stmt, nullptr);
 }
 
-TEST_F(ParserTest, DISABLED_ParseGenericFunctionMultipleParams) {
-    // DISABLED: Generic syntax [T, U] causes infinite loop
+TEST_F(ParserTest, ParseGenericFunctionMultipleParams) {
     auto parser = createParser("fn map[T, U](arr: Array[T], f: fn(T) -> U) -> Array[U] { }");
     auto stmt = parser->parseStatement();
     ASSERT_NE(stmt, nullptr);
 }
 
-TEST_F(ParserTest, DISABLED_ParseGenericStruct) {
-    // DISABLED: Generic syntax [T] after struct name causes infinite loop
+TEST_F(ParserTest, ParseGenericStruct) {
     auto parser = createParser(R"(
         struct Box[T] {
             value: T
@@ -741,6 +737,104 @@ TEST_F(ParserTest, ParseComplexMatchWithGuards) {
 
 TEST_F(ParserTest, ParseStructInstantiationNested) {
     auto parser = createParser("Person { name: \"Alice\", address: Address { street: \"Main St\" } }");
+    auto expr = parser->parseExpression();
+    ASSERT_NE(expr, nullptr);
+}
+
+// ============================================================================
+// Match Statement Tests - Exhaustiveness
+// ============================================================================
+
+TEST_F(ParserTest, ParseMatchWithEnumExhaustive) {
+    auto parser = createParser(R"(
+        match color {
+            Red => "red",
+            Green => "green",
+            Blue => "blue"
+        }
+    )");
+    auto expr = parser->parseExpression();
+    ASSERT_NE(expr, nullptr);
+}
+
+TEST_F(ParserTest, ParseMatchWithEnumAndWildcard) {
+    auto parser = createParser(R"(
+        match status {
+            Active => 1,
+            _ => 0
+        }
+    )");
+    auto expr = parser->parseExpression();
+    ASSERT_NE(expr, nullptr);
+}
+
+TEST_F(ParserTest, ParseMatchWithEnumVariantData) {
+    auto parser = createParser(R"(
+        match result {
+            Ok(value) => value,
+            Err(msg) => 0
+        }
+    )");
+    auto expr = parser->parseExpression();
+    ASSERT_NE(expr, nullptr);
+}
+
+TEST_F(ParserTest, ParseMatchWithNestedEnums) {
+    auto parser = createParser(R"(
+        match outer {
+            Some(Ok(x)) => x,
+            Some(Err(_)) => -1,
+            None => 0
+        }
+    )");
+    auto expr = parser->parseExpression();
+    ASSERT_NE(expr, nullptr);
+}
+
+TEST_F(ParserTest, ParseMatchWithBoolExhaustive) {
+    auto parser = createParser(R"(
+        match is_valid {
+            true => "yes",
+            false => "no"
+        }
+    )");
+    auto expr = parser->parseExpression();
+    ASSERT_NE(expr, nullptr);
+}
+
+TEST_F(ParserTest, ParseMatchWithIntegerRanges) {
+    auto parser = createParser(R"(
+        match value {
+            0 => "zero",
+            1..10 => "small",
+            _ => "large"
+        }
+    )");
+    auto expr = parser->parseExpression();
+    ASSERT_NE(expr, nullptr);
+}
+
+TEST_F(ParserTest, ParseMatchWithTuplePattern) {
+    auto parser = createParser(R"(
+        match point {
+            (0, 0) => "origin",
+            (x, 0) => "x-axis",
+            (0, y) => "y-axis",
+            (x, y) => "other"
+        }
+    )");
+    auto expr = parser->parseExpression();
+    ASSERT_NE(expr, nullptr);
+}
+
+TEST_F(ParserTest, ParseMatchWithMultipleVariants) {
+    auto parser = createParser(R"(
+        match shape {
+            Circle(r) => r * r,
+            Rectangle(w, h) => w * h,
+            Triangle(b, h) => b * h / 2
+        }
+    )");
     auto expr = parser->parseExpression();
     ASSERT_NE(expr, nullptr);
 }

@@ -268,6 +268,14 @@ std::unique_ptr<volta::ast::FnDeclaration> Parser::parseFnDeclaration() {
     }
 
     std::vector<std::string> typeParams;
+    // Parse generic type parameters: fn name[T, U](...)
+    if (match(TokenType::LSQUARE)) {
+        do {
+            auto typeParam = consume(TokenType::IDENTIFIER, "Expected type parameter");
+            typeParams.push_back(typeParam.lexeme);
+        } while (match(TokenType::COMMA));
+        consume(TokenType::RSQUARE, "Expected ']' after type parameters");
+    }
 
     std::vector<std::unique_ptr<Parameter>> params;
     consume(TokenType::LPAREN, "Expected '(' for function definition.");
@@ -1053,11 +1061,38 @@ std::unique_ptr<volta::ast::Type> Parser::parseType() {
         }
 
         // Check if it's a primitive type
-        if (name == "int") {
-            return std::make_unique<PrimitiveType>(PrimitiveType::Kind::Int);
-        } else if (name == "float") {
-            return std::make_unique<PrimitiveType>(PrimitiveType::Kind::Float);
-        } else if (name == "bool") {
+        // Signed integers
+        if (name == "i8") {
+            return std::make_unique<PrimitiveType>(PrimitiveType::Kind::I8);
+        } else if (name == "i16") {
+            return std::make_unique<PrimitiveType>(PrimitiveType::Kind::I16);
+        } else if (name == "i32") {
+            return std::make_unique<PrimitiveType>(PrimitiveType::Kind::I32);
+        } else if (name == "i64") {
+            return std::make_unique<PrimitiveType>(PrimitiveType::Kind::I64);
+        }
+        // Unsigned integers
+        else if (name == "u8") {
+            return std::make_unique<PrimitiveType>(PrimitiveType::Kind::U8);
+        } else if (name == "u16") {
+            return std::make_unique<PrimitiveType>(PrimitiveType::Kind::U16);
+        } else if (name == "u32") {
+            return std::make_unique<PrimitiveType>(PrimitiveType::Kind::U32);
+        } else if (name == "u64") {
+            return std::make_unique<PrimitiveType>(PrimitiveType::Kind::U64);
+        }
+        // Floating point
+        else if (name == "f8") {
+            return std::make_unique<PrimitiveType>(PrimitiveType::Kind::F8);
+        } else if (name == "f16") {
+            return std::make_unique<PrimitiveType>(PrimitiveType::Kind::F16);
+        } else if (name == "f32") {
+            return std::make_unique<PrimitiveType>(PrimitiveType::Kind::F32);
+        } else if (name == "f64") {
+            return std::make_unique<PrimitiveType>(PrimitiveType::Kind::F64);
+        }
+        // Other primitives
+        else if (name == "bool") {
             return std::make_unique<PrimitiveType>(PrimitiveType::Kind::Bool);
         } else if (name == "str") {
             return std::make_unique<PrimitiveType>(PrimitiveType::Kind::Str);
@@ -1123,8 +1158,13 @@ std::unique_ptr<volta::ast::Pattern> Parser::parsePattern() {
         return std::make_unique<LiteralPattern>(std::move(literal), loc);
     }
 
+    if (check(TokenType::ELSE)) {
+        advance();
+        return std::make_unique<WildcardPattern>(loc);
+    }
+
     // Identifier, wildcard, or constructor pattern
-    // Note: Some and None are now regular identifiers (enum variants)
+    // Support both qualified (Color.Red) and unqualified (Red) syntax
     if (check(TokenType::IDENTIFIER)) {
         auto name = advance().lexeme;
         auto ident = std::make_unique<IdentifierExpression>(name, loc);
@@ -1134,7 +1174,30 @@ std::unique_ptr<volta::ast::Pattern> Parser::parsePattern() {
             return std::make_unique<WildcardPattern>(loc);
         }
 
-        // Constructor pattern: Some(x), Point(a, b), None is also an enum variant
+        // Check for qualified pattern: Color.Red or Color.Red(x)
+        if (match(TokenType::DOT)) {
+            auto variantName = consume(TokenType::IDENTIFIER, "Expected variant name after '.'").lexeme;
+            auto variantIdent = std::make_unique<IdentifierExpression>(variantName, currentLocation());
+
+            // Constructor pattern with data: Color.Red(x)
+            if (match(TokenType::LPAREN)) {
+                std::vector<std::unique_ptr<Pattern>> args;
+
+                if (!check(TokenType::RPAREN)) {
+                    do {
+                        args.push_back(parsePattern());
+                    } while (match(TokenType::COMMA));
+                }
+
+                consume(TokenType::RPAREN, "Expected ')' after constructor arguments");
+                return std::make_unique<ConstructorPattern>(std::move(variantIdent), std::move(args), loc);
+            }
+
+            // Simple enum variant without data: Color.Red
+            return std::make_unique<ConstructorPattern>(std::move(variantIdent), std::vector<std::unique_ptr<Pattern>>{}, loc);
+        }
+
+        // Unqualified constructor pattern: Some(x), Point(a, b)
         if (match(TokenType::LPAREN)) {
             std::vector<std::unique_ptr<Pattern>> args;
 
@@ -1148,7 +1211,7 @@ std::unique_ptr<volta::ast::Pattern> Parser::parsePattern() {
             return std::make_unique<ConstructorPattern>(std::move(ident), std::move(args), loc);
         }
 
-        // Simple identifier pattern (binds value to name, or enum variant without data like None)
+        // Simple identifier pattern (binds value to name)
         return std::make_unique<IdentifierPattern>(std::move(ident), loc);
     }
 

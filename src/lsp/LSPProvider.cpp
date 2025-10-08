@@ -136,8 +136,18 @@ SymbolInfo LSPProvider::extractFunctionInfo(const volta::ast::FnDeclaration* fun
         std::string typeStr;
         if (auto* primType = dynamic_cast<const volta::ast::PrimitiveType*>(param->type.get())) {
             switch (primType->kind) {
-                case volta::ast::PrimitiveType::Kind::Int: typeStr = "int"; break;
-                case volta::ast::PrimitiveType::Kind::Float: typeStr = "float"; break;
+                case volta::ast::PrimitiveType::Kind::I8: typeStr = "i8"; break;
+                case volta::ast::PrimitiveType::Kind::I16: typeStr = "i16"; break;
+                case volta::ast::PrimitiveType::Kind::I32: typeStr = "i32"; break;
+                case volta::ast::PrimitiveType::Kind::I64: typeStr = "i64"; break;
+                case volta::ast::PrimitiveType::Kind::U8: typeStr = "u8"; break;
+                case volta::ast::PrimitiveType::Kind::U16: typeStr = "u16"; break;
+                case volta::ast::PrimitiveType::Kind::U32: typeStr = "u32"; break;
+                case volta::ast::PrimitiveType::Kind::U64: typeStr = "u64"; break;
+                case volta::ast::PrimitiveType::Kind::F8: typeStr = "f8"; break;
+                case volta::ast::PrimitiveType::Kind::F16: typeStr = "f16"; break;
+                case volta::ast::PrimitiveType::Kind::F32: typeStr = "f32"; break;
+                case volta::ast::PrimitiveType::Kind::F64: typeStr = "f64"; break;
                 case volta::ast::PrimitiveType::Kind::Bool: typeStr = "bool"; break;
                 case volta::ast::PrimitiveType::Kind::Str: typeStr = "str"; break;
                 case volta::ast::PrimitiveType::Kind::Void: typeStr = "void"; break;
@@ -154,8 +164,18 @@ SymbolInfo LSPProvider::extractFunctionInfo(const volta::ast::FnDeclaration* fun
     std::string returnTypeStr;
     if (auto* primType = dynamic_cast<const volta::ast::PrimitiveType*>(func->returnType.get())) {
         switch (primType->kind) {
-            case volta::ast::PrimitiveType::Kind::Int: returnTypeStr = "int"; break;
-            case volta::ast::PrimitiveType::Kind::Float: returnTypeStr = "float"; break;
+            case volta::ast::PrimitiveType::Kind::I8: returnTypeStr = "i8"; break;
+            case volta::ast::PrimitiveType::Kind::I16: returnTypeStr = "i16"; break;
+            case volta::ast::PrimitiveType::Kind::I32: returnTypeStr = "i32"; break;
+            case volta::ast::PrimitiveType::Kind::I64: returnTypeStr = "i64"; break;
+            case volta::ast::PrimitiveType::Kind::U8: returnTypeStr = "u8"; break;
+            case volta::ast::PrimitiveType::Kind::U16: returnTypeStr = "u16"; break;
+            case volta::ast::PrimitiveType::Kind::U32: returnTypeStr = "u32"; break;
+            case volta::ast::PrimitiveType::Kind::U64: returnTypeStr = "u64"; break;
+            case volta::ast::PrimitiveType::Kind::F8: returnTypeStr = "f8"; break;
+            case volta::ast::PrimitiveType::Kind::F16: returnTypeStr = "f16"; break;
+            case volta::ast::PrimitiveType::Kind::F32: returnTypeStr = "f32"; break;
+            case volta::ast::PrimitiveType::Kind::F64: returnTypeStr = "f64"; break;
             case volta::ast::PrimitiveType::Kind::Bool: returnTypeStr = "bool"; break;
             case volta::ast::PrimitiveType::Kind::Str: returnTypeStr = "str"; break;
             case volta::ast::PrimitiveType::Kind::Void: returnTypeStr = "void"; break;

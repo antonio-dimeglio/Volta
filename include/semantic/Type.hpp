@@ -16,7 +16,10 @@ class TypeVariable;
 class Type {
 public:
     enum class Kind {
-        Int, Float, Bool, String, Void,
+        I8, I16, I32, I64,
+        U8, U16, U32, U64,
+        F8, F16, F32, F64,
+        Bool, String, Void,
         Array, Option, Tuple,
         Function, Struct, TypeVariable, Enum, Unknown
     };
@@ -28,13 +31,30 @@ public:
 
     // Type trait helpers
     bool isNumeric() const {
-        return kind() == Kind::Int || kind() == Kind::Float;
+        return kind() == Kind::I8 || kind() == Kind::I16 || kind() == Kind::I32 || kind() == Kind::I64 ||
+               kind() == Kind::U8 || kind() == Kind::U16 || kind() == Kind::U32 || kind() == Kind::U64 ||
+               kind() == Kind::F8 || kind() == Kind::F16 || kind() == Kind::F32 || kind() == Kind::F64;
+    }
+
+    bool isSignedInteger() const {
+        return kind() == Kind::I8 || kind() == Kind::I16 || kind() == Kind::I32 || kind() == Kind::I64;
+    }
+
+    bool isUnsignedInteger() const {
+        return kind() == Kind::U8 || kind() == Kind::U16 || kind() == Kind::U32 || kind() == Kind::U64;
+    }
+
+    bool isInteger() const {
+        return isSignedInteger() || isUnsignedInteger();
+    }
+
+    bool isFloat() const {
+        return kind() == Kind::F8 || kind() == Kind::F16 || kind() == Kind::F32 || kind() == Kind::F64;
     }
 
     bool isComparable() const {
         // Numbers, booleans, and strings support comparison operators
-        return kind() == Kind::Int || kind() == Kind::Float ||
-               kind() == Kind::Bool || kind() == Kind::String;
+        return isNumeric() || kind() == Kind::Bool || kind() == Kind::String;
     }
 
     bool isIndexable() const {
@@ -45,14 +65,29 @@ public:
 
 class PrimitiveType : public Type {
 public:
-    enum class PrimitiveKind { Int, Float, Bool, String, Void };
+    enum class PrimitiveKind {
+        I8, I16, I32, I64,
+        U8, U16, U32, U64,
+        F8, F16, F32, F64,
+        Bool, String, Void
+    };
 
     explicit PrimitiveType(PrimitiveKind kind) : kind_(kind) {}
 
     Kind kind() const override {
         switch (kind_) {
-            case PrimitiveKind::Int: return Kind::Int;
-            case PrimitiveKind::Float: return Kind::Float;
+            case PrimitiveKind::I8: return Kind::I8;
+            case PrimitiveKind::I16: return Kind::I16;
+            case PrimitiveKind::I32: return Kind::I32;
+            case PrimitiveKind::I64: return Kind::I64;
+            case PrimitiveKind::U8: return Kind::U8;
+            case PrimitiveKind::U16: return Kind::U16;
+            case PrimitiveKind::U32: return Kind::U32;
+            case PrimitiveKind::U64: return Kind::U64;
+            case PrimitiveKind::F8: return Kind::F8;
+            case PrimitiveKind::F16: return Kind::F16;
+            case PrimitiveKind::F32: return Kind::F32;
+            case PrimitiveKind::F64: return Kind::F64;
             case PrimitiveKind::Bool: return Kind::Bool;
             case PrimitiveKind::String: return Kind::String;
             case PrimitiveKind::Void: return Kind::Void;
@@ -62,8 +97,18 @@ public:
 
     std::string toString() const override {
         switch (kind_) {
-            case PrimitiveKind::Int: return "int";
-            case PrimitiveKind::Float: return "float";
+            case PrimitiveKind::I8: return "i8";
+            case PrimitiveKind::I16: return "i16";
+            case PrimitiveKind::I32: return "i32";
+            case PrimitiveKind::I64: return "i64";
+            case PrimitiveKind::U8: return "u8";
+            case PrimitiveKind::U16: return "u16";
+            case PrimitiveKind::U32: return "u32";
+            case PrimitiveKind::U64: return "u64";
+            case PrimitiveKind::F8: return "f8";
+            case PrimitiveKind::F16: return "f16";
+            case PrimitiveKind::F32: return "f32";
+            case PrimitiveKind::F64: return "f64";
             case PrimitiveKind::Bool: return "bool";
             case PrimitiveKind::String: return "str";
             case PrimitiveKind::Void: return "void";
@@ -606,37 +651,46 @@ public:
 class TypeCache {
 public:
     TypeCache()
-        : intType_(std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Int)),
-          floatType_(std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Float)),
+        : i8Type_(std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::I8)),
+          i16Type_(std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::I16)),
+          i32Type_(std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::I32)),
+          i64Type_(std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::I64)),
+          u8Type_(std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::U8)),
+          u16Type_(std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::U16)),
+          u32Type_(std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::U32)),
+          u64Type_(std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::U64)),
+          f8Type_(std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::F8)),
+          f16Type_(std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::F16)),
+          f32Type_(std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::F32)),
+          f64Type_(std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::F64)),
           boolType_(std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Bool)),
           stringType_(std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::String)),
           voidType_(std::make_shared<PrimitiveType>(PrimitiveType::PrimitiveKind::Void)),
           unknownType_(std::make_shared<UnknownType>()) {}
 
-    // Primitive types - always return the same instance
-    std::shared_ptr<Type> getInt() const {
-        return intType_;
-    }
+    // Signed integer types
+    std::shared_ptr<Type> getI8() const { return i8Type_; }
+    std::shared_ptr<Type> getI16() const { return i16Type_; }
+    std::shared_ptr<Type> getI32() const { return i32Type_; }
+    std::shared_ptr<Type> getI64() const { return i64Type_; }
 
-    std::shared_ptr<Type> getFloat() const {
-        return floatType_;
-    }
+    // Unsigned integer types
+    std::shared_ptr<Type> getU8() const { return u8Type_; }
+    std::shared_ptr<Type> getU16() const { return u16Type_; }
+    std::shared_ptr<Type> getU32() const { return u32Type_; }
+    std::shared_ptr<Type> getU64() const { return u64Type_; }
 
-    std::shared_ptr<Type> getBool() const {
-        return boolType_;
-    }
+    // Floating point types
+    std::shared_ptr<Type> getF8() const { return f8Type_; }
+    std::shared_ptr<Type> getF16() const { return f16Type_; }
+    std::shared_ptr<Type> getF32() const { return f32Type_; }
+    std::shared_ptr<Type> getF64() const { return f64Type_; }
 
-    std::shared_ptr<Type> getString() const {
-        return stringType_;
-    }
-
-    std::shared_ptr<Type> getVoid() const {
-        return voidType_;
-    }
-
-    std::shared_ptr<Type> getUnknown() const {
-        return unknownType_;
-    }
+    // Other primitive types
+    std::shared_ptr<Type> getBool() const { return boolType_; }
+    std::shared_ptr<Type> getString() const { return stringType_; }
+    std::shared_ptr<Type> getVoid() const { return voidType_; }
+    std::shared_ptr<Type> getUnknown() const { return unknownType_; }
 
     // Complex types - cache by structure
     std::shared_ptr<Type> getArrayType(std::shared_ptr<Type> elementType) const {
@@ -702,8 +756,18 @@ public:
 
 private:
     // Cached primitive types
-    std::shared_ptr<Type> intType_;
-    std::shared_ptr<Type> floatType_;
+    std::shared_ptr<Type> i8Type_;
+    std::shared_ptr<Type> i16Type_;
+    std::shared_ptr<Type> i32Type_;
+    std::shared_ptr<Type> i64Type_;
+    std::shared_ptr<Type> u8Type_;
+    std::shared_ptr<Type> u16Type_;
+    std::shared_ptr<Type> u32Type_;
+    std::shared_ptr<Type> u64Type_;
+    std::shared_ptr<Type> f8Type_;
+    std::shared_ptr<Type> f16Type_;
+    std::shared_ptr<Type> f32Type_;
+    std::shared_ptr<Type> f64Type_;
     std::shared_ptr<Type> boolType_;
     std::shared_ptr<Type> stringType_;
     std::shared_ptr<Type> voidType_;

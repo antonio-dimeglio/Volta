@@ -25,16 +25,16 @@ Volta combines Python's readable syntax with static typing and immutability by d
 import stats
 import math
 
-fn analyze_data(values: Array[float]) -> Option[float] {
+fn analyze_data(values: Array[f32]) -> Option[f32] {
     if values.len() == 0 {
         return None
     }
-    
+
     mean := stats.mean(values)
     variance := values
-        .map(fn(x: float) -> float = (x - mean) ** 2.0)
-        .reduce(fn(a: float, b: float) -> float = a + b, 0.0) / float(values.len())
-    
+        .map(fn(x: f32) -> f32 = (x - mean) ** 2.0)
+        .reduce(fn(a: f32, b: f32) -> f32 = a + b, 0.0) / float(values.len())
+
     return Some(math.sqrt(variance))
 }
 

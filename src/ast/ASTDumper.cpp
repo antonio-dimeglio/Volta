@@ -837,10 +837,25 @@ std::string ASTDumper::getOperatorString(UnaryExpression::Operator op) {
 
 std::string ASTDumper::getPrimitiveTypeString(PrimitiveType::Kind kind) {
     switch (kind) {
-        case PrimitiveType::Kind::Int: return "int";
-        case PrimitiveType::Kind::Float: return "float";
+        // Signed integers
+        case PrimitiveType::Kind::I8: return "i8";
+        case PrimitiveType::Kind::I16: return "i16";
+        case PrimitiveType::Kind::I32: return "i32";
+        case PrimitiveType::Kind::I64: return "i64";
+        // Unsigned integers
+        case PrimitiveType::Kind::U8: return "u8";
+        case PrimitiveType::Kind::U16: return "u16";
+        case PrimitiveType::Kind::U32: return "u32";
+        case PrimitiveType::Kind::U64: return "u64";
+        // Floating point
+        case PrimitiveType::Kind::F8: return "f8";
+        case PrimitiveType::Kind::F16: return "f16";
+        case PrimitiveType::Kind::F32: return "f32";
+        case PrimitiveType::Kind::F64: return "f64";
+        // Other primitives
         case PrimitiveType::Kind::Bool: return "bool";
         case PrimitiveType::Kind::Str: return "str";
+        case PrimitiveType::Kind::Void: return "void";
         default: return "unknown";
     }
 }
