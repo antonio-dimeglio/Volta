@@ -36,6 +36,7 @@ public:
 private:
     // === Pass 1: Collect top-level declarations ===
     void collectDeclarations(const volta::ast::Program& program);
+    void collectEnum(const volta::ast::EnumDeclaration& enumDecl);
     void collectFunction(const volta::ast::FnDeclaration& fn);
     void collectStruct(const volta::ast::StructDeclaration& structDecl);
 

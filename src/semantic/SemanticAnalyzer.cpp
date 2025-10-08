@@ -203,14 +203,6 @@ std::shared_ptr<Type> SemanticAnalyzer::resolveTypeAnnotation(const volta::ast::
                 return typeCache_.getArrayType(elemType);
             }
 
-            case volta::ast::CompoundType::Kind::Matrix: {
-                // Matrix must have exactly 1 type argument
-                if (compound->typeArgs.size() != 1) {
-                    return typeCache_.getUnknown();
-                }
-                auto elemType = resolveTypeAnnotation(compound->typeArgs[0].get());
-                return typeCache_.getMatrixType(elemType);
-            }
 
             case volta::ast::CompoundType::Kind::Option: {
                 if (compound->typeArgs.size() != 1) {
@@ -227,6 +219,10 @@ std::shared_ptr<Type> SemanticAnalyzer::resolveTypeAnnotation(const volta::ast::
                 }
                 return typeCache_.getTupleType(std::move(elementTypes));
             }
+
+            case volta::ast::CompoundType::Kind::Matrix:
+                // Matrix removed from language
+                return typeCache_.getUnknown();
         }
     }
 
@@ -268,7 +264,44 @@ void SemanticAnalyzer::collectDeclarations(const volta::ast::Program& program) {
         if (auto* structDecl = dynamic_cast<const volta::ast::StructDeclaration*>(stmt.get())) {
             collectStruct(*structDecl);
         }
+        if (auto* enumDecl = dynamic_cast<const volta::ast::EnumDeclaration*>(stmt.get())) {
+            collectEnum(*enumDecl);
+        }
     }
+}
+
+void SemanticAnalyzer::collectEnum(const volta::ast::EnumDeclaration& enumDecl) {
+    std::string enumName = enumDecl.name;
+    std::vector<std::string> typeParams = enumDecl.typeParams;
+    std::vector<EnumType::Variant> variants;
+
+    for (const auto& astVariant : enumDecl.variants) {
+        std::string variantName = astVariant->name;
+        std::vector<std::shared_ptr<Type>> semanticTypes;
+        for (const auto& astType : astVariant->associatedTypes) {
+            auto resolved = resolveTypeAnnotation(astType.get());
+            semanticTypes.push_back(resolved);
+        }
+
+        variants.push_back(
+            EnumType::Variant(variantName, semanticTypes)
+        );
+    }
+
+    auto enumType = std::make_shared<EnumType>(
+        enumName,
+        typeParams,
+        std::move(variants)
+    );
+
+    // Register only the enum type, NOT the individual variants
+    // Variants are accessed via qualified access: Color.Red
+    symbolTable_->declare(enumName, Symbol{
+        enumName,
+        enumType,
+        false,  // not mutable (types aren't mutable)
+        enumDecl.location
+    });
 }
 
 void SemanticAnalyzer::collectFunction(const volta::ast::FnDeclaration& fn) {
@@ -376,6 +409,8 @@ void SemanticAnalyzer::analyzeStatement(const volta::ast::Statement* stmt) {
         // Nothing to do - imports handled elsewhere
     } else if (dynamic_cast<const volta::ast::StructDeclaration*>(stmt)) {
         // Nothing to do - structs already collected in Pass 1
+    } else if (dynamic_cast<const volta::ast::EnumDeclaration*>(stmt)) {
+        // Nothing to do - enums already collected in Pass 1
     } else {
         throw std::runtime_error("Unexpected node for type checking.");
     }
@@ -752,6 +787,31 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeMatchExpression(const volta::ast:
 }
 
 std::shared_ptr<Type> SemanticAnalyzer::analyzeMemberExpression(const volta::ast::MemberExpression* memberExpr) {
+    // For member access like `Color.Red`, the object is an identifier expression
+    // We need to check if it's an enum type
+    auto* identExpr = dynamic_cast<const volta::ast::IdentifierExpression*>(memberExpr->object.get());
+
+    if (identExpr) {
+        // Check if this identifier is an enum type
+        auto symbol = symbolTable_->lookup(identExpr->name);
+        if (symbol && symbol->type->kind() == Type::Kind::Enum) {
+            auto* enumType = dynamic_cast<const EnumType*>(symbol->type.get());
+            const std::string& variantName = memberExpr->member->name;
+
+            // Look up the variant in the enum
+            const auto* variant = enumType->getVariant(variantName);
+            if (!variant) {
+                error("Enum '" + enumType->name() + "' has no variant '" + variantName + "'",
+                      memberExpr->location);
+                return typeCache_.getUnknown();
+            }
+
+            // Return the enum type (the variant constructs an instance of the enum)
+            return symbol->type;  // Return the shared_ptr to the enum type
+        }
+    }
+
+    // If not an enum, try struct member access
     auto objectType = analyzeExpression(memberExpr->object.get());
 
     auto* structType = dynamic_cast<const StructType*>(objectType.get());
@@ -773,6 +833,90 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeMemberExpression(const volta::ast
 }
 
 std::shared_ptr<Type> SemanticAnalyzer::analyzeMethodCallExpression(const volta::ast::MethodCallExpression* methodCall) {
+    // Check if this is enum variant construction: Option.Some(42)
+    auto* identExpr = dynamic_cast<const volta::ast::IdentifierExpression*>(methodCall->object.get());
+    if (identExpr) {
+        auto symbol = symbolTable_->lookup(identExpr->name);
+        if (symbol && symbol->type->kind() == Type::Kind::Enum) {
+            auto* enumType = dynamic_cast<const EnumType*>(symbol->type.get());
+            const std::string& variantName = methodCall->method->name;
+
+            // Look up the variant
+            const auto* variant = enumType->getVariant(variantName);
+            if (!variant) {
+                error("Enum '" + enumType->name() + "' has no variant '" + variantName + "'",
+                      methodCall->location);
+                return typeCache_.getUnknown();
+            }
+
+            // Check argument count
+            if (methodCall->arguments.size() != variant->associatedTypes.size()) {
+                error("Variant '" + variantName + "' expects " +
+                      std::to_string(variant->associatedTypes.size()) + " arguments, got " +
+                      std::to_string(methodCall->arguments.size()),
+                      methodCall->location);
+                return typeCache_.getUnknown();
+            }
+
+            // Analyze argument types first
+            std::vector<std::shared_ptr<Type>> argumentTypes;
+            for (const auto& arg : methodCall->arguments) {
+                argumentTypes.push_back(analyzeExpression(arg.get()));
+            }
+
+            // If the enum is generic (has type parameters), infer them from arguments
+            if (!enumType->typeParams().empty()) {
+                // Infer type arguments from the actual arguments
+                std::vector<std::shared_ptr<Type>> inferredTypeArgs;
+
+                // Try to infer type parameters
+                // For now, simple inference: if variant expects T and we pass int, T = int
+                for (size_t i = 0; i < variant->associatedTypes.size(); ++i) {
+                    auto* typeVar = dynamic_cast<const TypeVariable*>(variant->associatedTypes[i].get());
+                    if (typeVar) {
+                        // This is a type variable - use the argument's type
+                        inferredTypeArgs.push_back(argumentTypes[i]);
+                    }
+                }
+
+                // Create instantiated enum type: Option[T] → Option[int]
+                if (!inferredTypeArgs.empty()) {
+                    auto instantiated = enumType->instantiate(inferredTypeArgs);
+                    if (instantiated) {
+                        // Type-check with the instantiated variant
+                        auto* instVariant = instantiated->getVariant(variantName);
+                        if (instVariant) {
+                            for (size_t i = 0; i < argumentTypes.size(); ++i) {
+                                if (!areTypesCompatible(instVariant->associatedTypes[i].get(), argumentTypes[i].get())) {
+                                    error("Argument " + std::to_string(i + 1) + " to variant '" + variantName +
+                                          "' has incompatible type",
+                                          methodCall->location);
+                                }
+                            }
+                        }
+                        return instantiated;
+                    }
+                }
+            }
+
+            // For non-generic enums, check types normally
+            // ONLY run this if we didn't already handle it above (generic enums return early)
+            if (enumType->typeParams().empty()) {
+                for (size_t i = 0; i < argumentTypes.size(); ++i) {
+                    if (!areTypesCompatible(variant->associatedTypes[i].get(), argumentTypes[i].get())) {
+                        error("Argument " + std::to_string(i + 1) + " to variant '" + variantName +
+                              "' has incompatible type",
+                              methodCall->location);
+                    }
+                }
+            }
+
+            // Return the enum type (template or instantiated)
+            return symbol->type;
+        }
+    }
+
+    // Otherwise, it's a regular method call on a struct
     auto objectType = analyzeExpression(methodCall->object.get());
 
     auto* structType = dynamic_cast<const StructType*>(objectType.get());
@@ -841,10 +985,6 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeIndexExpression(const volta::ast:
 
     if (auto* arrType = dynamic_cast<const ArrayType*>(arrayType.get())) {
         return arrType->elementType();
-    }
-
-    if (auto* matType = dynamic_cast<const MatrixType*>(arrayType.get())) {
-        return matType->elementType();
     }
 
     return typeCache_.getUnknown();

@@ -482,3 +482,67 @@ TEST_F(SemanticAnalyzerTest, NestedControlFlow) {
     )"));
     EXPECT_FALSE(errorReporter->hasErrors());
 }
+
+// ============================================================================
+// Enum Tests
+// ============================================================================
+
+TEST_F(SemanticAnalyzerTest, EnumDeclarationSimple) {
+    EXPECT_TRUE(analyzeSource(R"(
+        enum Color { Red, Green, Blue }
+    )"));
+    EXPECT_FALSE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, EnumDeclarationWithData) {
+    EXPECT_TRUE(analyzeSource(R"(
+        enum Option { Some(int), None }
+    )"));
+    EXPECT_FALSE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, EnumDeclarationGeneric) {
+    EXPECT_TRUE(analyzeSource(R"(
+        enum Option[T] { Some(T), None }
+    )"));
+    EXPECT_FALSE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, EnumDeclarationMultipleTypeParams) {
+    EXPECT_TRUE(analyzeSource(R"(
+        enum Result[T, E] { Ok(T), Err(E) }
+    )"));
+    EXPECT_FALSE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, EnumVariantMultipleFields) {
+    EXPECT_TRUE(analyzeSource(R"(
+        enum Message { Move(int, int), Write(str), Quit }
+    )"));
+    EXPECT_FALSE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, EnumConstructionSimple) {
+    EXPECT_TRUE(analyzeSource(R"(
+        enum Color { Red, Green, Blue }
+
+        fn test() -> int {
+            c := Color.Red
+            return 0
+        }
+    )"));
+    EXPECT_FALSE(errorReporter->hasErrors());
+}
+
+TEST_F(SemanticAnalyzerTest, EnumConstructionWithData) {
+    EXPECT_TRUE(analyzeSource(R"(
+        enum Option { Some(int), None }
+
+        fn test() -> int {
+            x := Option.Some(42)
+            y := Option.None
+            return 0
+        }
+    )"));
+    EXPECT_FALSE(errorReporter->hasErrors());
+}

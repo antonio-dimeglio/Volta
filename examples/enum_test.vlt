@@ -1,0 +1,81 @@
+# Enum examples for Volta
+
+# Simple enum without data
+enum Color {
+    Red,
+    Green,
+    Blue
+}
+
+# Generic Option enum
+enum Option[T] {
+    Some(T),
+    None
+}
+
+# Generic Result enum with two type parameters
+enum Result[T, E] {
+    Ok(T),
+    Err(E)
+}
+
+# Enum with mixed variants (some with data, some without)
+enum Message {
+    Quit,
+    Move(int, int),
+    Write(str),
+    ChangeColor(int, int, int)
+}
+
+fn test_simple_enum() -> int {
+    # Using qualified access for simple enum
+    favorite := Color.Red
+    background := Color.Blue
+    return 0
+}
+
+fn test_option_enum() -> int {
+    # Type inference: Option.Some(42) → Option[int]
+    x := Option.Some(42)
+    y := Option.None
+
+    # Explicit type
+    z: Option[str] = Option.Some("hello")
+
+    return 0
+}
+
+fn test_result_enum() -> Result[int, str] {
+    # Type inference: Result.Ok(100) → Result[int, ???]
+    # Second type inferred from context or explicit annotation
+    success := Result.Ok(100)
+    failure := Result.Err("Something went wrong")
+
+    return Result.Ok(42)
+}
+
+fn test_message_enum() -> int {
+    # Different variant constructors
+    quit := Message.Quit
+    move := Message.Move(10, 20)
+    write := Message.Write("Hello, Volta!")
+    color := Message.ChangeColor(255, 128, 0)
+
+    return 0
+}
+
+# Complex example with nested generics
+fn process_data() -> Option[Result[int, str]] {
+    result := Result.Ok(100)
+    wrapped := Option.Some(result)
+    return wrapped
+}
+
+fn main() -> int {
+    test_simple_enum()
+    test_option_enum()
+    test_message_enum()
+
+    return 0
+}
+

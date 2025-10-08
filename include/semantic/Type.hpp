@@ -14,8 +14,8 @@ class Type {
 public:
     enum class Kind {
         Int, Float, Bool, String, Void,
-        Array, Matrix, Option, Tuple,
-        Function, Struct, TypeVariable, Unknown
+        Array, Option, Tuple,
+        Function, Struct, TypeVariable, Enum, Unknown
     };
 
     virtual ~Type() = default;
@@ -36,7 +36,7 @@ public:
 
     bool isIndexable() const {
         // Arrays and matrices support indexing
-        return kind() == Kind::Array || kind() == Kind::Matrix;
+        return kind() == Kind::Array;
     }
 };
 
@@ -95,30 +95,6 @@ public:
     bool equals(const Type* other) const override {
         if (auto* arr = dynamic_cast<const ArrayType*>(other)) {
             return elementType_->equals(arr->elementType_.get());
-        }
-        return false;
-    }
-
-    std::shared_ptr<Type> elementType() const { return elementType_; }
-
-private:
-    std::shared_ptr<Type> elementType_;
-};
-
-class MatrixType : public Type {
-public:
-    explicit MatrixType(std::shared_ptr<Type> elementType)
-        : elementType_(std::move(elementType)) {}
-
-    Kind kind() const override { return Kind::Matrix; }
-
-    std::string toString() const override {
-        return "Matrix[" + elementType_->toString() + "]";
-    }
-
-    bool equals(const Type* other) const override {
-        if (auto* mat = dynamic_cast<const MatrixType*>(other)) {
-            return elementType_->equals(mat->elementType_.get());
         }
         return false;
     }
@@ -307,6 +283,154 @@ private:
     std::string name_;
 };
 
+class EnumType : public Type {
+public:
+    struct Variant {
+        std::string name;
+        std::vector<std::shared_ptr<Type>> associatedTypes;
+        Variant(std::string name, std::vector<std::shared_ptr<Type>> associatedTypes)
+            : name(name), associatedTypes(associatedTypes) {}
+    };
+
+    // Constructor for generic enum template (e.g., Option[T])
+    EnumType(std::string name,
+             std::vector<std::string> typeParams,
+             std::vector<Variant> variants)
+        : name_(std::move(name)),
+          typeParams_(std::move(typeParams)),
+          typeArgs_(),  // No type arguments - this is the template
+          variants_(std::move(variants)),
+          isInstantiated_(false) {}
+
+    // Constructor for instantiated enum (e.g., Option[int])
+    EnumType(std::string name,
+             std::vector<std::string> typeParams,
+             std::vector<std::shared_ptr<Type>> typeArgs,
+             std::vector<Variant> variants)
+        : name_(std::move(name)),
+          typeParams_(std::move(typeParams)),
+          typeArgs_(std::move(typeArgs)),
+          variants_(std::move(variants)),
+          isInstantiated_(true) {}
+
+    Kind kind() const override { return Kind::Enum; }
+
+    std::string toString() const override {
+        std::string s = name_;
+
+        // If instantiated, show concrete types (Option[int])
+        if (isInstantiated_ && !typeArgs_.empty()) {
+            s += "[";
+            for (size_t i = 0; i < typeArgs_.size(); ++i) {
+                if (i > 0) s += ", ";
+                s += typeArgs_[i]->toString();
+            }
+            s += "]";
+        }
+        // Otherwise show type parameters (Option[T])
+        else if (!typeParams_.empty()) {
+            s += "[";
+            for (size_t i = 0; i < typeParams_.size(); ++i) {
+                if (i > 0) s += ", ";
+                s += typeParams_[i];
+            }
+            s += "]";
+        }
+        return s;
+    }
+
+    bool equals(const Type* other) const override {
+        if (auto* enumType = dynamic_cast<const EnumType*>(other)) {
+            if (name_ != enumType->name_) return false;
+
+            // If both are instantiated, compare type arguments
+            if (isInstantiated_ && enumType->isInstantiated_) {
+                if (typeArgs_.size() != enumType->typeArgs_.size()) return false;
+                for (size_t i = 0; i < typeArgs_.size(); ++i) {
+                    if (!typeArgs_[i]->equals(enumType->typeArgs_[i].get())) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            // If both are templates, compare type parameters
+            if (!isInstantiated_ && !enumType->isInstantiated_) {
+                if (typeParams_.size() != enumType->typeParams_.size()) return false;
+                for (size_t i = 0; i < typeParams_.size(); ++i) {
+                    if (typeParams_[i] != enumType->typeParams_[i]) return false;
+                }
+                return true;
+            }
+
+            // One is instantiated, one is template - not equal
+            return false;
+        }
+        return false;
+    }
+
+    // Accessors
+    const std::string& name() const { return name_; }
+    const std::vector<Variant>& variants() const { return variants_; }
+    const std::vector<std::string>& typeParams() const { return typeParams_; }
+    const std::vector<std::shared_ptr<Type>>& typeArgs() const { return typeArgs_; }
+    bool isInstantiated() const { return isInstantiated_; }
+
+    // Lookup variant by name
+    const Variant* getVariant(const std::string& variantName) const {
+        for (const auto& variant : variants_) {
+            if (variant.name == variantName) {
+                return &variant;
+            }
+        }
+        return nullptr;
+    }
+
+    // Create an instantiated version of this enum with concrete type arguments
+    // Example: Option[T].instantiate({intType}) → Option[int]
+    std::shared_ptr<EnumType> instantiate(const std::vector<std::shared_ptr<Type>>& concreteTypes) const {
+        if (concreteTypes.size() != typeParams_.size()) {
+            return nullptr;  // Type argument count mismatch
+        }
+
+        // Substitute type parameters in variant associated types
+        std::vector<Variant> instantiatedVariants;
+        for (const auto& variant : variants_) {
+            std::vector<std::shared_ptr<Type>> instantiatedTypes;
+            for (const auto& assocType : variant.associatedTypes) {
+                // Substitute type variables with concrete types
+                auto substituted = substituteTypeParams(assocType, concreteTypes);
+                instantiatedTypes.push_back(substituted);
+            }
+            instantiatedVariants.push_back(Variant{variant.name, instantiatedTypes});
+        }
+
+        return std::make_shared<EnumType>(name_, typeParams_, concreteTypes, instantiatedVariants);
+    }
+
+private:
+    // Substitute type parameters in a type
+    std::shared_ptr<Type> substituteTypeParams(const std::shared_ptr<Type>& type,
+                                               const std::vector<std::shared_ptr<Type>>& concreteTypes) const {
+        // If it's a type variable (like T), replace it
+        if (auto* typeVar = dynamic_cast<const TypeVariable*>(type.get())) {
+            for (size_t i = 0; i < typeParams_.size(); ++i) {
+                if (typeParams_[i] == typeVar->name()) {
+                    return concreteTypes[i];
+                }
+            }
+        }
+        // Otherwise return as-is (TODO: handle nested generics like Array[T])
+        return type;
+    }
+
+    std::string name_;
+    std::vector<std::string> typeParams_;           // ["T"] for Option[T] template
+    std::vector<std::shared_ptr<Type>> typeArgs_;   // [intType] for Option[int] instance
+    std::vector<Variant> variants_;
+    bool isInstantiated_;
+};
+
 class UnknownType : public Type {
 public:
     UnknownType() = default;
@@ -370,17 +494,6 @@ public:
             return it->second;
         }
         auto type = std::make_shared<ArrayType>(elementType);
-        cache_[key] = type;
-        return type;
-    }
-
-    std::shared_ptr<Type> getMatrixType(std::shared_ptr<Type> elementType) const {
-        std::string key = "Matrix[" + elementType->toString() + "]";
-        auto it = cache_.find(key);
-        if (it != cache_.end()) {
-            return it->second;
-        }
-        auto type = std::make_shared<MatrixType>(elementType);
         cache_[key] = type;
         return type;
     }
