@@ -241,6 +241,7 @@ private:
 
     void emitStructGet(byte rD, byte rStruct, byte fieldIdx);
     void emitStructSet(byte rD, byte rStruct, byte rValue, byte fieldIdx);
+    void emitGCAlloc(byte rD, uint32_t typeId, uint32_t fieldCount);
 
     // String operations (Phase 2+)
     void emitStringLen(byte rD, byte rString);
@@ -415,6 +416,9 @@ private:
 
     // Label fixups for current function
     std::vector<LabelFixup> fixups_;
+
+    // Type ID counter for struct types
+    uint32_t nextTypeId_ = 0;
 };
 
 } // namespace volta::vm

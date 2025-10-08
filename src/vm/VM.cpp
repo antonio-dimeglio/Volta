@@ -486,9 +486,101 @@ Value VM::run() {
                 break;
             }
 
-            case Opcode::STRUCT_GET:
-            case Opcode::STRUCT_SET:
-                throw std::runtime_error("Struct operations not yet implemented in VM");
+            case Opcode::GCALLOC: {
+                // Format: GCALLOC dest_reg, type_id, field_count
+                uint8_t dest = readByte(frame);
+                uint8_t typeId = readByte(frame);
+                uint8_t fieldCount = readByte(frame);
+
+                // Calculate field data size
+                size_t fieldDataSize = fieldCount * sizeof(Value);
+
+                // Allocate struct object (GC handles initialization)
+                Volta::GC::StructObject* structObj = gc_->allocateStruct(typeId, fieldDataSize);
+                if (!structObj) {
+                    throw std::runtime_error("GCALLOC: allocation failed");
+                }
+
+                // Initialize all fields to NONE
+                Value* fields = (Value*)structObj->fields;
+                for (uint8_t i = 0; i < fieldCount; i++) {
+                    fields[i] = Value::makeNone();
+                }
+
+                // Store in register
+                frame.registers[dest] = Value::makeObject((Volta::GC::Object*)structObj);
+                break;
+            }
+
+            case Opcode::STRUCT_GET: {
+                // Format: STRUCT_GET dest_reg, struct_reg, field_index
+                uint8_t dest = readByte(frame);
+                uint8_t structReg = readByte(frame);
+                uint8_t fieldIndex = readByte(frame);
+
+                Value structVal = frame.registers[structReg];
+                if (structVal.type != ValueType::OBJECT || structVal.as.as_obj == nullptr) {
+                    throw std::runtime_error("STRUCT_GET: not an object");
+                }
+
+                Volta::GC::Object* obj = structVal.as.as_obj;
+                if (obj->header.type != Volta::GC::OBJ_STRUCT) {
+                    throw std::runtime_error("STRUCT_GET: not a struct");
+                }
+
+                Volta::GC::StructObject* structObj = (Volta::GC::StructObject*)obj;
+                Value* fields = (Value*)structObj->fields;
+
+                // Load field value and store in destination
+                frame.registers[dest] = fields[fieldIndex];
+                break;
+            }
+
+            case Opcode::STRUCT_SET: {
+                // Format: STRUCT_SET dest_reg, struct_reg, value_reg, field_index
+                uint8_t dest = readByte(frame);
+                uint8_t structReg = readByte(frame);
+                uint8_t valueReg = readByte(frame);
+                uint8_t fieldIndex = readByte(frame);
+
+                Value structVal = frame.registers[structReg];
+                Value newValue = frame.registers[valueReg];
+
+                if (structVal.type != ValueType::OBJECT || structVal.as.as_obj == nullptr) {
+                    throw std::runtime_error("STRUCT_SET: not an object");
+                }
+
+                Volta::GC::Object* oldObj = structVal.as.as_obj;
+                if (oldObj->header.type != Volta::GC::OBJ_STRUCT) {
+                    throw std::runtime_error("STRUCT_SET: not a struct");
+                }
+
+                Volta::GC::StructObject* oldStruct = (Volta::GC::StructObject*)oldObj;
+
+                // Calculate field count from object size
+                size_t fieldDataSize = oldStruct->header.size - sizeof(Volta::GC::ObjectHeader) - 8;
+                size_t fieldCount = fieldDataSize / sizeof(Value);
+
+                // Allocate new struct (same type and size as old)
+                Volta::GC::StructObject* newStruct = gc_->allocateStruct(oldStruct->structTypeId, fieldDataSize);
+                if (!newStruct) {
+                    throw std::runtime_error("STRUCT_SET: allocation failed");
+                }
+
+                // Copy all fields from old to new
+                Value* oldFields = (Value*)oldStruct->fields;
+                Value* newFields = (Value*)newStruct->fields;
+                for (size_t i = 0; i < fieldCount; i++) {
+                    newFields[i] = oldFields[i];
+                }
+
+                // Update the specific field
+                newFields[fieldIndex] = newValue;
+
+                // Store new struct in destination
+                frame.registers[dest] = Value::makeObject((Volta::GC::Object*)newStruct);
+                break;
+            }
 
             case Opcode::ARRAY_SLICE:
             case Opcode::STRING_LEN:

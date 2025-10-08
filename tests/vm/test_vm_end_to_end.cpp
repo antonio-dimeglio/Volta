@@ -679,3 +679,452 @@ fn main() -> int {
     EXPECT_EQ(result.type, vm::ValueType::INT64);
     EXPECT_EQ(result.as.as_i64, 0);
 }
+
+// ============================================================================
+// Struct Tests
+// ============================================================================
+
+TEST_F(VMEndToEndTest, SimpleStructCreation) {
+    // Basic struct creation and field access
+    std::string source = R"(
+struct Point {
+    x: float,
+    y: float
+}
+
+fn main() -> float {
+    p := Point { x: 3.0, y: 4.0 }
+    return p.x
+}
+    )";
+
+    vm::Value result = executeSource(source);
+    EXPECT_EQ(result.type, vm::ValueType::FLOAT64);
+    EXPECT_DOUBLE_EQ(result.as.as_f64, 3.0);
+}
+
+TEST_F(VMEndToEndTest, StructFieldUpdate) {
+    // Struct field assignment (immutable semantics)
+    std::string source = R"(
+struct Point {
+    x: float,
+    y: float
+}
+
+fn main() -> float {
+    p: mut Point = Point { x: 3.0, y: 4.0 }
+    p.x = 10.0
+    return p.x
+}
+    )";
+
+    vm::Value result = executeSource(source);
+    EXPECT_EQ(result.type, vm::ValueType::FLOAT64);
+    EXPECT_DOUBLE_EQ(result.as.as_f64, 10.0);
+}
+
+TEST_F(VMEndToEndTest, StructMultipleFieldUpdates) {
+    // Update multiple fields sequentially
+    std::string source = R"(
+struct Point {
+    x: float,
+    y: float
+}
+
+fn main() -> float {
+    p: mut Point = Point { x: 1.0, y: 2.0 }
+    p.x = 5.0
+    p.y = 7.0
+    return p.x + p.y
+}
+    )";
+
+    vm::Value result = executeSource(source);
+    EXPECT_EQ(result.type, vm::ValueType::FLOAT64);
+    EXPECT_DOUBLE_EQ(result.as.as_f64, 12.0);
+}
+
+TEST_F(VMEndToEndTest, StructWithMixedTypes) {
+    // Struct with int, float, and bool fields
+    std::string source = R"(
+struct Data {
+    count: int,
+    value: float,
+    flag: bool
+}
+
+fn main() -> int {
+    d := Data { count: 42, value: 3.14, flag: true }
+    return d.count
+}
+    )";
+
+    vm::Value result = executeSource(source);
+    EXPECT_EQ(result.type, vm::ValueType::INT64);
+    EXPECT_EQ(result.as.as_i64, 42);
+}
+
+TEST_F(VMEndToEndTest, StructWithBoolField) {
+    // Access boolean field from struct
+    std::string source = R"(
+struct Config {
+    enabled: bool,
+    count: int
+}
+
+fn main() -> int {
+    c := Config { enabled: true, count: 10 }
+    return c.count
+}
+    )";
+
+    vm::Value result = executeSource(source);
+    EXPECT_EQ(result.type, vm::ValueType::INT64);
+    EXPECT_EQ(result.as.as_i64, 10);
+}
+
+TEST_F(VMEndToEndTest, NestedStructAccess) {
+    // Struct containing another struct
+    std::string source = R"(
+struct Inner {
+    value: int
+}
+
+struct Outer {
+    inner: Inner,
+    extra: int
+}
+
+fn main() -> int {
+    i := Inner { value: 42 }
+    o := Outer { inner: i, extra: 100 }
+    return o.inner.value
+}
+    )";
+
+    vm::Value result = executeSource(source);
+    EXPECT_EQ(result.type, vm::ValueType::INT64);
+    EXPECT_EQ(result.as.as_i64, 42);
+}
+
+TEST_F(VMEndToEndTest, StructFieldArithmetic) {
+    // Perform arithmetic on struct fields
+    std::string source = R"(
+struct Rectangle {
+    width: float,
+    height: float
+}
+
+fn main() -> float {
+    r := Rectangle { width: 5.0, height: 3.0 }
+    return r.width * r.height
+}
+    )";
+
+    vm::Value result = executeSource(source);
+    EXPECT_EQ(result.type, vm::ValueType::FLOAT64);
+    EXPECT_DOUBLE_EQ(result.as.as_f64, 15.0);
+}
+
+TEST_F(VMEndToEndTest, StructSwapFields) {
+    // Swap two fields using a temporary
+    std::string source = R"(
+struct Pair {
+    a: int,
+    b: int
+}
+
+fn main() -> int {
+    p: mut Pair = Pair { a: 10, b: 20 }
+    temp := p.a
+    p.a = p.b
+    p.b = temp
+    return p.a
+}
+    )";
+
+    vm::Value result = executeSource(source);
+    EXPECT_EQ(result.type, vm::ValueType::INT64);
+    EXPECT_EQ(result.as.as_i64, 20);
+}
+
+TEST_F(VMEndToEndTest, StructManyFields) {
+    // Edge case: struct with many fields (10+)
+    std::string source = R"(
+struct BigStruct {
+    f0: int,
+    f1: int,
+    f2: int,
+    f3: int,
+    f4: int,
+    f5: int,
+    f6: int,
+    f7: int,
+    f8: int,
+    f9: int
+}
+
+fn main() -> int {
+    s := BigStruct {
+        f0: 0, f1: 1, f2: 2, f3: 3, f4: 4,
+        f5: 5, f6: 6, f7: 7, f8: 8, f9: 9
+    }
+    return s.f7
+}
+    )";
+
+    vm::Value result = executeSource(source);
+    EXPECT_EQ(result.type, vm::ValueType::INT64);
+    EXPECT_EQ(result.as.as_i64, 7);
+}
+
+TEST_F(VMEndToEndTest, StructZeroValues) {
+    // Struct initialized with zero values
+    std::string source = R"(
+struct Point {
+    x: float,
+    y: float
+}
+
+fn main() -> float {
+    p := Point { x: 0.0, y: 0.0 }
+    return p.x + p.y
+}
+    )";
+
+    vm::Value result = executeSource(source);
+    EXPECT_EQ(result.type, vm::ValueType::FLOAT64);
+    EXPECT_DOUBLE_EQ(result.as.as_f64, 0.0);
+}
+
+TEST_F(VMEndToEndTest, StructNegativeValues) {
+    // Struct with negative values
+    std::string source = R"(
+struct Vector {
+    x: int,
+    y: int
+}
+
+fn main() -> int {
+    v := Vector { x: -5, y: -10 }
+    return v.x + v.y
+}
+    )";
+
+    vm::Value result = executeSource(source);
+    EXPECT_EQ(result.type, vm::ValueType::INT64);
+    EXPECT_EQ(result.as.as_i64, -15);
+}
+
+TEST_F(VMEndToEndTest, StructFieldReassignment) {
+    // Reassign same field multiple times
+    std::string source = R"(
+struct Counter {
+    value: int
+}
+
+fn main() -> int {
+    c: mut Counter = Counter { value: 0 }
+    c.value = 1
+    c.value = 2
+    c.value = 3
+    return c.value
+}
+    )";
+
+    vm::Value result = executeSource(source);
+    EXPECT_EQ(result.type, vm::ValueType::INT64);
+    EXPECT_EQ(result.as.as_i64, 3);
+}
+
+TEST_F(VMEndToEndTest, StructInConditional) {
+    // Use struct field in conditional
+    std::string source = R"(
+struct Config {
+    threshold: int
+}
+
+fn main() -> int {
+    cfg := Config { threshold: 50 }
+    if cfg.threshold > 40 {
+        return 1
+    }
+    return 0
+}
+    )";
+
+    vm::Value result = executeSource(source);
+    EXPECT_EQ(result.type, vm::ValueType::INT64);
+    EXPECT_EQ(result.as.as_i64, 1);
+}
+
+TEST_F(VMEndToEndTest, StructInLoop) {
+    // Access struct field in loop
+    std::string source = R"(
+struct Range {
+    start: int,
+    end: int
+}
+
+fn main() -> int {
+    r := Range { start: 0, end: 5 }
+    sum: mut int = 0
+    i: mut int = r.start
+    while i < r.end {
+        sum = sum + i
+        i = i + 1
+    }
+    return sum
+}
+    )";
+
+    vm::Value result = executeSource(source);
+    EXPECT_EQ(result.type, vm::ValueType::INT64);
+    EXPECT_EQ(result.as.as_i64, 10);  // 0+1+2+3+4 = 10
+}
+
+TEST_F(VMEndToEndTest, StructComparisonFields) {
+    // Compare struct fields
+    std::string source = R"(
+struct Pair {
+    a: int,
+    b: int
+}
+
+fn main() -> int {
+    p := Pair { a: 10, b: 20 }
+    if p.a < p.b {
+        return 1
+    }
+    return 0
+}
+    )";
+
+    vm::Value result = executeSource(source);
+    EXPECT_EQ(result.type, vm::ValueType::INT64);
+    EXPECT_EQ(result.as.as_i64, 1);
+}
+
+// Note: Array literal type inference not fully implemented yet
+// This test is disabled until array type inference is complete
+TEST_F(VMEndToEndTest, DISABLED_StructFieldAsArrayIndex) {
+    // Use struct field as array index
+    std::string source = R"(
+struct Index {
+    pos: int
+}
+
+fn main() -> int {
+    arr: mut [int] = [10, 20, 30, 40, 50]
+    idx := Index { pos: 2 }
+    return arr[idx.pos]
+}
+    )";
+
+    vm::Value result = executeSource(source);
+    EXPECT_EQ(result.type, vm::ValueType::INT64);
+    EXPECT_EQ(result.as.as_i64, 30);
+}
+
+TEST_F(VMEndToEndTest, StructWithFloatArithmetic) {
+    // Complex float arithmetic on struct fields
+    std::string source = R"(
+struct Circle {
+    radius: float
+}
+
+fn main() -> float {
+    c := Circle { radius: 2.0 }
+    # Area = πr² (approximating π as 3.14)
+    return 3.14 * c.radius * c.radius
+}
+    )";
+
+    vm::Value result = executeSource(source);
+    EXPECT_EQ(result.type, vm::ValueType::FLOAT64);
+    EXPECT_NEAR(result.as.as_f64, 12.56, 0.01);
+}
+
+TEST_F(VMEndToEndTest, StructIncrementField) {
+    // Increment struct field value
+    std::string source = R"(
+struct Counter {
+    count: int
+}
+
+fn main() -> int {
+    c: mut Counter = Counter { count: 5 }
+    c.count = c.count + 1
+    return c.count
+}
+    )";
+
+    vm::Value result = executeSource(source);
+    EXPECT_EQ(result.type, vm::ValueType::INT64);
+    EXPECT_EQ(result.as.as_i64, 6);
+}
+
+TEST_F(VMEndToEndTest, StructFieldCopySemantics) {
+    // Verify fields are copied, not referenced
+    std::string source = R"(
+struct Point {
+    x: int,
+    y: int
+}
+
+fn main() -> int {
+    p1 := Point { x: 10, y: 20 }
+    val := p1.x
+    p1_mut: mut Point = p1
+    p1_mut.x = 99
+    # val should still be 10 (not 99)
+    return val
+}
+    )";
+
+    vm::Value result = executeSource(source);
+    EXPECT_EQ(result.type, vm::ValueType::INT64);
+    EXPECT_EQ(result.as.as_i64, 10);
+}
+
+TEST_F(VMEndToEndTest, StructTwoInstances) {
+    // Two separate struct instances
+    std::string source = R"(
+struct Point {
+    x: int,
+    y: int
+}
+
+fn main() -> int {
+    p1 := Point { x: 1, y: 2 }
+    p2 := Point { x: 3, y: 4 }
+    return p1.x + p2.y
+}
+    )";
+
+    vm::Value result = executeSource(source);
+    EXPECT_EQ(result.type, vm::ValueType::INT64);
+    EXPECT_EQ(result.as.as_i64, 5);
+}
+
+TEST_F(VMEndToEndTest, StructFieldMax) {
+    // Find max of two struct fields
+    std::string source = R"(
+struct Pair {
+    a: int,
+    b: int
+}
+
+fn main() -> int {
+    p := Pair { a: 100, b: 200 }
+    if p.a > p.b {
+        return p.a
+    }
+    return p.b
+}
+    )";
+
+    vm::Value result = executeSource(source);
+    EXPECT_EQ(result.type, vm::ValueType::INT64);
+    EXPECT_EQ(result.as.as_i64, 200);
+}

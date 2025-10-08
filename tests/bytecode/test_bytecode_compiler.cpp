@@ -660,11 +660,11 @@ TEST_F(BytecodeCompilerTest, CompileSimpleStructCreation) {
 
     builder->createRet(struct2);
 
-    // Should throw because GCAlloc not yet implemented
+    // GCALLOC is now implemented - should compile successfully
     BytecodeCompiler compiler;
-    EXPECT_THROW({
+    EXPECT_NO_THROW({
         auto bytecode = compiler.compile(std::move(module));
-    }, std::runtime_error);
+    });
 }
 
 TEST_F(BytecodeCompilerTest, CompileStructFieldAccess) {
@@ -840,11 +840,11 @@ TEST_F(BytecodeCompilerTest, CompileEmptyStruct) {
     auto* emptyStruct = builder->createGCAlloc(structType, "unit");
     builder->createRet(emptyStruct);
 
-    // Should throw - GCAlloc not implemented
+    // GCALLOC is now implemented - should compile successfully
     BytecodeCompiler compiler;
-    EXPECT_THROW({
+    EXPECT_NO_THROW({
         auto bytecode = compiler.compile(std::move(module));
-    }, std::runtime_error);
+    });
 }
 
 TEST_F(BytecodeCompilerTest, CompileLargeStruct) {

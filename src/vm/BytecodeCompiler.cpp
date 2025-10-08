@@ -323,8 +323,42 @@ void BytecodeCompiler::compileInstruction(ir::Instruction* instr) {
             break;
         }
         case ir::Instruction::Opcode::GCAlloc: {
-            // TODO: Implement struct GC allocation
-            throw std::runtime_error("GCAlloc for structs not yet implemented in bytecode compiler. Structs are only supported at IR level.");
+            auto* gcAlloc = dyn_cast<ir::GCAllocInst>(instr);
+            auto allocType = gcAlloc->getAllocatedType();
+
+            // Only handle struct types for now
+            auto* structType = allocType->asStruct();
+            if (!structType) {
+                throw std::runtime_error("GCAlloc only supports struct types currently");
+            }
+
+            // Analyze struct to create TypeInfo
+            Volta::GC::TypeInfo typeInfo;
+            typeInfo.kind = Volta::GC::TypeInfo::PRIMITIVE;  // Default
+            typeInfo.elementTypeId = 0;
+
+            // Check each field to find pointers
+            for (unsigned i = 0; i < structType->getNumFields(); i++) {
+                auto fieldType = structType->getFieldTypeAtIdx(i);
+
+                // If field is a pointer/object type, record its offset
+                if (fieldType->kind() == ir::IRType::Kind::Pointer ||
+                    fieldType->kind() == ir::IRType::Kind::String ||
+                    fieldType->kind() == ir::IRType::Kind::Struct) {
+                    typeInfo.kind = Volta::GC::TypeInfo::OBJECT;
+                    // Field offset = field index * sizeof(Value) = field index * 8
+                    typeInfo.pointerFieldOffsets.push_back(i * 8);
+                }
+            }
+
+            // Register type and get ID
+            uint32_t typeId = nextTypeId_++;
+            module_->registerType(typeId, typeInfo);
+
+            // Emit GCALLOC instruction
+            byte rD = getOrAllocateRegister(instr);
+            emitGCAlloc(rD, typeId, structType->getNumFields());
+            break;
         }
         case ir::Instruction::Opcode::Load: {
             byte rD = getOrAllocateRegister(instr);
@@ -625,6 +659,13 @@ void BytecodeCompiler::emitStructSet(byte rD, byte rStruct, byte rValue, byte fi
     emitByte(rStruct);
     emitByte(rValue);
     emitByte(fieldIdx);
+}
+
+void BytecodeCompiler::emitGCAlloc(byte rD, uint32_t typeId, uint32_t fieldCount) {
+    emitByte(static_cast<byte>(Opcode::GCALLOC));
+    emitByte(rD);
+    emitByte(static_cast<byte>(typeId));     // Type ID (for GC tracing)
+    emitByte(static_cast<byte>(fieldCount)); // Number of fields
 }
 
 void BytecodeCompiler::emitArrayLen(byte rD, byte rArray) {
