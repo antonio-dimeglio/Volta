@@ -4,10 +4,7 @@
 #include "parser/Parser.hpp"
 #include "error/ErrorReporter.hpp"
 #include "semantic/SemanticAnalyzer.hpp"
-#include "IR/IRGenerator.hpp"
-#include "IR/IRPrinter.hpp"
-#include "IR/Verifier.hpp"
-#include "IR/OptimizationPass.hpp"
+#include "llvm/LLVMCodegen.hpp"
 #include "lsp/LSPProvider.hpp"
 #include "CLI11.hpp"
 #include <iostream>
@@ -19,18 +16,18 @@ using namespace volta::lexer;
 using namespace volta::parser;
 using namespace volta::ast;
 using namespace volta::errors;
+using namespace volta::llvm_codegen;
 
 struct CompilerOptions {
     std::string inputFile;
     std::vector<std::string> lspInfoArgs;
     bool dumpTokens = false;
     bool dumpAST = false;
-    bool dumpIR = false;
-    bool dumpBytecode = false;
     bool optimize = true;
-    bool verifyIR = false;
-    bool execute = true;
     bool repl = false;
+    bool emitLLVM = false;
+    bool compile = false;
+    std::string outputFile;
 };
 
 std::string readFile(const std::string& filename) {
@@ -85,7 +82,48 @@ void compileAndRun(const std::string& source, const CompilerOptions& options) {
 
     std::cout << "Semantic analysis passed!\n";
 
-    
+    // ===== LLVM Generation ====
+    LLVMCodegen codegen("volta_program");
+    if (!codegen.generate(ast.get(), &analyzer)) {
+        std::cerr << "Code generation failed\n";
+        return;
+    }
+
+    if (options.emitLLVM) {
+        // Emit LLVM IR (.ll file)
+        std::string llFile = options.outputFile.empty()
+            ? options.inputFile.substr(0, options.inputFile.find_last_of('.')) + ".ll"
+            : options.outputFile;
+
+        if (codegen.emitLLVMIR(llFile)) {
+            std::cout << "LLVM IR written to " << llFile << "\n";
+        } else {
+            std::cerr << "Failed to emit LLVM IR\n";
+        }
+    }
+
+    if (options.compile) {
+        // Compile to executable
+        std::string llFile = "/tmp/volta_temp.ll";
+        if (!codegen.emitLLVMIR(llFile)) {
+            std::cerr << "Failed to emit LLVM IR\n";
+            return;
+        }
+
+        std::string exeName = options.outputFile.empty()
+            ? options.inputFile.substr(0, options.inputFile.find_last_of('.'))
+            : options.outputFile;
+
+        std::string compileCmd = "clang-18 " + llFile +
+                                " bin/libvolta.a -lgc -o " + exeName;
+
+        std::cout << "Compiling: " << compileCmd << "\n";
+        if (system(compileCmd.c_str()) == 0) {
+            std::cout << "Executable created: " << exeName << "\n";
+        } else {
+            std::cerr << "Compilation failed\n";
+        }
+    }
 }
 
 void runFile(const std::string& filename, const CompilerOptions& options) {
@@ -199,8 +237,6 @@ int main(int argc, char* argv[]) {
     // Dump flags
     app.add_flag("--dump-tokens", options.dumpTokens, "Dump lexer tokens");
     app.add_flag("--dump-ast", options.dumpAST, "Dump abstract syntax tree");
-    app.add_flag("--dump-ir", options.dumpIR, "Dump intermediate representation");
-    app.add_flag("--dump-bytecode", options.dumpBytecode, "Dump bytecode disassembly");
 
     // Optimization flags
     auto* optGroup = app.add_option_group("Optimization", "Optimization options");
@@ -209,18 +245,13 @@ int main(int argc, char* argv[]) {
     optGroup->add_flag("--no-optimize", [&](int64_t) { options.optimize = false; },
         "Disable optimizations (-O0)");
 
-    // Verification
-    app.add_flag("--verify-ir", options.verifyIR, "Enable IR verification");
-
-    // Execution flags
-    auto* execGroup = app.add_option_group("Execution", "Execution options");
-    execGroup->add_flag("-e,--execute", options.execute, "Execute the compiled bytecode (default: on)")
-        ->default_val(true);
-    execGroup->add_flag("--no-execute", [&](int64_t) { options.execute = false; },
-        "Compile only, don't execute");
-
     // REPL mode
     app.add_flag("-r,--repl", options.repl, "Start REPL (interactive mode)");
+
+    // LLVM compilation flags
+    app.add_flag("--emit-llvm", options.emitLLVM, "Emit LLVM IR to .ll file");
+    app.add_flag("-c,--compile", options.compile, "Compile to native executable");
+    app.add_option("-o,--output", options.outputFile, "Output file name");
 
     CLI11_PARSE(app, argc, argv);
 

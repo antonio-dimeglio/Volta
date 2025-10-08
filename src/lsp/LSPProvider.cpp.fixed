@@ -1,8 +1,0 @@
-// Fix the typeToString method - replace lines 77-106
-
-std::string LSPProvider::typeToString(const semantic::Type* type) {
-    if (!type) return "unknown";
-    
-    // Just use the Type's built-in toString() method!
-    return type->toString();
-}

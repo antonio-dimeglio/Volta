@@ -1,6 +1,4 @@
-fn main() -> int {
-    print("Hello, LLVM!")
+fn main() -> i32 {
+    print("Hello, world!")
     return 0
 }
-
-main()

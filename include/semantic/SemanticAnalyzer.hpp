@@ -17,46 +17,119 @@ namespace volta::semantic {
 // Forward declaration for recursive structure
 struct PatternCoverage;
 
+/**
+ * Tracks coverage of nested patterns within match expressions
+ *
+ * Used to determine exhaustiveness of match patterns with nested structures.
+ * For example, matching on Option[Result[T, E]] requires tracking which
+ * combinations of Some/None and Ok/Err have been covered.
+ */
 struct NestedCoverage {
-    bool hasWildcard;
-    std::set<std::string> coveredVariants;
-    // For each nested variant, track its own nested coverage
-    // This allows arbitrary nesting depth
-    std::map<std::string, std::vector<NestedCoverage>> nestedByVariant;
+    bool hasWildcard;                                                        ///< True if a wildcard (_) pattern was seen
+    std::set<std::string> coveredVariants;                                   ///< Set of variant names covered at this level
+    std::map<std::string, std::vector<NestedCoverage>> nestedByVariant;     ///< Nested coverage for each variant's fields
 
     NestedCoverage() : hasWildcard(false) {}
 };
 
+/**
+ * Tracks which patterns are covered in a match expression
+ *
+ * Used for exhaustiveness checking to ensure all possible values
+ * of the matched type are handled by at least one pattern.
+ */
 struct PatternCoverage {
-    bool coversEverything;
-    std::set<std::string> coveredVariants;
-    // For each variant we cover, track the nested coverage
-    // Key: variant name, Value: coverage for each nested argument position
-    std::map<std::string, std::vector<NestedCoverage>> nestedCoverageByVariant;
+    bool coversEverything;                                                   ///< True if a catch-all pattern exists
+    std::set<std::string> coveredVariants;                                   ///< Enum variants explicitly matched
+    std::map<std::string, std::vector<NestedCoverage>> nestedCoverageByVariant;  ///< Nested pattern coverage per variant
 
     PatternCoverage() : coversEverything(false) {}
 };
 
 
 /**
- * SemanticAnalyzer performs static analysis on the AST:
- * - Type checking and inference
- * - Name resolution
- * - Mutability checking
- * - Control flow validation
+ * Semantic analyzer for Volta programs
+ *
+ * Performs multi-pass static analysis on the AST to verify program correctness:
+ *
+ * Pass 1: Declaration Collection
+ *   - Discovers all top-level types, functions, structs, and enums
+ *   - Builds initial symbol table
+ *   - Enables forward references
+ *
+ * Pass 2: Type Resolution
+ *   - Resolves all type references to concrete types
+ *   - Instantiates generic types
+ *   - Builds complete type information
+ *
+ * Pass 3: Type Checking and Validation
+ *   - Checks type compatibility in expressions
+ *   - Validates control flow (return, break, continue)
+ *   - Enforces mutability constraints
+ *   - Verifies match expression exhaustiveness
+ *   - Infers types where not explicitly annotated
+ *
+ * After successful analysis, the analyzer provides:
+ *   - Type information for all expressions
+ *   - Symbol table with all declarations
+ *   - Error diagnostics if validation failed
+ *
+ * Example usage:
+ *   SemanticAnalyzer analyzer(errorReporter);
+ *   analyzer.registerBuiltins();
+ *   if (analyzer.analyze(program)) {
+ *       auto exprType = analyzer.getExpressionType(someExpr);
+ *       // Proceed to code generation
+ *   }
  */
 class SemanticAnalyzer {
 public:
+    /**
+     * Constructs a semantic analyzer
+     *
+     * @param reporter Error reporter for diagnostics
+     */
     explicit SemanticAnalyzer(volta::errors::ErrorReporter& reporter);
 
-    // Main entry point: analyze entire program
+    /**
+     * Analyze an entire Volta program
+     *
+     * Performs multi-pass analysis to check types, resolve names,
+     * and validate control flow. Reports errors via the error reporter.
+     *
+     * @param program The AST root node
+     * @return true if analysis succeeded with no errors, false otherwise
+     */
     bool analyze(const volta::ast::Program& program);
 
-    // Get the inferred/checked type of an expression (after analysis)
+    /**
+     * Get the type of an expression after analysis
+     *
+     * Retrieves the inferred or checked type for any expression node.
+     * Should only be called after a successful analyze() pass.
+     *
+     * @param expr Expression AST node
+     * @return The semantic type of the expression, or nullptr if not analyzed
+     */
     std::shared_ptr<Type> getExpressionType(const volta::ast::Expression* expr) const;
+
+    /**
+     * Resolve a type annotation to a semantic type
+     *
+     * Converts AST type syntax (e.g., "Array[i32]") into a semantic type object.
+     * Handles primitive types, generics, functions, structs, and enums.
+     *
+     * @param typeAnnotation AST type node
+     * @return Resolved semantic type, or unknown type if resolution fails
+     */
     std::shared_ptr<Type> resolveTypeAnnotation(const volta::ast::Type* typeAnnotation) const;
 
-    // Register builtin functions (should be called before analysis)
+    /**
+     * Register built-in functions and types
+     *
+     * Populates the symbol table with Volta's standard library functions
+     * like print(), println(), len(), etc. Should be called before analyze().
+     */
     void registerBuiltins();
 
 private:
@@ -144,8 +217,22 @@ private:
     std::shared_ptr<Type> currentFunctionReturnType() const { return currentReturnType_; }
 
 public:
-    // Symbol table access (for IR generation)
+    /**
+     * Get the symbol table for code generation
+     *
+     * Provides access to the complete symbol table containing all
+     * variable, function, type, and struct declarations discovered
+     * during analysis. Used by code generators to look up symbols.
+     *
+     * @return Pointer to the symbol table (non-owning)
+     */
     SymbolTable* getSymbolTable() { return symbolTable_.get(); }
+
+    /**
+     * Get the symbol table (const version)
+     *
+     * @return Const pointer to the symbol table (non-owning)
+     */
     const SymbolTable* getSymbolTable() const { return symbolTable_.get(); }
 
 private:

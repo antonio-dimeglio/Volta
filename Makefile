@@ -62,14 +62,14 @@ MAKEFLAGS += --no-print-directory
 # =============================================================================
 
 CXX := g++
-CXXFLAGS := -std=c++20 -Wall -Wextra -O2 -Iinclude -Wno-unused-parameter -Wno-unused-variable -Wno-comment
+CXXFLAGS := -std=c++20 -Wall -Wextra -O2 -Iinclude -I/usr/include/llvm-18 -I/usr/include/llvm-c-18 -Wno-unused-parameter -Wno-unused-variable -Wno-comment
 DEBUG_FLAGS := -fsanitize=address -fsanitize=undefined -g -O0 -DDEBUG
 
 # Platform-specific linker flags
 ifeq ($(PLATFORM),Linux)
-	LDFLAGS := -lffi -ldl
+	LDFLAGS := -lffi -ldl -L/usr/lib/llvm-18/lib -lLLVM-18
 else ifeq ($(PLATFORM),macOS)
-	LDFLAGS := -lffi -ldl
+	LDFLAGS := -lffi -ldl -L/usr/lib/llvm-18/lib -lLLVM-18
 else ifeq ($(PLATFORM),Windows)
 	LDFLAGS := -lffi
 else ifeq ($(PLATFORM),MSYS2)
@@ -158,8 +158,15 @@ TEST_BINS := $(patsubst $(TEST_DIR)/%.cpp,$(BIN_DIR)/%$(EXE_EXT),$(TEST_SOURCES)
 # DEFAULT TARGET
 # =============================================================================
 
-.PHONY: all
-all: $(TARGET)
+.PHONY: all runtime
+all: $(TARGET) runtime
+
+# Runtime library
+RUNTIME_LIB := $(BIN_DIR)/libvolta.a
+RUNTIME_SRC := src/runtime/volta_runtime.c
+RUNTIME_OBJ := $(BUILD_DIR)/runtime/volta_runtime.o
+
+runtime: $(RUNTIME_LIB)
 
 # =============================================================================
 # DIRECTORY CREATION
@@ -182,6 +189,18 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
 $(MAIN_OBJECT): $(MAIN_SOURCE) | $(BUILD_DIR)
 	@echo "Compiling $<..."
 	@$(CXX) $(CXXFLAGS) $(DEPFLAGS) -c $< -o $@
+
+# Compile runtime
+$(RUNTIME_OBJ): $(RUNTIME_SRC) | $(BUILD_DIR)
+	@$(MKDIR) $(dir $@)
+	@echo "Compiling runtime library..."
+	@gcc -c $(RUNTIME_SRC) -o $(RUNTIME_OBJ) -Iinclude -I/usr/include
+
+# Create runtime static library
+$(RUNTIME_LIB): $(RUNTIME_OBJ) | $(BIN_DIR)
+	@echo "Creating runtime library..."
+	@ar rcs $(RUNTIME_LIB) $(RUNTIME_OBJ)
+	@echo "Runtime library complete: $(RUNTIME_LIB)"
 
 # Link executable
 $(TARGET): $(OBJECTS) $(MAIN_OBJECT) | $(BIN_DIR)
