@@ -147,14 +147,17 @@ struct VarDeclaration : Statement {
 };
 
 struct Parameter {
-    std::string identifier;  
+    std::string identifier;
     std::unique_ptr<Type> type;
+    bool isMutable;
 
     Parameter(
         std::string identifier,
-        std::unique_ptr<Type> type
+        std::unique_ptr<Type> type,
+        bool isMutable = false
     ) : identifier(std::move(identifier)),
-        type(std::move(type)) {}
+        type(std::move(type)),
+        isMutable(isMutable) {}
 };
 
 struct FnDeclaration : Statement {
@@ -203,14 +206,17 @@ struct StructField {
 
 struct StructDeclaration : Statement {
     std::string identifier;
+    std::vector<std::string> typeParams;
     std::vector<std::unique_ptr<StructField>> fields;
 
     StructDeclaration(
         std::string identifier,
+        std::vector<std::string> typeParams,
         std::vector<std::unique_ptr<StructField>> fields,
         volta::errors::SourceLocation location
     ) : Statement(location),
         identifier(identifier),
+        typeParams(std::move(typeParams)),
         fields(std::move(fields)) {}
 };
 

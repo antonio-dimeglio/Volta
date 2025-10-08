@@ -298,7 +298,16 @@ void ASTDumper::dumpFnDeclaration(const FnDeclaration& decl) {
 
 void ASTDumper::dumpStructDeclaration(const StructDeclaration& decl) {
     indent();
-    ss << "StructDeclaration: " << decl.identifier << "\n";
+    ss << "StructDeclaration: " << decl.identifier;
+    if (!decl.typeParams.empty()) {
+        ss << "[";
+        for (size_t i = 0; i < decl.typeParams.size(); ++i) {
+            if (i > 0) ss << ", ";
+            ss << decl.typeParams[i];
+        }
+        ss << "]";
+    }
+    ss << "\n";
     increaseIndent();
 
     indent();

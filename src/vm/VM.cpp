@@ -269,12 +269,6 @@ Value VM::run() {
                 break;
             }
 
-            case Opcode::LOAD_NONE: {
-                uint8_t dest = readByte(frame);
-                frame.registers[dest] = Value::makeNone();
-                break;
-            }
-
             case Opcode::MOVE: {
                 uint8_t dest = readByte(frame);
                 uint8_t src = readByte(frame);
@@ -582,11 +576,78 @@ Value VM::run() {
                 break;
             }
 
+            case Opcode::ENUM_CREATE: {
+                // Format: ENUM_CREATE dest_reg, variant_tag, value_reg
+                uint8_t dest = readByte(frame);
+                uint8_t variantTag = readByte(frame);
+                uint8_t valueReg = readByte(frame);
+
+                // For now, handle single-value variants (like Option[int])
+                // Allocate enum with space for one Value
+                size_t variantDataSize = sizeof(Value);
+                Volta::GC::EnumObject* enumObj = gc_->allocateEnum(variantTag, variantDataSize);
+                if (!enumObj) {
+                    throw std::runtime_error("ENUM_CREATE: allocation failed");
+                }
+
+                // Store the value in the data section (if valueReg != 0)
+                if (valueReg != 0) {
+                    Value* dataField = (Value*)enumObj->data;
+                    dataField[0] = frame.registers[valueReg];
+                }
+
+                // Store in register
+                frame.registers[dest] = Value::makeObject((Volta::GC::Object*)enumObj);
+                break;
+            }
+
+            case Opcode::ENUM_TAG: {
+                // Format: ENUM_TAG dest_reg, enum_reg
+                uint8_t dest = readByte(frame);
+                uint8_t enumReg = readByte(frame);
+                readByte(frame);  // Padding
+
+                Value enumVal = frame.registers[enumReg];
+                if (enumVal.type != ValueType::OBJECT || enumVal.as.as_obj == nullptr) {
+                    throw std::runtime_error("ENUM_TAG: not an object");
+                }
+
+                Volta::GC::Object* obj = enumVal.as.as_obj;
+                if (obj->header.type != Volta::GC::OBJ_ENUM) {
+                    throw std::runtime_error("ENUM_TAG: not an enum");
+                }
+
+                Volta::GC::EnumObject* enumObj = (Volta::GC::EnumObject*)obj;
+                frame.registers[dest] = Value::makeInt(enumObj->variantTag);
+                break;
+            }
+
+            case Opcode::ENUM_EXTRACT: {
+                // Format: ENUM_EXTRACT dest_reg, enum_reg, field_index
+                uint8_t dest = readByte(frame);
+                uint8_t enumReg = readByte(frame);
+                uint8_t fieldIndex = readByte(frame);
+
+                Value enumVal = frame.registers[enumReg];
+                if (enumVal.type != ValueType::OBJECT || enumVal.as.as_obj == nullptr) {
+                    throw std::runtime_error("ENUM_EXTRACT: not an object");
+                }
+
+                Volta::GC::Object* obj = enumVal.as.as_obj;
+                if (obj->header.type != Volta::GC::OBJ_ENUM) {
+                    throw std::runtime_error("ENUM_EXTRACT: not an enum");
+                }
+
+                Volta::GC::EnumObject* enumObj = (Volta::GC::EnumObject*)obj;
+                Value* dataFields = (Value*)enumObj->data;
+
+                // Extract field value
+                frame.registers[dest] = dataFields[fieldIndex];
+                break;
+            }
+
             case Opcode::ARRAY_SLICE:
             case Opcode::STRING_LEN:
-            case Opcode::IS_SOME:
-            case Opcode::OPTION_WRAP:
-            case Opcode::OPTION_UNWRAP:
                 throw std::runtime_error("String/option operations not yet implemented");
         }
     }

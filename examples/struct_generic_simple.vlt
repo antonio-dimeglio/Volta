@@ -1,0 +1,12 @@
+# Simple generic struct example without methods
+struct Pair[T] {
+    first: T,
+    second: T
+}
+
+# Create instances
+p1: Pair[int] = Pair { first: 1, second: 2 }
+p2: Pair[float] = Pair { first: 1.5, second: 2.5 }
+
+print(p1.first)
+print(p2.first)

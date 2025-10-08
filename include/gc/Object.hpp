@@ -13,6 +13,7 @@ enum ObjectType : uint8_t {
     OBJ_STRING = 0,
     OBJ_ARRAY  = 1,
     OBJ_STRUCT = 2,
+    OBJ_ENUM   = 3,
 };
 
 /**
@@ -130,6 +131,24 @@ struct StructObject {
 };
 
 /**
+ * Enum object layout
+ *
+ * Layout:
+ *   [ObjectHeader | variant_tag (4 bytes) | padding (4 bytes) | variant data...]
+ *
+ * Variant data is laid out according to the specific variant's fields.
+ * The tag identifies which variant this enum value represents.
+ */
+struct EnumObject {
+    ObjectHeader header;
+    uint32_t     variantTag;   // Which variant (0, 1, 2, ...)
+    uint32_t     padding;      // Keep 8-byte alignment
+    char         data[];       // Flexible array member (variant data follows)
+
+    // Total size: sizeof(ObjectHeader) + 8 + (variant data size)
+};
+
+/**
  * Alignment requirement for all heap objects
  */
 constexpr size_t OBJECT_ALIGNMENT = 8;
@@ -162,6 +181,14 @@ inline size_t arrayObjectSize(size_t length, size_t elementSize) {
  */
 inline size_t structObjectSize(size_t fieldDataSize) {
     size_t size = sizeof(ObjectHeader) + 8 + fieldDataSize;
+    return alignSize(size);
+}
+
+/**
+ * Calculate total size for an enum object
+ */
+inline size_t enumObjectSize(size_t variantDataSize) {
+    size_t size = sizeof(ObjectHeader) + 8 + variantDataSize;
     return alignSize(size);
 }
 

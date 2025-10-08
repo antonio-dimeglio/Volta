@@ -101,8 +101,7 @@ size_t BytecodeDecompiler::disassembleInstruction(uint32_t offset) {
         }
 
         case Opcode::LOAD_TRUE:
-        case Opcode::LOAD_FALSE:
-        case Opcode::LOAD_NONE: {
+        case Opcode::LOAD_FALSE: {
             byte rD = module_.peekByte(offset + 1);
             out_ << "r" << (int)rD;
             break;
@@ -186,12 +185,33 @@ size_t BytecodeDecompiler::disassembleInstruction(uint32_t offset) {
         // Type ops
         case Opcode::CAST_INT_FLOAT:
         case Opcode::CAST_FLOAT_INT:
-        case Opcode::IS_SOME:
-        case Opcode::OPTION_WRAP:
-        case Opcode::OPTION_UNWRAP: {
+        {
             byte rD = module_.peekByte(offset + 1);
             byte rSrc = module_.peekByte(offset + 2);
             out_ << "r" << (int)rD << ", r" << (int)rSrc;
+            break;
+        }
+
+        case Opcode::ENUM_CREATE: {
+            byte rD = module_.peekByte(offset + 1);
+            byte variantTag = module_.peekByte(offset + 2);
+            byte rValue = module_.peekByte(offset + 3);
+            out_ << "r" << (int)rD << ", tag=" << (int)variantTag << ", r" << (int)rValue;
+            break;
+        }
+
+        case Opcode::ENUM_TAG: {
+            byte rD = module_.peekByte(offset + 1);
+            byte rEnum = module_.peekByte(offset + 2);
+            out_ << "r" << (int)rD << ", r" << (int)rEnum;
+            break;
+        }
+
+        case Opcode::ENUM_EXTRACT: {
+            byte rD = module_.peekByte(offset + 1);
+            byte rEnum = module_.peekByte(offset + 2);
+            byte fieldIdx = module_.peekByte(offset + 3);
+            out_ << "r" << (int)rD << ", r" << (int)rEnum << ", field=" << (int)fieldIdx;
             break;
         }
 
@@ -234,7 +254,6 @@ const char* BytecodeDecompiler::getOpcodeName(Opcode op) {
         case Opcode::LOAD_CONST_STRING: return "LOAD_CONST_STRING";
         case Opcode::LOAD_TRUE:         return "LOAD_TRUE";
         case Opcode::LOAD_FALSE:        return "LOAD_FALSE";
-        case Opcode::LOAD_NONE:         return "LOAD_NONE";
 
         // Control Flow
         case Opcode::BR:          return "BR";
@@ -252,15 +271,22 @@ const char* BytecodeDecompiler::getOpcodeName(Opcode op) {
         case Opcode::ARRAY_LEN:   return "ARRAY_LEN";
         case Opcode::ARRAY_SLICE: return "ARRAY_SLICE";
 
+        // Struct Operations
+        case Opcode::STRUCT_GET:  return "STRUCT_GET";
+        case Opcode::STRUCT_SET:  return "STRUCT_SET";
+        case Opcode::GCALLOC:     return "GCALLOC";
+
+        // Enum Operations
+        case Opcode::ENUM_CREATE:  return "ENUM_CREATE";
+        case Opcode::ENUM_TAG:     return "ENUM_TAG";
+        case Opcode::ENUM_EXTRACT: return "ENUM_EXTRACT";
+
         // String Operations
         case Opcode::STRING_LEN:  return "STRING_LEN";
 
         // Type Operations
         case Opcode::CAST_INT_FLOAT: return "CAST_INT_FLOAT";
         case Opcode::CAST_FLOAT_INT: return "CAST_FLOAT_INT";
-        case Opcode::IS_SOME:        return "IS_SOME";
-        case Opcode::OPTION_WRAP:    return "OPTION_WRAP";
-        case Opcode::OPTION_UNWRAP:  return "OPTION_UNWRAP";
 
         // Register Operations
         case Opcode::MOVE: return "MOVE";

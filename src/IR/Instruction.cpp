@@ -110,18 +110,6 @@ bool Instruction::isArrayOp() const {
     }
 }
 
-bool Instruction::isMatrixOp() const {
-    switch (opcode_) {
-        case Opcode::MatrixNew:
-        case Opcode::MatrixGet:
-        case Opcode::MatrixSet:
-        case Opcode::MatrixMul:
-        case Opcode::MatrixTranspose:
-            return true;
-        default:
-            return false;
-    }
-}
 
 bool Instruction::isCallInst() const {
     return opcode_ == Opcode::Call || opcode_ == Opcode::CallIndirect;
@@ -166,21 +154,18 @@ const char* Instruction::getOpcodeName(Opcode op) {
         case Opcode::ArrayLen: return "array.len";
         case Opcode::ArraySlice: return "array.slice";
 
-        // Matrix
-        case Opcode::MatrixNew: return "matrix_new";
-        case Opcode::MatrixGet: return "matrix_get";
-        case Opcode::MatrixSet: return "matrix_set";
-        case Opcode::MatrixMul: return "matrix_mul";
-        case Opcode::MatrixTranspose: return "matrix_transpose";
 
         // Broadcasting
         case Opcode::Broadcast: return "broadcast";
 
         // Type
         case Opcode::Cast: return "cast";
-        case Opcode::OptionWrap: return "option_wrap";
-        case Opcode::OptionUnwrap: return "option_unwrap";
-        case Opcode::OptionCheck: return "option_check";
+
+        // Enums
+        case Opcode::CreateEnum: return "create_enum";
+        case Opcode::GetEnumTag: return "get_enum_tag";
+        case Opcode::ExtractEnumData: return "extract_enum_data";
+
 
         // Control flow
         case Opcode::Ret: return "ret";
@@ -434,42 +419,6 @@ ArraySliceInst::ArraySliceInst(Value* array, Value* start, Value* end,
 CastInst::CastInst(Value* value, std::shared_ptr<IRType> destType,
                    const std::string& name)
     : Instruction(Opcode::Cast, destType, {value}, name) {
-}
-
-
-
-// ============================================================================
-// OptionWrapInst
-// ============================================================================
-
-OptionWrapInst::OptionWrapInst(Value* value,
-                               std::shared_ptr<IRType> optionType,
-                               const std::string& name)
-    : Instruction(Opcode::OptionWrap, optionType, {value}, name) {
-}
-
-
-// ============================================================================
-// OptionUnwrapInst
-// ============================================================================
-
-OptionUnwrapInst::OptionUnwrapInst(Value* option, const std::string& name)
-    : Instruction(Opcode::OptionUnwrap,
-                  option->getType()->asOption()->innerType(),
-                  {option},
-                  name) {
-}
-
-
-// ============================================================================
-// OptionCheckInst
-// ============================================================================
-
-OptionCheckInst::OptionCheckInst(Value* option, const std::string& name)
-    : Instruction(Opcode::OptionCheck,
-                  std::make_shared<IRPrimitiveType>(IRType::Kind::I1),
-                  {option},
-                  name) {
 }
 
 // ============================================================================

@@ -42,7 +42,6 @@ bool Value::isConstant() const {
         case ValueKind::ConstantFloat:
         case ValueKind::ConstantBool:
         case ValueKind::ConstantString:
-        case ValueKind::ConstantNone:
             return true;
         default: 
             return false;
@@ -184,20 +183,6 @@ ConstantString::ConstantString(const std::string& value, std::shared_ptr<IRType>
 
 std::string ConstantString::toString() const {
     return "\"" + value_ + "\"";
-}
-
-// ============================================================================
-// ConstantNone Implementation
-// ============================================================================
-
-ConstantNone::ConstantNone(std::shared_ptr<IRType> optionType)
-    : Constant(ValueKind::ConstantNone, optionType) {
-}
-
-// REMOVED: ConstantNone::get() - Use arena allocation through Module instead
-
-std::string ConstantNone::toString() const {
-    return "None";
 }
 
 // ============================================================================

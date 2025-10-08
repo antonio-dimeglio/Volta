@@ -56,17 +56,26 @@ private:
     std::shared_ptr<Type> analyzeMatchExpression(const volta::ast::MatchExpression* matchExpr);
 
     // Expression type checking (returns inferred type)
-    std::shared_ptr<Type> analyzeExpression(const volta::ast::Expression* expr);
-    std::shared_ptr<Type> analyzeBinaryExpression(const volta::ast::BinaryExpression* binExpr);
-    std::shared_ptr<Type> analyzeUnaryExpression(const volta::ast::UnaryExpression* unaryExpr);
-    std::shared_ptr<Type> analyzeCallExpression(const volta::ast::CallExpression* callExpr);
+    // Expression analysis with optional expected type for contextual inference
+    std::shared_ptr<Type> analyzeExpression(const volta::ast::Expression* expr,
+                                           std::shared_ptr<Type> expectedType = nullptr);
+    std::shared_ptr<Type> analyzeBinaryExpression(const volta::ast::BinaryExpression* binExpr,
+                                                  std::shared_ptr<Type> expectedType = nullptr);
+    std::shared_ptr<Type> analyzeUnaryExpression(const volta::ast::UnaryExpression* unaryExpr,
+                                                 std::shared_ptr<Type> expectedType = nullptr);
+    std::shared_ptr<Type> analyzeCallExpression(const volta::ast::CallExpression* callExpr,
+                                               std::shared_ptr<Type> expectedType = nullptr);
     std::shared_ptr<Type> analyzeIdentifier(const volta::ast::IdentifierExpression* identifier);
     std::shared_ptr<Type> analyzeLiteral(const volta::ast::Expression* literal);
-    std::shared_ptr<Type> analyzeMemberExpression(const volta::ast::MemberExpression* memberExpr);
-    std::shared_ptr<Type> analyzeMethodCallExpression(const volta::ast::MethodCallExpression* methodCall);
-    std::shared_ptr<Type> analyzeArrayLiteral(const volta::ast::ArrayLiteral* arrayLit);
+    std::shared_ptr<Type> analyzeMemberExpression(const volta::ast::MemberExpression* memberExpr,
+                                                  std::shared_ptr<Type> expectedType = nullptr);
+    std::shared_ptr<Type> analyzeMethodCallExpression(const volta::ast::MethodCallExpression* methodCall,
+                                                      std::shared_ptr<Type> expectedType = nullptr);
+    std::shared_ptr<Type> analyzeArrayLiteral(const volta::ast::ArrayLiteral* arrayLit,
+                                             std::shared_ptr<Type> expectedType = nullptr);
     std::shared_ptr<Type> analyzeIndexExpression(const volta::ast::IndexExpression* indexExpr);
-    std::shared_ptr<Type> analyzeStructLiteral(const volta::ast::StructLiteral* structLit);
+    std::shared_ptr<Type> analyzeStructLiteral(const volta::ast::StructLiteral* structLit,
+                                              std::shared_ptr<Type> expectedType = nullptr);
     std::shared_ptr<Type> analyzeCastExpression(const volta::ast::CastExpression* castExpr);
 
     // Type operations
@@ -95,9 +104,23 @@ private:
     bool inLoop() const { return loopDepth_ > 0; }
     std::shared_ptr<Type> currentFunctionReturnType() const { return currentReturnType_; }
 
+public:
+    // Symbol table access (for IR generation)
+    SymbolTable* getSymbolTable() { return symbolTable_.get(); }
+    const SymbolTable* getSymbolTable() const { return symbolTable_.get(); }
+
+private:
+
     // Error reporting helpers
     void error(const std::string& message, volta::errors::SourceLocation loc);
     void typeError(const std::string& message, const Type* expected, const Type* actual, volta::errors::SourceLocation loc);
+
+    // Type substitution helper for generics
+    std::shared_ptr<Type> substituteTypeVariables(
+        const std::shared_ptr<Type>& type,
+        const std::vector<std::string>& typeParams,
+        const std::vector<std::shared_ptr<Type>>& typeArgs
+    );
 
 private:
     volta::errors::ErrorReporter& errorReporter_;

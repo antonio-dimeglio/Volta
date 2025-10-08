@@ -1,0 +1,21 @@
+# Comprehensive generic struct test
+
+# Generic struct with methods
+struct Box[T] {
+    value: T
+}
+
+fn Box.new(val: T) -> Box[T] {
+    return Box { value: val }
+}
+
+fn Box.getValue(self) -> T {
+    return self.value
+}
+
+# Test with different types
+intBox: Box[int] = Box.new(42)
+floatBox: Box[float] = Box.new(3.14)
+
+print(intBox.getValue())
+print(floatBox.getValue())

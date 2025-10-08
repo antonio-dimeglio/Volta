@@ -3,9 +3,17 @@ struct Point {
     y: float
 }
 
-p: mut Point = Point { x: 3.0, y: 4.0 }
-print(p.x)
-print(p.y)
+fn Point.new(x: float, y: float) -> Point {
+    return Point { x: x, y: y }
+}
 
-p.x = 10.0
-print(p.x)
+fn Point.getX(self) -> float {
+    return self.x
+}
+
+fn Point.getY(self) -> float {
+    return self.y
+}
+
+point := Point.new(1.0, 1.0)
+print(point.x)

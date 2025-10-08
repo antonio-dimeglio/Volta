@@ -250,24 +250,6 @@ void BytecodeCompiler::compileInstruction(ir::Instruction* instr) {
             } else throw std::runtime_error("Unsupported cast type.");
             break;
         }
-        case ir::Instruction::Opcode::OptionCheck: {
-            compileUnaryOp(instr, &BytecodeCompiler::emitIsSome);
-            break;
-        }
-        case ir::Instruction::Opcode::OptionWrap: {
-            byte rD = getOrAllocateRegister(instr);
-            byte rVal = getOrAllocateRegister(instr->getOperand(0));
-            
-            emitOptionWrap(rD, rVal);
-            break;
-        }
-        case ir::Instruction::Opcode::OptionUnwrap: {
-            byte rD = getOrAllocateRegister(instr);
-            byte rOpt = getOrAllocateRegister(instr->getOperand(0));
-            
-            emitOptionUnwrap(rD, rOpt);
-            break;
-        }
         case ir::Instruction::Opcode::ArrayGet: {
             compileBinaryOp(instr, &BytecodeCompiler::emitArrayGet);
             break;
@@ -370,6 +352,37 @@ void BytecodeCompiler::compileInstruction(ir::Instruction* instr) {
             byte rD = getOrAllocateRegister(instr->getOperand(1));
             byte rSrc = getOrAllocateRegister(instr->getOperand(0));
             emitMove(rD, rSrc);
+            break;
+        }
+        case ir::Instruction::Opcode::CreateEnum: {
+            auto* createEnum = dyn_cast<ir::CreateEnumInst>(instr);
+            byte rD = getOrAllocateRegister(instr);
+            byte variantTag = static_cast<byte>(createEnum->getVariantTag());
+
+            // For now, handle single-field or no-field variants
+            byte rValue = 0;
+            if (createEnum->getNumFields() > 0) {
+                rValue = getOrAllocateRegister(createEnum->getFieldValue(0));
+            }
+
+            emitEnumCreate(rD, variantTag, rValue);
+            break;
+        }
+        case ir::Instruction::Opcode::GetEnumTag: {
+            auto* getTag = dyn_cast<ir::GetEnumTagInst>(instr);
+            byte rD = getOrAllocateRegister(instr);
+            byte rEnum = getOrAllocateRegister(getTag->getEnum());
+
+            emitEnumTag(rD, rEnum);
+            break;
+        }
+        case ir::Instruction::Opcode::ExtractEnumData: {
+            auto* extractData = dyn_cast<ir::ExtractEnumDataInst>(instr);
+            byte rD = getOrAllocateRegister(instr);
+            byte rEnum = getOrAllocateRegister(extractData->getEnum());
+            byte fieldIdx = static_cast<byte>(extractData->getFieldIndex());
+
+            emitEnumExtract(rD, rEnum, fieldIdx);
             break;
         }
         default:
@@ -570,10 +583,6 @@ void BytecodeCompiler::emitLoadFalse(byte rD) {
     emitByte(rD);
 }
 
-void BytecodeCompiler::emitLoadNone(byte rD) {
-    emitByte(static_cast<byte>(Opcode::LOAD_NONE));
-    emitByte(rD);
-}
 
 void BytecodeCompiler::emitBr(int16_t offset) {
     emitByte(static_cast<byte>(Opcode::BR));
@@ -668,6 +677,27 @@ void BytecodeCompiler::emitGCAlloc(byte rD, uint32_t typeId, uint32_t fieldCount
     emitByte(static_cast<byte>(fieldCount)); // Number of fields
 }
 
+void BytecodeCompiler::emitEnumCreate(byte rD, byte variantTag, byte rValue) {
+    emitByte(static_cast<byte>(Opcode::ENUM_CREATE));
+    emitByte(rD);
+    emitByte(variantTag);
+    emitByte(rValue);
+}
+
+void BytecodeCompiler::emitEnumTag(byte rD, byte rEnum) {
+    emitByte(static_cast<byte>(Opcode::ENUM_TAG));
+    emitByte(rD);
+    emitByte(rEnum);
+    emitByte(0); // Padding to make it 4 bytes
+}
+
+void BytecodeCompiler::emitEnumExtract(byte rD, byte rEnum, byte fieldIdx) {
+    emitByte(static_cast<byte>(Opcode::ENUM_EXTRACT));
+    emitByte(rD);
+    emitByte(rEnum);
+    emitByte(fieldIdx);
+}
+
 void BytecodeCompiler::emitArrayLen(byte rD, byte rArray) {
     emitByte(static_cast<byte>(Opcode::ARRAY_LEN));
     emitByte(rD);
@@ -690,24 +720,6 @@ void BytecodeCompiler::emitCastFloatInt(byte rD, byte rSrc) {
     emitByte(static_cast<byte>(Opcode::CAST_FLOAT_INT));
     emitByte(rD);
     emitByte(rSrc);
-}
-
-void BytecodeCompiler::emitIsSome(byte rD, byte rOption) {
-    emitByte(static_cast<byte>(Opcode::IS_SOME));
-    emitByte(rD);
-    emitByte(rOption);
-}
-
-void BytecodeCompiler::emitOptionWrap(byte rD, byte rVal) {
-    emitByte(static_cast<byte>(Opcode::OPTION_WRAP));
-    emitByte(rD);
-    emitByte(rVal);
-}
-
-void BytecodeCompiler::emitOptionUnwrap(byte rD, byte rOption) {
-    emitByte(static_cast<byte>(Opcode::OPTION_UNWRAP));
-    emitByte(rD);
-    emitByte(rOption);
 }
 
 void BytecodeCompiler::recordFixup(ir::BasicBlock* target) {
@@ -798,14 +810,6 @@ byte BytecodeCompiler::emitConstantLoad(ir::Value* constantValue) {
             byte reg = currentFunction_->nextRegister++;
             // NOTE: Don't save constants in valueToRegister map
             emitLoadConstString(reg, poolIdx);
-            return reg;
-        }
-        case ir::Constant::ValueKind::ConstantNone: {
-            byte reg = currentFunction_->nextRegister++;
-            // NOTE: Don't save constants in valueToRegister map
-    
-            emitLoadNone(reg);
-            
             return reg;
         }
         default:

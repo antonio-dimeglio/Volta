@@ -261,26 +261,37 @@ std::string IRPrinter::printInstruction(const Instruction* inst) {
         return ss.str();
     }
 
+    if (auto* createEnum = dyn_cast<CreateEnumInst>(inst)) {
+        if (showTypes_) {
+            ss << " " << printType(createEnum->getType()) << " ";
+        }
+        ss << "variant=" << createEnum->getVariantTag() << ", [";
+        for (unsigned i = 0; i < createEnum->getNumFields(); i++) {
+            if (i > 0) ss << ", ";
+            ss << printValue(createEnum->getFieldValue(i));
+        }
+        ss << "]";
+        return ss.str();
+    }
+
+    if (auto* getTag = dyn_cast<GetEnumTagInst>(inst)) {
+        ss << " " << printValue(getTag->getEnum());
+        return ss.str();
+    }
+
+    if (auto* extractData = dyn_cast<ExtractEnumDataInst>(inst)) {
+        if (showTypes_) {
+            ss << " " << printType(extractData->getType()) << " ";
+        }
+        ss << printValue(extractData->getEnum());
+        ss << ", field=" << extractData->getFieldIndex();
+        return ss.str();
+    }
+
     // Cast
     if (auto* cast = dyn_cast<CastInst>(inst)) {
         ss << " " << printValue(cast->getValue());
         ss << " to " << printType(cast->getDestType());
-        return ss.str();
-    }
-
-    // Option operations
-    if (auto* optWrap = dyn_cast<OptionWrapInst>(inst)) {
-        ss << " " << printValue(optWrap->getValue());
-        return ss.str();
-    }
-
-    if (auto* optUnwrap = dyn_cast<OptionUnwrapInst>(inst)) {
-        ss << " " << printValue(optUnwrap->getOption());
-        return ss.str();
-    }
-
-    if (auto* optCheck = dyn_cast<OptionCheckInst>(inst)) {
-        ss << " " << printValue(optCheck->getOption());
         return ss.str();
     }
 
@@ -304,9 +315,6 @@ std::string IRPrinter::printValue(const Value* value) {
     }
     if (auto* cs = dyn_cast<ConstantString>(value)) {
         return "\"" + cs->getValue() + "\"";
-    }
-    if (dyn_cast<ConstantNone>(value)) {
-        return "none";
     }
     if (dyn_cast<UndefValue>(value)) {
         return "undef";

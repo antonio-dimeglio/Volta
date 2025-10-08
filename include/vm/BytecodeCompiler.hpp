@@ -218,7 +218,6 @@ private:
     void emitLoadConstString(byte rD, index poolIdx);
     void emitLoadTrue(byte rD);
     void emitLoadFalse(byte rD);
-    void emitLoadNone(byte rD);
 
     // Control flow
     void emitBr(int16_t offset);
@@ -243,15 +242,17 @@ private:
     void emitStructSet(byte rD, byte rStruct, byte rValue, byte fieldIdx);
     void emitGCAlloc(byte rD, uint32_t typeId, uint32_t fieldCount);
 
+    // Enum operations
+    void emitEnumCreate(byte rD, byte variantTag, byte rValue);
+    void emitEnumTag(byte rD, byte rEnum);
+    void emitEnumExtract(byte rD, byte rEnum, byte fieldIdx);
+
     // String operations (Phase 2+)
     void emitStringLen(byte rD, byte rString);
 
     // Type operations (Phase 2+)
     void emitCastIntFloat(byte rD, byte rSrc);
     void emitCastFloatInt(byte rD, byte rSrc);
-    void emitIsSome(byte rD, byte rOption);
-    void emitOptionWrap(byte rD, byte rVal);
-    void emitOptionUnwrap(byte rD, byte rOption);
 
     // === Label Fixup (Two-Pass) ===
 

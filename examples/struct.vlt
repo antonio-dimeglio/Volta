@@ -1,14 +1,18 @@
-struct Point {
-    x: float,
-    y: float
+struct Point[T] {
+    x: T,
+    y: T
 }
 
-# Struct instantiation
-p := Point { x: 3.0, y: 4.0 }
+# Methods on generic struct
 
-# Method syntax
-fn Point.distance(self: Point) -> float {
-   return self.x * self.x + self.y * self.y
+fn Point.new(x: T, y: T) -> Point[T] {
+    return Point { x: x, y: y }
 }
 
-dist := p.distance()
+fn Point.getX(self) -> T {
+    return self.x
+}
+
+fn Point.getY(self) -> T {
+    return self.y
+}

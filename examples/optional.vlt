@@ -1,0 +1,11 @@
+enum Option[T] {
+    Some(T),
+    None
+}
+
+fn divide(x:int, y:int) -> Option[int] {
+    if (y != 0) { return Option.Some(x / y)}
+    else {return Option.None }
+}
+
+print(divide(2, 2).unwrap())

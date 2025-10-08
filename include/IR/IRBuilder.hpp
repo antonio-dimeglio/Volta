@@ -106,7 +106,6 @@ public:
     std::shared_ptr<IRType> getVoidType();
     std::shared_ptr<IRType> getPointerType(std::shared_ptr<IRType> pointeeType);
     std::shared_ptr<IRType> getArrayType(std::shared_ptr<IRType> elementType, size_t size);
-    std::shared_ptr<IRType> getOptionType(std::shared_ptr<IRType> innerType);
 
     // ========================================================================
     // Function and Block Creation
@@ -150,7 +149,6 @@ public:
     ConstantBool* getTrue();
     ConstantBool* getFalse();
     ConstantString* getString(const std::string& value);
-    ConstantNone* getNone(std::shared_ptr<IRType> optionType);
     UndefValue* getUndef(std::shared_ptr<IRType> type);
 
     // ========================================================================
@@ -266,10 +264,17 @@ public:
 
     Value* createCast(Value* value, std::shared_ptr<IRType> destType,
                      const std::string& name = "");
-    Value* createOptionWrap(Value* value, std::shared_ptr<IRType> optionType,
-                           const std::string& name = "");
-    Value* createOptionUnwrap(Value* option, const std::string& name = "");
-    Value* createOptionCheck(Value* option, const std::string& name = "");
+
+    // ========================================================================
+    // Enum Instructions
+    // ========================================================================
+    Value* createEnum(std::shared_ptr<IRType> enumType, unsigned variantTag, 
+                    std::vector<Value*> fieldValues, const std::string& name = "");
+    Value* createGetEnumTag(Value* enumValue, const std::string& name = "");
+    Value* createExtractEnumData(std::shared_ptr<IRType> resultType, Value* enumValue, 
+                                unsigned fieldIndex, const std::string& name = "");
+
+    
 
     // ========================================================================
     // Control Flow Instructions (Terminators)
@@ -308,8 +313,6 @@ public:
      * @param args The arguments
      * @param name Optional name for the result
      * @return The call instruction (or nullptr if return type is void)
-     *
-     * LEARNING TIP: Validate argument count and types match function signature!
      */
     Value* createCall(Function* callee, const std::vector<Value*>& args,
                      const std::string& name = "");
@@ -331,9 +334,6 @@ public:
      * @param name Optional name
      * @return The phi node
      *
-     * LEARNING TIP: Phi nodes MUST be at the beginning of the block!
-     * You can't insert them at the current insertion point if there are
-     * already non-phi instructions.
      */
     Value* createPhi(std::shared_ptr<IRType> type,
                     const std::vector<PhiNode::IncomingValue>& incomingValues = {},

@@ -1,6 +1,7 @@
 #include "IR/IRGenerator.hpp"
 #include "IR/IRType.hpp"
 #include "semantic/SemanticAnalyzer.hpp"
+#include <functional>
 
 namespace volta::ir {
 
@@ -115,7 +116,15 @@ bool IRGenerator::generate(const ast::Program* program) {
 
         // Generate all executable statements
         for (const auto* stmt : executableStmts) {
+            if (!stmt) {
+                reportError("Null statement in executable statements");
+                continue;
+            }
             generateStatement(stmt);
+            if (hasErrors_) {
+                // Stop generating if we hit errors
+                break;
+            }
         }
 
         // Add return void if block is not already terminated
@@ -181,6 +190,31 @@ void IRGenerator::generateFunctionDecl(const ast::FnDeclaration* decl) {
         return;
     }
 
+    // Check if this is a method on a generic struct/enum
+    // If so, cache the AST and skip IR generation for now
+    // We'll generate monomorphized versions at call sites instead
+    if (decl->isMethod && !decl->receiverType.empty()) {
+        auto* symTable = const_cast<volta::semantic::SymbolTable*>(analyzer_->getSymbolTable());
+        auto symbol = symTable->lookup(decl->receiverType);
+        if (symbol) {
+            if (auto* structType = dynamic_cast<const volta::semantic::StructType*>(symbol->type.get())) {
+                if (!structType->typeParams().empty()) {
+                    // This is a method on a generic struct - cache AST and skip IR gen
+                    std::string methodName = decl->receiverType + "." + decl->identifier;
+                    genericMethodCache_[methodName] = decl;
+                    return;
+                }
+            } else if (auto* enumType = dynamic_cast<const volta::semantic::EnumType*>(symbol->type.get())) {
+                if (!enumType->typeParams().empty()) {
+                    // This is a method on a generic enum - cache AST and skip IR gen
+                    std::string methodName = decl->receiverType + "." + decl->identifier;
+                    genericMethodCache_[methodName] = decl;
+                    return;
+                }
+            }
+        }
+    }
+
     auto semReturnType = analyzer_->resolveTypeAnnotation(decl->returnType.get());
     if (!semReturnType) {
         reportError("Function '" + decl->identifier + "': Failed to resolve return type");
@@ -216,8 +250,12 @@ void IRGenerator::generateFunctionDecl(const ast::FnDeclaration* decl) {
         paramTypes.push_back(irType);
     }
 
-    // 3. Create function
-    Function* func = builder_.createFunction(decl->identifier, returnType, paramTypes);
+    // 3. Create function with qualified name for methods
+    std::string functionName = decl->identifier;
+    if (decl->isMethod) {
+        functionName = decl->receiverType + "." + decl->identifier;
+    }
+    Function* func = builder_.createFunction(functionName, returnType, paramTypes);
     currentFunction_ = func;
 
     // 4. Enter function scope
@@ -228,8 +266,15 @@ void IRGenerator::generateFunctionDecl(const ast::FnDeclaration* decl) {
         const auto& param = decl->parameters[i];
         Argument* arg = func->getParam(i);
 
-        // Map parameter name directly to the argument value
-        declareVariable(param->identifier, arg);
+        if (param->isMutable) {
+            // For mutable parameters, create an alloca and store the argument
+            Value* alloca = builder_.createAlloca(arg->getType(), param->identifier);
+            builder_.createStore(arg, alloca);
+            declareVariable(param->identifier, alloca);
+        } else {
+            // Map immutable parameter name directly to the argument value
+            declareVariable(param->identifier, arg);
+        }
     }
     // 6. Generate function body
     if (decl->body) {
@@ -276,6 +321,8 @@ void IRGenerator::generateVarDecl(const ast::VarDeclaration* decl) {
         if (initValue) {
             // 4. Store initializer to alloca
             builder_.createStore(initValue, alloca);
+        } else {
+            reportError("Failed to generate initializer for variable '" + decl->identifier + "'");
         }
     }
 
@@ -671,6 +718,9 @@ Value* IRGenerator::generateExpression(const ast::Expression* expr) {
     if (auto* memberExpr = dynamic_cast<const ast::MemberExpression*>(expr)) {
         return generateMemberExpr(memberExpr);
     }
+    if (auto* methodCall = dynamic_cast<const ast::MethodCallExpression*>(expr)) {
+        return generateMethodCallExpr(methodCall);
+    }
 
     // Try to get type info for debugging
     std::string typeName = "unknown";
@@ -906,20 +956,56 @@ Value* IRGenerator::generateIndexExpr(const ast::IndexExpression* expr) {
 }
 
 Value* IRGenerator::generateMemberExpr(const ast::MemberExpression* expr) {
-    // HOW STRUCT FIELD ACCESS WORKS:
-    // 1. Generate IR for the struct value (e.g., 'point')
-    // 2. Look up which field number we're accessing from semantic type (e.g., 'x' = field 0)
-    // 3. Use ExtractValue instruction to pull out that field
-    //
-    // EXAMPLE IR for: point.x
-    //   %point = <some struct value>
-    //   %x_value = extractvalue %point, 0  ; Extract field at index 0
-    //
-    // WHY NOT GEP?
-    // - GEP works with pointers (gives you pointer to field)
-    // - ExtractValue works with values (gives you the actual field value)
-    // - We're using value-based approach (like LLVM's extractvalue)
+    // Member expressions can be:
+    // 1. Enum variant without data: Option.None
+    // 2. Struct field access: point.x
 
+    // Check if this is enum variant construction (no data)
+    if (auto* identExpr = dynamic_cast<const ast::IdentifierExpression*>(expr->object.get())) {
+        // Look up the type in semantic analyzer's symbol table
+        auto* symTable = const_cast<volta::semantic::SymbolTable*>(analyzer_->getSymbolTable());
+        auto symbol = symTable->lookup(identExpr->name);
+        if (symbol && symbol->type->kind() == volta::semantic::Type::Kind::Enum) {
+            // It's an enum variant! Generate enum construction with no fields
+            const std::string& enumName = identExpr->name;
+            const std::string& variantName = expr->member->name;
+
+            // Get the semantic type of this expression
+            auto exprType = analyzer_->getExpressionType(expr);
+            if (!exprType) {
+                reportError("No type information for enum variant");
+                return nullptr;
+            }
+
+            auto* enumType = dynamic_cast<const volta::semantic::EnumType*>(exprType.get());
+            if (!enumType) {
+                reportError("Expression is not an enum type");
+                return nullptr;
+            }
+
+            // Find variant index
+            unsigned variantTag = 0;
+            for (size_t i = 0; i < enumType->variants().size(); ++i) {
+                if (enumType->variants()[i].name == variantName) {
+                    variantTag = i;
+                    break;
+                }
+            }
+
+            // Lower the enum type to IR
+            auto irEnumType = lowerType(exprType);
+            if (!irEnumType) {
+                reportError("Failed to lower enum type");
+                return nullptr;
+            }
+
+            // Create enum with no field values
+            std::vector<Value*> noFields;
+            return builder_.createEnum(irEnumType, variantTag, noFields, variantName);
+        }
+    }
+
+    // Otherwise it's struct field access
     Value* structVal = generateExpression(expr->object.get());
     if (!structVal) return nullptr;
 
@@ -928,7 +1014,7 @@ Value* IRGenerator::generateMemberExpr(const ast::MemberExpression* expr) {
     auto* semanticStructType = dynamic_cast<const volta::semantic::StructType*>(objectSemanticType.get());
 
     if (!semanticStructType) {
-        reportError("Member access on non-struct type");
+        reportError("Member access on non-struct/enum type");
         return nullptr;
     }
 
@@ -941,6 +1027,249 @@ Value* IRGenerator::generateMemberExpr(const ast::MemberExpression* expr) {
 
     // Generate the ExtractValue instruction
     return builder_.createExtractValue(structVal, static_cast<unsigned>(fieldIndex), expr->member->name);
+}
+
+Value* IRGenerator::generateMethodCallExpr(const ast::MethodCallExpression* expr) {
+    // Method calls can be:
+    // 1. Enum variant construction: Option.Some(42)
+    // 2. Struct method calls (static or instance)
+
+    // Check if object is a type name (for static methods or enum variants)
+    if (auto* identExpr = dynamic_cast<const ast::IdentifierExpression*>(expr->object.get())) {
+        // Look up the type in semantic analyzer's symbol table
+        auto* symTable = const_cast<volta::semantic::SymbolTable*>(analyzer_->getSymbolTable());
+        auto symbol = symTable->lookup(identExpr->name);
+
+        if (symbol && symbol->type->kind() == volta::semantic::Type::Kind::Enum) {
+            // It's an enum variant construction
+            return generateEnumConstruction(expr);
+        }
+
+        if (symbol && symbol->type->kind() == volta::semantic::Type::Kind::Struct) {
+            auto* structType = dynamic_cast<const volta::semantic::StructType*>(symbol->type.get());
+
+            // Distinguish between type name and variable:
+            // - Type name: identExpr->name == structType->name() (e.g., "Point" == "Point")
+            // - Variable: identExpr->name != structType->name() (e.g., "p" != "Point")
+            if (identExpr->name == structType->name()) {
+                // It's a static method call on a struct (e.g., Point.new(1.0, 1.0))
+                std::string baseName = structType->name();
+                std::string qualifiedName = baseName + "." + expr->method->name;
+
+                // Check if this is a generic struct - if so, we need monomorphization
+                if (!structType->typeParams().empty()) {
+                    // Get the semantic type of this expression to find concrete type args
+                    auto exprType = analyzer_->getExpressionType(expr);
+                    if (!exprType) {
+                        reportError("No type information for generic method call '" + qualifiedName + "'");
+                        return nullptr;
+                    }
+
+                    // Extract type arguments from the result type
+                    std::vector<std::shared_ptr<volta::semantic::Type>> typeArgs;
+                    if (auto* resultStructType = dynamic_cast<const volta::semantic::StructType*>(exprType.get())) {
+                        if (resultStructType->isInstantiated()) {
+                            typeArgs = resultStructType->typeArgs();
+                        }
+                    }
+
+                    // If we couldn't infer type args from return type, try from arguments
+                    if (typeArgs.empty()) {
+                        // Analyze arguments to infer type parameters
+                        typeArgs.resize(structType->typeParams().size(), nullptr);
+
+                        // Look up the method's semantic type
+                        auto methodSymbol = symTable->lookup(qualifiedName);
+                        if (methodSymbol && methodSymbol->type->kind() == volta::semantic::Type::Kind::Function) {
+                            auto* fnType = dynamic_cast<const volta::semantic::FunctionType*>(methodSymbol->type.get());
+
+                            // Match argument types with parameter types to infer type variables
+                            for (size_t i = 0; i < expr->arguments.size() && i < fnType->paramTypes().size(); ++i) {
+                                auto argType = analyzer_->getExpressionType(expr->arguments[i].get());
+                                auto paramType = fnType->paramTypes()[i];
+
+                                // If param is a type variable, use arg type
+                                if (paramType->kind() == volta::semantic::Type::Kind::TypeVariable) {
+                                    auto* typeVar = dynamic_cast<const volta::semantic::TypeVariable*>(paramType.get());
+                                    // Find which type parameter this is
+                                    for (size_t j = 0; j < structType->typeParams().size(); ++j) {
+                                        if (structType->typeParams()[j] == typeVar->name()) {
+                                            typeArgs[j] = argType;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Check if we have type args
+                    if (typeArgs.empty() || typeArgs[0] == nullptr) {
+                        reportError("Failed to infer type arguments for generic method '" + qualifiedName + "'");
+                        return nullptr;
+                    }
+
+                    // Generate monomorphized version
+                    Function* fn = generateMonomorphizedMethod(qualifiedName, typeArgs);
+                    if (!fn) {
+                        reportError("Failed to generate monomorphized method '" + qualifiedName + "'");
+                        return nullptr;
+                    }
+
+                    // Generate arguments
+                    std::vector<Value*> args;
+                    for (const auto& arg : expr->arguments) {
+                        Value* argVal = generateExpression(arg.get());
+                        if (!argVal) {
+                            reportError("Failed to generate argument for monomorphized method call");
+                            return nullptr;
+                        }
+                        args.push_back(argVal);
+                    }
+
+                    Value* result = builder_.createCall(fn, args);
+                    if (!result) {
+                        reportError("Failed to create call to monomorphized method");
+                    }
+                    return result;
+                }
+
+                // Non-generic static method - look up normally
+                Function* fn = module_.getFunction(qualifiedName);
+                if (!fn) {
+                    reportError("Method '" + qualifiedName + "' not found");
+                    return nullptr;
+                }
+
+                // Generate arguments
+                std::vector<Value*> args;
+                for (const auto& arg : expr->arguments) {
+                    Value* argVal = generateExpression(arg.get());
+                    if (!argVal) return nullptr;
+                    args.push_back(argVal);
+                }
+
+                // Create the call
+                return builder_.createCall(fn, args);
+            }
+            // If we reach here, it's a variable with struct type - fall through to instance method handling
+        }
+    }
+
+    // Otherwise it's an instance method call on a struct (e.g., point.getX())
+    // Generate the object
+    Value* object = generateExpression(expr->object.get());
+    if (!object) return nullptr;
+
+    // Get the struct type from semantic analysis
+    auto objectType = analyzer_->getExpressionType(expr->object.get());
+    if (!objectType || objectType->kind() != volta::semantic::Type::Kind::Struct) {
+        reportError("Method call on non-struct type");
+        return nullptr;
+    }
+
+    auto* structType = dynamic_cast<const volta::semantic::StructType*>(objectType.get());
+
+    // Get base name without type arguments for method lookup
+    std::string baseName = structType->name();
+    size_t bracketPos = baseName.find('[');
+    if (bracketPos != std::string::npos) {
+        baseName = baseName.substr(0, bracketPos);
+    }
+    std::string qualifiedName = baseName + "." + expr->method->name;
+
+    Function* fn = nullptr;
+
+    // Check if this is a generic struct instance - need monomorphization
+    if (structType->isInstantiated() && !structType->typeArgs().empty()) {
+        // Generate monomorphized version with concrete type args
+        fn = generateMonomorphizedMethod(qualifiedName, structType->typeArgs());
+        if (!fn) {
+            reportError("Failed to generate monomorphized method '" + qualifiedName + "'");
+            return nullptr;
+        }
+    } else {
+        // Non-generic instance method - look up normally
+        fn = module_.getFunction(qualifiedName);
+        if (!fn) {
+            reportError("Method '" + qualifiedName + "' not found");
+            return nullptr;
+        }
+    }
+
+    // Generate arguments (with object as first argument for instance methods)
+    std::vector<Value*> args;
+    args.push_back(object);  // 'self' parameter
+    for (const auto& arg : expr->arguments) {
+        Value* argVal = generateExpression(arg.get());
+        if (!argVal) return nullptr;
+        args.push_back(argVal);
+    }
+
+    // Create the call
+    return builder_.createCall(fn, args);
+}
+
+Value* IRGenerator::generateEnumConstruction(const ast::MethodCallExpression* expr) {
+    // Get the enum type and variant name
+    auto* identExpr = dynamic_cast<const ast::IdentifierExpression*>(expr->object.get());
+    if (!identExpr) {
+        reportError("Invalid enum construction");
+        return nullptr;
+    }
+
+    const std::string& enumName = identExpr->name;
+    const std::string& variantName = expr->method->name;
+
+    // Get the semantic type of this expression (the instantiated enum type)
+    auto exprType = analyzer_->getExpressionType(expr);
+    if (!exprType) {
+        reportError("No type information for enum construction");
+        return nullptr;
+    }
+
+    auto* enumType = dynamic_cast<const volta::semantic::EnumType*>(exprType.get());
+    if (!enumType) {
+        reportError("Expression is not an enum type");
+        return nullptr;
+    }
+
+    // Get the variant
+    const auto* variant = enumType->getVariant(variantName);
+    if (!variant) {
+        reportError("Enum '" + enumName + "' has no variant '" + variantName + "'");
+        return nullptr;
+    }
+
+    // Find variant index
+    unsigned variantTag = 0;
+    for (size_t i = 0; i < enumType->variants().size(); ++i) {
+        if (enumType->variants()[i].name == variantName) {
+            variantTag = i;
+            break;
+        }
+    }
+
+    // Generate field values
+    std::vector<Value*> fieldValues;
+    for (const auto& arg : expr->arguments) {
+        Value* val = generateExpression(arg.get());
+        if (!val) {
+            reportError("Failed to generate enum variant argument");
+            return nullptr;
+        }
+        fieldValues.push_back(val);
+    }
+
+    // Lower the enum type to IR
+    auto irEnumType = lowerType(exprType);
+    if (!irEnumType) {
+        reportError("Failed to lower enum type");
+        return nullptr;
+    }
+
+    // Create the enum value using CreateEnumInst
+    return builder_.createEnum(irEnumType, variantTag, fieldValues, variantName);
 }
 
 Value* IRGenerator::generateCastExpr(const ast::CastExpression* expr) {
@@ -979,12 +1308,6 @@ Value* IRGenerator::generateAssignment(const ast::BinaryExpression* expr) {
         Value* allocaPtr = lookupVariable(ident->name);
         if (!allocaPtr) {
             reportError("Undefined variable: " + ident->name);
-            return nullptr;
-        }
-
-        // Check if trying to assign to a parameter (immutable)
-        if (dynamic_cast<Argument*>(allocaPtr)) {
-            reportError("Cannot assign to function parameter '" + ident->name + "' (parameters are immutable)");
             return nullptr;
         }
 
@@ -1287,6 +1610,191 @@ Value* IRGenerator::generateStructLiteral(const ast::StructLiteral* lit) {
     }
 
     return structVal;
+}
+
+Function* IRGenerator::generateMonomorphizedMethod(
+    const std::string& baseName,
+    const std::vector<std::shared_ptr<volta::semantic::Type>>& typeArgs) {
+
+    // Create mangled name for this instantiation (e.g., "Box.new<int>")
+    std::string mangledName = baseName + "<";
+    for (size_t i = 0; i < typeArgs.size(); ++i) {
+        if (i > 0) mangledName += ",";
+        mangledName += typeArgs[i]->toString();
+    }
+    mangledName += ">";
+
+    // Check if we already generated this monomorphization
+    Function* existing = module_.getFunction(mangledName);
+    if (existing) {
+        return existing;
+    }
+
+    // Look up the generic method AST
+    auto it = genericMethodCache_.find(baseName);
+    if (it == genericMethodCache_.end()) {
+        reportError("Generic method '" + baseName + "' not found in cache (have " +
+                   std::to_string(genericMethodCache_.size()) + " cached methods)");
+        return nullptr;
+    }
+
+    const ast::FnDeclaration* decl = it->second;
+
+    // Get the struct type to know the type parameters
+    std::string structName = baseName.substr(0, baseName.find('.'));
+    auto* symTable = const_cast<volta::semantic::SymbolTable*>(analyzer_->getSymbolTable());
+    auto structSymbol = symTable->lookup(structName);
+    if (!structSymbol) {
+        reportError("Struct '" + structName + "' not found");
+        return nullptr;
+    }
+
+    const volta::semantic::StructType* structType = nullptr;
+    if (structSymbol->type->kind() == volta::semantic::Type::Kind::Struct) {
+        structType = dynamic_cast<const volta::semantic::StructType*>(structSymbol->type.get());
+    }
+
+    if (!structType || structType->typeParams().empty()) {
+        reportError("Not a generic struct: '" + structName + "'");
+        return nullptr;
+    }
+
+    // Create a substitution map: type parameter name -> concrete type
+    std::unordered_map<std::string, std::shared_ptr<volta::semantic::Type>> substitutionMap;
+    for (size_t i = 0; i < structType->typeParams().size() && i < typeArgs.size(); ++i) {
+        substitutionMap[structType->typeParams()[i]] = typeArgs[i];
+    }
+
+    // Helper to substitute types recursively
+    std::function<std::shared_ptr<volta::semantic::Type>(const ast::Type*)> substituteType;
+    substituteType = [&](const ast::Type* astType) -> std::shared_ptr<volta::semantic::Type> {
+        // Simple named type
+        if (auto* named = dynamic_cast<const ast::NamedType*>(astType)) {
+            const std::string& typeName = named->identifier->name;
+
+            // Check if it's a type parameter
+            auto it = substitutionMap.find(typeName);
+            if (it != substitutionMap.end()) {
+                return it->second;
+            }
+
+            // Check if this is the struct name itself (e.g., "Box" in "self: Box")
+            // If so, we need to instantiate it with the type arguments
+            if (typeName == structName) {
+                auto instantiated = structType->instantiate(typeArgs);
+                if (instantiated) {
+                    return instantiated;
+                }
+            }
+
+            // Not a type parameter or struct name, resolve normally
+            return analyzer_->resolveTypeAnnotation(astType);
+        }
+
+        // Generic type like Box[T] - substitute type arguments recursively
+        if (auto* generic = dynamic_cast<const ast::GenericType*>(astType)) {
+            const std::string& typeName = generic->identifier->name;
+
+            // Recursively substitute type arguments
+            std::vector<std::shared_ptr<volta::semantic::Type>> substitutedArgs;
+            for (const auto& arg : generic->typeArgs) {
+                substitutedArgs.push_back(substituteType(arg.get()));
+            }
+
+            // Look up the base type and instantiate with substituted args
+            auto symbol = symTable->lookup(typeName);
+            if (symbol && symbol->type->kind() == volta::semantic::Type::Kind::Struct) {
+                auto* baseStructType = dynamic_cast<const volta::semantic::StructType*>(symbol->type.get());
+                if (baseStructType) {
+                    auto instantiated = baseStructType->instantiate(substitutedArgs);
+                    if (instantiated) {
+                        return instantiated;
+                    }
+                }
+            }
+        }
+
+        // For other types, resolve normally
+        return analyzer_->resolveTypeAnnotation(astType);
+    };
+
+    // Resolve and substitute parameter types
+    std::vector<std::shared_ptr<IRType>> paramTypes;
+    for (const auto& param : decl->parameters) {
+        auto semType = substituteType(param->type.get());
+        auto irType = lowerType(semType);
+        if (!irType) {
+            reportError("Failed to lower parameter type in monomorphized method");
+            return nullptr;
+        }
+        paramTypes.push_back(irType);
+    }
+
+    // Resolve and substitute return type
+    auto semReturnType = substituteType(decl->returnType.get());
+    auto returnType = lowerType(semReturnType);
+    if (!returnType) {
+        reportError("Failed to lower return type in monomorphized method");
+        return nullptr;
+    }
+
+    // Save current context
+    Function* previousFunc = currentFunction_;
+    BasicBlock* previousBlock = builder_.getInsertionBlock();
+
+    // Create the monomorphized function
+    Function* func = builder_.createFunction(mangledName, returnType, paramTypes);
+    currentFunction_ = func;
+
+    // Get the entry block (createFunction creates it automatically)
+    // and set insertion point to it
+    if (func->getEntryBlock()) {
+        builder_.setInsertionPoint(func->getEntryBlock());
+    } else {
+        // If no entry block, create one
+        auto* entryBlock = module_.createBasicBlock("entry", func);
+        builder_.setInsertionPoint(entryBlock);
+    }
+
+    // Enter function scope
+    enterScope();
+
+    // Create allocas for parameters
+    for (size_t i = 0; i < decl->parameters.size(); i++) {
+        const auto& param = decl->parameters[i];
+        Argument* arg = func->getParam(i);
+
+        if (param->isMutable) {
+            Value* alloca = builder_.createAlloca(arg->getType(), param->identifier);
+            builder_.createStore(arg, alloca);
+            declareVariable(param->identifier, alloca);
+        } else {
+            declareVariable(param->identifier, arg);
+        }
+    }
+
+    // Generate function body
+    if (decl->body) {
+        generateBlock(decl->body.get());
+    }
+
+    // Add implicit return if missing
+    if (returnType->kind() == IRType::Kind::Void) {
+        bool hasReturn = func->getEntryBlock() && func->getEntryBlock()->hasTerminator();
+        if (!hasReturn && func->getEntryBlock()) {
+            builder_.setInsertionPoint(func->getEntryBlock());
+            builder_.createRet();
+        }
+    }
+    // Non-void functions should have been validated by semantic analyzer
+
+    exitScope();
+    currentFunction_ = previousFunc;
+    if (previousBlock) {
+        builder_.setInsertionPoint(previousBlock);  // Restore insertion point
+    }
+
+    return func;
 }
 
 } // namespace volta::ir

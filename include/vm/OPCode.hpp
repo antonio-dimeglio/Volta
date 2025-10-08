@@ -32,7 +32,6 @@ enum class Opcode : uint8_t {
     LOAD_CONST_STRING = 0x32,
     LOAD_TRUE         = 0x33,
     LOAD_FALSE        = 0x34,
-    LOAD_NONE         = 0x35,
 
     // Control Flow (0x40-0x4F)
     BR            = 0x40,
@@ -55,15 +54,17 @@ enum class Opcode : uint8_t {
     STRUCT_SET = 0x56,     // Insert field into struct (creates new struct)
     GCALLOC    = 0x57,     // Allocate GC object (struct, etc.)
 
+    // Enum Operations (0x58-0x5F)
+    ENUM_CREATE  = 0x58,   // Create enum value with tag and data
+    ENUM_TAG     = 0x59,   // Get enum variant tag
+    ENUM_EXTRACT = 0x5A,   // Extract field from enum variant data
+
     // String Operations (0x60-0x6F)
     STRING_LEN = 0x60,
 
     // Type Operations (0x70-0x7F)
     CAST_INT_FLOAT = 0x70,
     CAST_FLOAT_INT = 0x71,
-    IS_SOME        = 0x72,
-    OPTION_WRAP    = 0x73,
-    OPTION_UNWRAP  = 0x74,
 
     // Register Operations (0x80-0x8F)
     MOVE = 0x80,
@@ -88,7 +89,6 @@ inline uint8_t getInstructionLength(Opcode op) {
         // 2 bytes
         case Opcode::LOAD_TRUE:
         case Opcode::LOAD_FALSE:
-        case Opcode::LOAD_NONE:
         case Opcode::RET:
             return 2;
 
@@ -101,9 +101,6 @@ inline uint8_t getInstructionLength(Opcode op) {
         case Opcode::STRING_LEN:
         case Opcode::CAST_INT_FLOAT:
         case Opcode::CAST_FLOAT_INT:
-        case Opcode::IS_SOME:
-        case Opcode::OPTION_WRAP:
-        case Opcode::OPTION_UNWRAP:
         case Opcode::MOVE:
             return 3;
 
@@ -133,6 +130,9 @@ inline uint8_t getInstructionLength(Opcode op) {
         case Opcode::STRUCT_GET:
         case Opcode::STRUCT_SET:
         case Opcode::GCALLOC:
+        case Opcode::ENUM_CREATE:
+        case Opcode::ENUM_TAG:
+        case Opcode::ENUM_EXTRACT:
             return 4;
 
         case Opcode::ARRAY_SLICE:

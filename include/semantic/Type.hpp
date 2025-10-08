@@ -6,6 +6,9 @@
 
 namespace volta::semantic {
 
+// Forward declarations
+class TypeVariable;
+
 /**
  * Semantic type representation (resolved, comparable)
  * Different from ast::Type (which is just parsed syntax)
@@ -170,9 +173,16 @@ private:
 class FunctionType : public Type {
 public:
     FunctionType(std::vector<std::shared_ptr<Type>> paramTypes,
-                 std::shared_ptr<Type> returnType)
+                 std::shared_ptr<Type> returnType,
+                 std::vector<bool> paramMutability = {})
         : paramTypes_(std::move(paramTypes)),
-          returnType_(std::move(returnType)) {}
+          returnType_(std::move(returnType)),
+          paramMutability_(std::move(paramMutability)) {
+        // If mutability not specified, default all to false
+        if (paramMutability_.empty() && !paramTypes_.empty()) {
+            paramMutability_.resize(paramTypes_.size(), false);
+        }
+    }
 
     Kind kind() const override { return Kind::Function; }
 
@@ -180,6 +190,9 @@ public:
         std::string result = "fn(";
         for (size_t i = 0; i < paramTypes_.size(); ++i) {
             if (i > 0) result += ", ";
+            if (i < paramMutability_.size() && paramMutability_[i]) {
+                result += "mut ";
+            }
             result += paramTypes_[i]->toString();
         }
         result += ") -> " + returnType_->toString();
@@ -196,6 +209,10 @@ public:
                     return false;
                 }
             }
+            // Mutability must also match for function types to be equal
+            if (paramMutability_ != fn->paramMutability_) {
+                return false;
+            }
             return returnType_->equals(fn->returnType_.get());
         }
         return false;
@@ -203,10 +220,12 @@ public:
 
     const std::vector<std::shared_ptr<Type>>& paramTypes() const { return paramTypes_; }
     std::shared_ptr<Type> returnType() const { return returnType_; }
+    const std::vector<bool>& paramMutability() const { return paramMutability_; }
 
 private:
     std::vector<std::shared_ptr<Type>> paramTypes_;
     std::shared_ptr<Type> returnType_;
+    std::vector<bool> paramMutability_;
 };
 
 class StructType : public Type {
@@ -219,8 +238,44 @@ public:
             : name(std::move(name)), type(std::move(type)) {}
     };
 
+    // Constructor for generic struct template (e.g., Pair[T])
+    StructType(std::string name,
+               std::vector<std::string> typeParams,
+               std::vector<Field> fields)
+        : name_(std::move(name)),
+          typeParams_(std::move(typeParams)),
+          typeArgs_(),  // No type arguments - this is the template
+          fields_(std::move(fields)),
+          isInstantiated_(false) {
+        // Populate the field index for O(1) lookup
+        for (size_t i = 0; i < fields_.size(); ++i) {
+            fieldIndex_[fields_[i].name] = i;
+        }
+    }
+
+    // Constructor for instantiated struct (e.g., Pair[int])
+    StructType(std::string name,
+               std::vector<std::string> typeParams,
+               std::vector<std::shared_ptr<Type>> typeArgs,
+               std::vector<Field> fields)
+        : name_(std::move(name)),
+          typeParams_(std::move(typeParams)),
+          typeArgs_(std::move(typeArgs)),
+          fields_(std::move(fields)),
+          isInstantiated_(true) {
+        // Populate the field index for O(1) lookup
+        for (size_t i = 0; i < fields_.size(); ++i) {
+            fieldIndex_[fields_[i].name] = i;
+        }
+    }
+
+    // Legacy constructor for non-generic structs
     StructType(std::string name, std::vector<Field> fields)
-        : name_(std::move(name)), fields_(std::move(fields)) {
+        : name_(std::move(name)),
+          typeParams_(),
+          typeArgs_(),
+          fields_(std::move(fields)),
+          isInstantiated_(false) {
         // Populate the field index for O(1) lookup
         for (size_t i = 0; i < fields_.size(); ++i) {
             fieldIndex_[fields_[i].name] = i;
@@ -230,19 +285,64 @@ public:
     Kind kind() const override { return Kind::Struct; }
 
     std::string toString() const override {
-        return name_;
+        std::string s = name_;
+
+        // If instantiated, show concrete types (Pair[int])
+        if (isInstantiated_ && !typeArgs_.empty()) {
+            s += "[";
+            for (size_t i = 0; i < typeArgs_.size(); ++i) {
+                if (i > 0) s += ", ";
+                s += typeArgs_[i]->toString();
+            }
+            s += "]";
+        }
+        // Otherwise show type parameters (Pair[T])
+        else if (!typeParams_.empty()) {
+            s += "[";
+            for (size_t i = 0; i < typeParams_.size(); ++i) {
+                if (i > 0) s += ", ";
+                s += typeParams_[i];
+            }
+            s += "]";
+        }
+        return s;
     }
 
     bool equals(const Type* other) const override {
         if (auto* structType = dynamic_cast<const StructType*>(other)) {
-            // Structural equality: same name and fields
-            return name_ == structType->name_;
+            if (name_ != structType->name_) return false;
+
+            // If both are instantiated, compare type arguments
+            if (isInstantiated_ && structType->isInstantiated_) {
+                if (typeArgs_.size() != structType->typeArgs_.size()) return false;
+                for (size_t i = 0; i < typeArgs_.size(); ++i) {
+                    if (!typeArgs_[i]->equals(structType->typeArgs_[i].get())) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            // If both are templates, compare type parameters
+            if (!isInstantiated_ && !structType->isInstantiated_) {
+                if (typeParams_.size() != structType->typeParams_.size()) return false;
+                for (size_t i = 0; i < typeParams_.size(); ++i) {
+                    if (typeParams_[i] != structType->typeParams_[i]) return false;
+                }
+                return true;
+            }
+
+            // One is instantiated, one is template - not equal
+            return false;
         }
         return false;
     }
 
     const std::string& name() const { return name_; }
     const std::vector<Field>& fields() const { return fields_; }
+    const std::vector<std::string>& typeParams() const { return typeParams_; }
+    const std::vector<std::shared_ptr<Type>>& typeArgs() const { return typeArgs_; }
+    bool isInstantiated() const { return isInstantiated_; }
 
     // Lookup field by name
     const Field* getField(const std::string& fieldName) const {
@@ -262,10 +362,20 @@ public:
         return -1;
     }
 
+    // Instantiate template with concrete types
+    std::shared_ptr<StructType> instantiate(const std::vector<std::shared_ptr<Type>>& concreteTypes) const;
+
 private:
+    // Substitute type parameters in a type (defined after TypeVariable)
+    std::shared_ptr<Type> substituteTypeParams(const std::shared_ptr<Type>& type,
+                                               const std::vector<std::shared_ptr<Type>>& concreteTypes) const;
+
     std::string name_;
+    std::vector<std::string> typeParams_;           // ["T"] for Pair[T] template
+    std::vector<std::shared_ptr<Type>> typeArgs_;   // [intType] for Pair[int] instance
     std::vector<Field> fields_;
     std::unordered_map<std::string, size_t> fieldIndex_;
+    bool isInstantiated_;
 };
 
 class TypeVariable : public Type {
@@ -291,6 +401,39 @@ public:
 private:
     std::string name_;
 };
+
+// StructType method implementations (defined after TypeVariable)
+inline std::shared_ptr<Type> StructType::substituteTypeParams(
+    const std::shared_ptr<Type>& type,
+    const std::vector<std::shared_ptr<Type>>& concreteTypes) const {
+    // If it's a type variable (like T), replace it
+    if (auto* typeVar = dynamic_cast<const TypeVariable*>(type.get())) {
+        for (size_t i = 0; i < typeParams_.size(); ++i) {
+            if (typeParams_[i] == typeVar->name()) {
+                return concreteTypes[i];
+            }
+        }
+    }
+    // Otherwise return as-is (TODO: handle nested generics like Array[T])
+    return type;
+}
+
+inline std::shared_ptr<StructType> StructType::instantiate(
+    const std::vector<std::shared_ptr<Type>>& concreteTypes) const {
+    if (concreteTypes.size() != typeParams_.size()) {
+        return nullptr;  // Type argument count mismatch
+    }
+
+    // Substitute type parameters in fields
+    std::vector<Field> instantiatedFields;
+    for (const auto& field : fields_) {
+        // Substitute type variables with concrete types
+        auto substituted = substituteTypeParams(field.type, concreteTypes);
+        instantiatedFields.push_back(Field{field.name, substituted});
+    }
+
+    return std::make_shared<StructType>(name_, typeParams_, concreteTypes, instantiatedFields);
+}
 
 class EnumType : public Type {
 public:
@@ -536,10 +679,14 @@ public:
     }
 
     std::shared_ptr<Type> getFunctionType(std::vector<std::shared_ptr<Type>> paramTypes,
-                                          std::shared_ptr<Type> returnType) const {
+                                          std::shared_ptr<Type> returnType,
+                                          std::vector<bool> paramMutability = {}) const {
         std::string key = "fn(";
         for (size_t i = 0; i < paramTypes.size(); ++i) {
             if (i > 0) key += ", ";
+            if (!paramMutability.empty() && i < paramMutability.size() && paramMutability[i]) {
+                key += "mut ";
+            }
             key += paramTypes[i]->toString();
         }
         key += ") -> " + returnType->toString();
@@ -548,7 +695,7 @@ public:
         if (it != cache_.end()) {
             return it->second;
         }
-        auto type = std::make_shared<FunctionType>(std::move(paramTypes), returnType);
+        auto type = std::make_shared<FunctionType>(std::move(paramTypes), returnType, std::move(paramMutability));
         cache_[key] = type;
         return type;
     }

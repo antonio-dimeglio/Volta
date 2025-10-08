@@ -1,0 +1,30 @@
+# Test that semantic analysis works for generic struct methods
+# (IR generation for methods not yet implemented)
+
+# Generic struct with methods
+struct Container[T] {
+    item: T
+}
+
+# Static method that returns generic type
+fn Container.create(x: T) -> Container[T] {
+    return Container { item: x }
+}
+
+# Instance method that returns type parameter
+fn Container.get(self) -> T {
+    return self.item
+}
+
+# Instance method with mutable self
+fn Container.set(mut self, newItem: T) {
+    self.item = newItem
+}
+
+# Test type inference
+mut intContainer: Container[int] = Container { item: 100 }
+mut floatContainer: Container[float] = Container { item: 2.71 }
+
+# These would call the methods (if IR gen supported it)
+# intVal: int = intContainer.get()
+# floatVal: float = floatContainer.get()

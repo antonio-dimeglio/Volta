@@ -1,0 +1,15 @@
+# Advanced generic struct tests
+
+# Two type parameters
+struct Pair[T, U] {
+    first: T,
+    second: U
+}
+
+# Test with different types
+p1: Pair[int, float] = Pair { first: 42, second: 3.14 }
+p2: Pair[bool, int] = Pair { first: true, second: 100 }
+
+print(p1.first)
+print(p1.second)
+print(p2.second)

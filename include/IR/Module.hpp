@@ -197,10 +197,11 @@ public:
      */
     std::shared_ptr<IRType> getArrayType(std::shared_ptr<IRType> elementType, size_t size);
 
-    /**
-     * Get or create option type
-     */
-    std::shared_ptr<IRType> getOptionType(std::shared_ptr<IRType> innerType);
+    CreateEnumInst* createEnum(std::shared_ptr<IRType> enumType, unsigned variantTag,
+                           std::vector<Value*> fieldValues, const std::string& name = "");
+    GetEnumTagInst* createGetEnumTag(Value* enumValue, const std::string& name = "");
+    ExtractEnumDataInst* createExtractEnumData(std::shared_ptr<IRType> resultType, Value* enumValue,
+                                            unsigned fieldIndex, const std::string& name = "");
 
     // ========================================================================
     // IR Object Creation Helpers
@@ -260,9 +261,6 @@ public:
 
     // Type operations
     CastInst* createCast(Value* value, std::shared_ptr<IRType> targetType, const std::string& name = "");
-    OptionWrapInst* createOptionWrap(Value* value, const std::string& name = "");
-    OptionUnwrapInst* createOptionUnwrap(Value* option, const std::string& name = "");
-    OptionCheckInst* createOptionCheck(Value* option, const std::string& name = "");
 
     // Control flow (terminators)
     ReturnInst* createReturn(Value* value = nullptr);
@@ -400,7 +398,6 @@ private:
 
     std::unordered_set<std::shared_ptr<IRType>, IRTypeHash, IRTypeEqual> pointerTypes_;
     std::unordered_set<std::shared_ptr<IRType>, IRTypeHash, IRTypeEqual> arrayTypes_;
-    std::unordered_set<std::shared_ptr<IRType>, IRTypeHash, IRTypeEqual> optionTypes_;
 
     // Constant pooling (lazy initialized to avoid construction order issues)
     std::unique_ptr<std::unordered_map<int64_t, ConstantInt*>> intPool_;

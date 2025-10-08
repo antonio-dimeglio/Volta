@@ -46,7 +46,6 @@ public:
         ConstantFloat,
         ConstantBool,
         ConstantString,
-        ConstantNone,
         UndefValue,
 
         // Runtime values
@@ -249,24 +248,6 @@ private:
     std::string value_;
 };
 
-/**
- * ConstantNone - Represents None value for Option types
- */
-class ConstantNone : public Constant {
-public:
-    // REMOVED: get() - Allocate through Module/Arena instead
-
-    std::string toString() const override;
-
-    static bool classof(const Value* V) {
-        return V->getKind() == ValueKind::ConstantNone;
-    }
-
-    friend class Arena;
-
-private:
-    ConstantNone(std::shared_ptr<IRType> optionType);
-};
 
 /**
  * UndefValue - Represents an undefined/uninitialized value

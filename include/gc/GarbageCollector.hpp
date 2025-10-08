@@ -131,6 +131,16 @@ public:
      */
     StructObject* allocateStruct(uint32_t structTypeId, size_t fieldDataSize);
 
+    /**
+     * Allocate an enum object
+     *
+     * @param variantTag Which variant this enum represents
+     * @param variantDataSize Total size of variant data in bytes
+     * @return Pointer to allocated enum object
+     * @throws std::runtime_error if out of memory
+     */
+    EnumObject* allocateEnum(uint32_t variantTag, size_t variantDataSize);
+
     // ========== WRITE BARRIER ==========
 
     /**

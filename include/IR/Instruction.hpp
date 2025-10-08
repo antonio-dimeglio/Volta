@@ -81,21 +81,17 @@ public:
         ArrayLen,   // Get array length
         ArraySlice, // Slice array: arr[start:end]
 
-        // Matrix operations
-        MatrixNew,  // Create new matrix
-        MatrixGet,  // Get element: mat[i, j]
-        MatrixSet,  // Set element: mat[i, j] = val
-        MatrixMul,  // Matrix multiplication
-        MatrixTranspose, // Transpose
+        // Enum operations
+        CreateEnum,
+        GetEnumTag,
+        ExtractEnumData,
+
 
         // Broadcasting (for scientific computing)
         Broadcast,  // Broadcast scalar to array/matrix
 
         // Type operations
         Cast,       // Type conversion (int->float, etc.)
-        OptionWrap, // Wrap value in Some(value)
-        OptionUnwrap, // Extract value from Option (with check)
-        OptionCheck,  // Check if Option is Some
 
         // Control flow (terminators - must end basic blocks)
         Ret,        // Return from function
@@ -428,56 +424,6 @@ private:
     CastInst(Value* value, std::shared_ptr<IRType> destType, const std::string& name);
 };
 
-/**
- * OptionWrapInst - Wrap value in Some(value)
- */
-class OptionWrapInst : public Instruction {
-public:
-
-    Value* getValue() const { return getOperand(0); }
-
-    friend class Arena;
-    static bool classof(const Instruction* I) {
-        return I->getOpcode() == Opcode::OptionWrap;
-    }
-
-private:
-    OptionWrapInst(Value* value, std::shared_ptr<IRType> optionType,
-                   const std::string& name);
-};
-
-/**
- * OptionUnwrapInst - Extract value from Option (runtime check)
- */
-class OptionUnwrapInst : public Instruction {
-public:
-    Value* getOption() const { return getOperand(0); }
-
-    friend class Arena;
-    static bool classof(const Instruction* I) {
-        return I->getOpcode() == Opcode::OptionUnwrap;
-    }
-
-private:
-    OptionUnwrapInst(Value* option, const std::string& name);
-};
-
-/**
- * OptionCheckInst - Check if Option is Some (returns bool)
- */
-class OptionCheckInst : public Instruction {
-public:
-    Value* getOption() const { return getOperand(0); }
-
-    friend class Arena;
-    static bool classof(const Instruction* I) {
-        return I->getOpcode() == Opcode::OptionCheck;
-    }
-
-private:
-    OptionCheckInst(Value* option, const std::string& name);
-};
-
 // ============================================================================
 // Control Flow (Terminators)
 // ============================================================================
@@ -708,6 +654,75 @@ private:
         const std::string& name
     ) : Instruction(Opcode::InsertValue, type, {structValue, fieldValue}, name),
         fieldIndex_(fieldIndex) {}
+};
+
+
+// ============================================================================
+// Enums 
+// ============================================================================
+
+class CreateEnumInst : public Instruction {
+public:
+    Value* getFieldValue(unsigned idx) const { return getOperand(idx); }
+
+    unsigned getVariantTag() const { return variantTag_; }
+    
+    unsigned getNumFields() const { return getOperands().size(); }
+    
+    friend class Arena;
+    
+    static bool classof(const Instruction* I) {
+        return I->getOpcode() == Opcode::CreateEnum;
+    }
+    
+private:
+    unsigned variantTag_; 
+    
+    CreateEnumInst(
+        std::shared_ptr<IRType> enumType,        
+        unsigned variantTag,                     
+        std::vector<Value*> fieldValues,         
+        const std::string& name               
+    ) : Instruction(Opcode::CreateEnum, enumType, fieldValues, name),
+        variantTag_(variantTag) {}
+};
+
+class GetEnumTagInst : public Instruction {
+public:
+
+    Value* getEnum() const { return getOperand(0); }  
+    friend class Arena;  
+
+    static bool classof(const Instruction* I) {  
+        return I->getOpcode() == Opcode::GetEnumTag;
+    }
+private:
+    GetEnumTagInst(Value* enumValue, const std::string& name)
+        : Instruction(
+            Opcode::GetEnumTag,                          
+            std::make_shared<IRPrimitiveType>(IRType::Kind::I64),  
+            {enumValue},                      
+            name 
+        ) {}
+};
+
+class ExtractEnumDataInst : public Instruction {
+public:
+    Value* getEnum() const { return getOperand(0); }
+    unsigned getFieldIndex() const { return fieldIndex_; }
+    friend class Arena;  
+        static bool classof(const Instruction* I) {  
+        return I->getOpcode() == Opcode::ExtractEnumData;
+    }
+private:
+    unsigned fieldIndex_;
+    ExtractEnumDataInst(
+    std::shared_ptr<IRType> resultType,  
+    Value* enumValue,
+    unsigned fieldIndex,
+    const std::string& name
+    ) : Instruction(Opcode::ExtractEnumData, resultType, {enumValue}, name),
+    fieldIndex_(fieldIndex) {}
 };
 
 } // namespace volta::ir

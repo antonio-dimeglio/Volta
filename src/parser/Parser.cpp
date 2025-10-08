@@ -273,19 +273,39 @@ std::unique_ptr<volta::ast::FnDeclaration> Parser::parseFnDeclaration() {
     consume(TokenType::LPAREN, "Expected '(' for function definition.");
 
     while (!check(TokenType::RPAREN)) {
+        // Check for optional 'mut' keyword before parameter name
+        bool isMutable = match(TokenType::MUT);
+
         auto var = consume(TokenType::IDENTIFIER, "Expected identifier.").lexeme;
-        consume(TokenType::COLON, "Expected ':' for parameter type.");
 
-        // Skip optional 'mut' keyword in parameter types (for now, treat all params as potentially mutable)
-        match(TokenType::MUT);
+        std::unique_ptr<Type> type;
 
-        auto type = parseType();
+        // Special case: 'self' parameter in methods doesn't require type annotation
+        if (var == "self" && isMethod && !check(TokenType::COLON)) {
+            // Create a named type referencing the receiver struct
+            auto receiverIdent = std::make_unique<IdentifierExpression>(receiverType, currentLocation());
+            type = std::make_unique<NamedType>(std::move(receiverIdent));
+        } else {
+            consume(TokenType::COLON, "Expected ':' for parameter type.");
 
-        // Wrap in unique_ptr
-        params.push_back(std::make_unique<Parameter>(var, std::move(type)));
+            // Skip optional 'mut' keyword in parameter types (for backward compatibility)
+            match(TokenType::MUT);
 
-        if (!check(TokenType::RPAREN)) {
-            consume(TokenType::COMMA, "Expected ',' separator in parameter list.");
+            type = parseType();
+        }
+
+        // Wrap in unique_ptr with mutability flag
+        params.push_back(std::make_unique<Parameter>(var, std::move(type), isMutable));
+
+        // If there's a comma, consume it and continue to next parameter
+        // If there's RPAREN, we're done (will exit loop)
+        // Otherwise, error
+        if (match(TokenType::COMMA)) {
+            // Continue to next iteration
+        } else if (check(TokenType::RPAREN)) {
+            // Will exit loop
+        } else {
+            errorReporter.reportSyntaxError("Expected ',' or ')' after parameter", currentLocation());
         }
     }
 
@@ -321,6 +341,17 @@ std::unique_ptr<volta::ast::StructDeclaration> Parser::parseStructDeclaration() 
     auto startLoc = currentLocation();
     auto structName = consume(TokenType::IDENTIFIER, "Expected struct name after struct keyword.").lexeme;
 
+    // Parse generic type parameters if present
+    std::vector<std::string> typeParams;
+    if (match(TokenType::LSQUARE)) {
+        do {
+            auto typeParam = consume(TokenType::IDENTIFIER, "Expected type parameter");
+            typeParams.push_back(typeParam.lexeme);
+        } while (match(TokenType::COMMA));
+
+        consume(TokenType::RSQUARE, "Expected ']' after type parameters");
+    }
+
     consume(TokenType::LBRACE, "Expected '{' after struct name.");
     std::vector<std::unique_ptr<StructField>> structFields;
 
@@ -339,6 +370,7 @@ std::unique_ptr<volta::ast::StructDeclaration> Parser::parseStructDeclaration() 
 
     return std::make_unique<StructDeclaration>(
         structName,
+        std::move(typeParams),
         std::move(structFields),
         startLoc
     );

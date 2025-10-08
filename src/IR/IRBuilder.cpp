@@ -81,8 +81,24 @@ std::shared_ptr<IRType> IRBuilder::getArrayType(std::shared_ptr<IRType> elementT
     return module_.getArrayType(elementType, size);
 }
 
-std::shared_ptr<IRType> IRBuilder::getOptionType(std::shared_ptr<IRType> innerType) {
-    return module_.getOptionType(innerType);
+Value* IRBuilder::createEnum(std::shared_ptr<IRType> enumType, unsigned variantTag,
+                             std::vector<Value*> fieldValues, const std::string& name) {
+    auto* inst = module_.createEnum(enumType, variantTag, fieldValues, name);
+    insert(inst); 
+    return inst;
+}
+
+Value* IRBuilder::createGetEnumTag(Value* enumValue, const std::string& name) {
+    auto* inst = module_.createGetEnumTag(enumValue, name);
+    insert(inst); 
+    return inst;
+}
+
+Value* IRBuilder::createExtractEnumData(std::shared_ptr<IRType> resultType, Value* enumValue,
+                                        unsigned fieldIndex, const std::string& name) {
+    auto* inst = module_.createExtractEnumData(resultType, enumValue, fieldIndex, name);
+    insert(inst);
+    return inst;
 }
 
 // ============================================================================
@@ -148,9 +164,6 @@ ConstantString* IRBuilder::getString(const std::string& value) {
     return module_.getConstantString(value, getStringType());
 }
 
-ConstantNone* IRBuilder::getNone(std::shared_ptr<IRType> optionType) {
-    return module_.getArena().allocate<ConstantNone>(optionType);
-}
 
 UndefValue* IRBuilder::getUndef(std::shared_ptr<IRType> type) {
     return module_.getArena().allocate<UndefValue>(type);
@@ -465,27 +478,6 @@ Value* IRBuilder::createCast(Value* value, std::shared_ptr<IRType> destType,
     return cast;
 }
 
-Value* IRBuilder::createOptionWrap(Value* value, std::shared_ptr<IRType> optionType,
-                                  const std::string& name) {
-    (void)optionType;  // Unused - module infers type from value
-    // Module.createOptionWrap infers the option type from value's type
-    // The optionType parameter here is unused but kept for backward compatibility
-    auto* op = module_.createOptionWrap(value, name);
-    insert(op);
-    return op;
-}
-
-Value* IRBuilder::createOptionUnwrap(Value* option, const std::string& name) {
-    auto* op = module_.createOptionUnwrap(option, name);
-    insert(op);
-    return op;
-}
-
-Value* IRBuilder::createOptionCheck(Value* option, const std::string& name) {
-    auto* op = module_.createOptionCheck(option, name);
-    insert(op);
-    return op;
-}
 
 // ============================================================================
 // Control Flow Instructions

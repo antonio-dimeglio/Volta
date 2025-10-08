@@ -30,7 +30,7 @@ public:
         Array,   // array<T>
         Struct,  // struct with fields
         Function,// function type
-        Option,  // Option[T] (for null safety)
+        Enum,
 
         Void     // void (no value)
     };
@@ -55,9 +55,9 @@ public:
     }
     bool isPointer() const { return kind() == Kind::Pointer; }
     bool isArray() const { return kind() == Kind::Array; }
-    bool isOption() const { return kind() == Kind::Option; }
     bool isStruct() const { return kind() == Kind::Struct; }
     bool isFunction() const { return kind() == Kind::Function; }
+    bool isEnum() const { return kind() == Kind::Enum; }
 
     // Safe casting helpers - declared here, defined after class declarations
     class IRPrimitiveType* asPrimitive();
@@ -68,8 +68,8 @@ public:
     const class IRArrayType* asArray() const;
     class IRStructType* asStruct();
     const class IRStructType* asStruct() const;
-    class IROptionType* asOption();
-    const class IROptionType* asOption() const;
+    class IREnumType* asEnum();
+    const class IREnumType* asEnum() const;
 };
 
 // Primitive types
@@ -249,41 +249,98 @@ private:
     std::vector<std::string> fieldNames_;
 };
 
-// Option type (for null safety)
-class IROptionType : public IRType {
+class IREnumType : public IRType {
 public:
-    explicit IROptionType(std::shared_ptr<IRType> innerType)
-        : innerType_(std::move(innerType)) {}
+    IREnumType(
+        std::vector<std::vector<std::shared_ptr<IRType>>> variantTypes,
+        std::vector<std::string> variantNames
+    ) : variantTypes_(variantTypes), variantNames_(variantNames) {}
 
-    Kind kind() const override { return Kind::Option; }
+    Kind kind() const override { return Kind::Enum; }
 
-    std::string toString() const override {
-        return "Option<" + innerType_->toString() + ">";
+    std::string toString() const override {    
+        std::string result = "enum { ";  // Add space after {
+        
+        for (size_t i = 0; i < variantTypes_.size(); i++) {
+            const auto& varType = variantTypes_[i];
+            result += variantNames_[i] + "(";
+            
+            // Inner loop: iterate through fields in THIS variant
+            for (size_t j = 0; j < varType.size(); j++) {
+                result += varType[j]->toString();
+                if (j < varType.size() - 1) {  // Not last field?
+                    result += ", ";
+                }
+            }
+            
+            result += ")";
+            
+            // Add comma between variants (but not after last variant)
+            if (i < variantTypes_.size() - 1) {
+                result += ", ";
+            }
+        }
+        
+        result += " }";
+        return result;
+    }
+
+    size_t getSizeInBytes() const override {
+        const size_t TAG_SIZE = 4;  
+        size_t maxVariantSize = 0;
+        
+        // For each variant, calculate its total size
+        for (const auto& varType : variantTypes_) {
+            size_t variantSize = 0;
+            for (const auto& fieldType : varType) {
+                variantSize += fieldType->getSizeInBytes();
+            }
+            maxVariantSize = std::max(maxVariantSize, variantSize);
+        }
+        
+        return TAG_SIZE + maxVariantSize;
+    }
+
+    size_t getAlignment() const override {
+        size_t maxAlign = 4;  // At least 4 for the tag
+    
+        for (const auto& varType : variantTypes_) {
+            for (const auto& fieldType : varType) {
+                maxAlign = std::max(maxAlign, fieldType->getAlignment());
+            }
+        }
+        
+        return maxAlign;
     }
 
     bool equals(const IRType* other) const override {
-        if (auto* opt = dynamic_cast<const IROptionType*>(other)) {
-            return innerType_->equals(opt->innerType_.get());
+        if (auto* enumType = dynamic_cast<const IREnumType*>(other)) {
+            if (variantTypes_.size() != enumType->variantTypes_.size()) 
+                return false;
+                
+            for (size_t i = 0; i < variantTypes_.size(); i++) {
+                if (variantTypes_[i].size() != enumType->variantTypes_[i].size())
+                    return false;
+                    
+                for (size_t j = 0; j < variantTypes_[i].size(); j++) {
+                    if (!variantTypes_[i][j]->equals(enumType->variantTypes_[i][j].get()))
+                        return false;
+                }
+            }
+
+            return true;
         }
         return false;
     }
 
-    size_t getSizeInBytes() const override {
-        // Option is represented as a tagged union:
-        // 1 byte for tag (Some/None) + size of inner type
-        return 1 + innerType_->getSizeInBytes();
-    }
-
-    size_t getAlignment() const override {
-        // Use the larger of 1 (for tag) and inner type alignment
-        return std::max(size_t(1), innerType_->getAlignment());
-    }
-
-    std::shared_ptr<IRType> innerType() const { return innerType_; }
+    size_t getNumVariants() const { return variantTypes_.size();}
+    std::vector<std::shared_ptr<IRType>> getVariantTypes(size_t idx) { return variantTypes_.at(idx); }
 
 private:
-    std::shared_ptr<IRType> innerType_;
+    std::vector<std::vector<std::shared_ptr<IRType>>> variantTypes_;
+    std::vector<std::string> variantNames_; 
 };
+
 
 /**
  * Type promotion for binary operations
@@ -363,16 +420,6 @@ public:
             case semantic::Type::Kind::Void:
                 return std::make_shared<IRPrimitiveType>(IRType::Kind::Void);
 
-            case semantic::Type::Kind::Option: {
-                // Lower Option[T] to IR Option<T>
-                auto* optType = dynamic_cast<semantic::OptionType*>(semType.get());
-                if (optType) {
-                    auto innerIRType = lower(optType->innerType());
-                    return std::make_shared<IROptionType>(innerIRType);
-                }
-                return std::make_shared<IRPrimitiveType>(IRType::Kind::Void);
-            }
-
             case semantic::Type::Kind::Array: {
                 // Lower Array[T] to IR ptr<T> (arrays are heap-allocated pointers)
                 auto* arrType = dynamic_cast<semantic::ArrayType*>(semType.get());
@@ -396,7 +443,25 @@ public:
                 return std::make_shared<IRPrimitiveType>(IRType::Kind::Void);
             }
 
-            // TODO: Handle Enum, etc.
+            case semantic::Type::Kind::Enum: {
+                auto* enumType = dynamic_cast<semantic::EnumType*>(semType.get());
+                if (enumType) {
+                    std::vector<std::vector<std::shared_ptr<IRType>>> variantTypes;
+                    std::vector<std::string> variantNames;
+                    
+                    for (const auto& variant : enumType->variants()) {
+                        std::vector<std::shared_ptr<IRType>> fieldTypes;
+                        for (const auto& fieldType : variant.associatedTypes) {
+                            fieldTypes.push_back(lower(fieldType));
+                        }
+                        variantTypes.push_back(fieldTypes);
+                        variantNames.push_back(variant.name);
+                    }
+                    
+                    return std::make_shared<IREnumType>(variantTypes, variantNames);
+                }
+                return std::make_shared<IRPrimitiveType>(IRType::Kind::Void);
+            }
 
             default:
                 // Fallback
@@ -443,20 +508,21 @@ inline const IRArrayType* IRType::asArray() const {
     return isArray() ? static_cast<const IRArrayType*>(this) : nullptr;
 }
 
-inline IROptionType* IRType::asOption() {
-    return isOption() ? static_cast<IROptionType*>(this) : nullptr;
-}
-
-inline const IROptionType* IRType::asOption() const {
-    return isOption() ? static_cast<const IROptionType*>(this) : nullptr;
-}
-
 inline class IRStructType* IRType::asStruct() {
     return isStruct() ? static_cast<IRStructType*>(this) : nullptr;
 }
 
 inline const class IRStructType* IRType::asStruct() const {
     return isStruct() ? static_cast<const IRStructType*>(this) : nullptr;
+}
+
+
+inline IREnumType* IRType::asEnum() {
+    return isEnum() ? static_cast<IREnumType*>(this) : nullptr;
+}
+
+inline const IREnumType* IRType::asEnum() const {
+    return isEnum() ? static_cast<const IREnumType*>(this) : nullptr;
 }
 
 struct IRTypeHash {
@@ -469,9 +535,7 @@ struct IRTypeHash {
         } else if (auto* arr = type->asArray()) {
             h ^= (*this)(arr->elementType()) << 1;
             h ^= std::hash<size_t>{}(arr->getSize()) << 2;
-        } else if (auto* opt = type->asOption()) {
-            h ^= (*this)(opt->innerType()) << 1;
-        }
+        } 
 
         return h;
     }

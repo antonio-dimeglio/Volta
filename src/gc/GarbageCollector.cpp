@@ -97,6 +97,26 @@ StructObject* GarbageCollector::allocateStruct(uint32_t structTypeId, size_t fie
     return obj;
 }
 
+EnumObject* GarbageCollector::allocateEnum(uint32_t variantTag, size_t variantDataSize) {
+    size_t totalSize = enumObjectSize(variantDataSize);
+    void* ptr = allocate(totalSize);
+
+    EnumObject* obj = static_cast<EnumObject*>(ptr);
+
+    obj->header.type = ObjectType::OBJ_ENUM;
+    obj->header.generation = isInSpace(ptr, oldGen) ? GC::Generation::OLD : GC::Generation::NURSERY;
+    obj->header.age = 0;
+    obj->header.marked = 0;
+    obj->header.size = totalSize;
+    obj->header.forwarding = nullptr;
+
+    obj->variantTag = variantTag;
+    obj->padding = 0;
+    std::memset(obj->data, 0, variantDataSize);
+    totalAllocated += totalSize;
+    return obj;
+}
+
 // ========== WRITE BARRIER ==========
 
 void GarbageCollector::writeBarrier(Object* obj, Object* value) {
@@ -303,6 +323,16 @@ void GarbageCollector::traceObject(Object* obj) {
                     }
                 }
             }
+            break;
+        }
+        case OBJ_ENUM: {
+            // For now, enums are similar to structs - they can contain pointers
+            // We'll need type registry support to know which fields are pointers
+            // For simple cases (like Option[int]), there are no pointers to trace
+            EnumObject* enumObj = (EnumObject*)obj;
+            // TODO: Add type registry support for enum variants
+            // For now, assume enums with primitive data (like Option[int]) have no pointers
+            (void)enumObj;  // Suppress unused warning
             break;
         }
     }

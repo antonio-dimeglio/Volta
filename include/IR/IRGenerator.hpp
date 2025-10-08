@@ -257,7 +257,8 @@ public:
      * @return Member value
      */
     Value* generateMemberExpr(const ast::MemberExpression* expr);
-
+    Value* generateMethodCallExpr(const ast::MethodCallExpression* expr);
+    Value* generateEnumConstruction(const ast::MethodCallExpression* expr);
 
     Value* generateCastExpr(const ast::CastExpression* expr);
 
@@ -417,6 +418,15 @@ private:
 
     // Optional semantic analyzer (for type information)
     const volta::semantic::SemanticAnalyzer* analyzer_;
+
+    // Cache of generic method AST nodes for monomorphization
+    // Key: base method name (e.g., "Box.new"), Value: AST node
+    std::unordered_map<std::string, const ast::FnDeclaration*> genericMethodCache_;
+
+    // Helper to generate a monomorphized version of a generic method
+    Function* generateMonomorphizedMethod(
+        const std::string& baseName,
+        const std::vector<std::shared_ptr<volta::semantic::Type>>& typeArgs);
 };
 
 // ========================================================================

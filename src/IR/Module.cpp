@@ -52,7 +52,6 @@ Module::Module(Module&& other) noexcept
       voidType_(std::move(other.voidType_)),
       pointerTypes_(std::move(other.pointerTypes_)),
       arrayTypes_(std::move(other.arrayTypes_)),
-      optionTypes_(std::move(other.optionTypes_)),
       intPool_(std::move(other.intPool_)),
       floatPool_(std::move(other.floatPool_)),
       boolPool_(std::move(other.boolPool_)),
@@ -74,7 +73,6 @@ Module& Module::operator=(Module&& other) noexcept {
         voidType_ = std::move(other.voidType_);
         pointerTypes_ = std::move(other.pointerTypes_);
         arrayTypes_ = std::move(other.arrayTypes_);
-        optionTypes_ = std::move(other.optionTypes_);
         intPool_ = std::move(other.intPool_);
         floatPool_ = std::move(other.floatPool_);
         boolPool_ = std::move(other.boolPool_);
@@ -212,18 +210,6 @@ std::shared_ptr<IRType> Module::getArrayType(std::shared_ptr<IRType> elementType
     return arrType;
 }
 
-std::shared_ptr<IRType> Module::getOptionType(std::shared_ptr<IRType> innerType) {
-    auto optType = std::make_shared<IROptionType>(innerType);
-
-    auto it = optionTypes_.find(optType);  
-    if (it != optionTypes_.end()) {
-        return *it;
-    }
-
-    optionTypes_.insert(optType);
-    return optType;
-}
-
 // ============================================================================
 // IR Object Creation
 // ============================================================================
@@ -315,24 +301,25 @@ ArraySliceInst* Module::createArraySlice(Value* array, Value* start, Value* end,
     return arena_.allocate<ArraySliceInst>(array, start, end, name);
 }
 
+CreateEnumInst* Module::createEnum(std::shared_ptr<IRType> enumType, unsigned variantTag,
+                                   std::vector<Value*> fieldValues, const std::string& name) {
+    return arena_.allocate<CreateEnumInst>(enumType, variantTag, fieldValues, name);
+}
+
+GetEnumTagInst* Module::createGetEnumTag(Value* enumValue, const std::string& name) {
+    return arena_.allocate<GetEnumTagInst>(enumValue, name);
+}
+
+ExtractEnumDataInst* Module::createExtractEnumData(std::shared_ptr<IRType> resultType, Value* enumValue,
+                                                    unsigned fieldIndex, const std::string& name) {
+    return arena_.allocate<ExtractEnumDataInst>(resultType, enumValue, fieldIndex, name);
+}
+
 // Type operations
 CastInst* Module::createCast(Value* value, std::shared_ptr<IRType> targetType, const std::string& name) {
     return arena_.allocate<CastInst>(value, targetType, name);
 }
 
-OptionWrapInst* Module::createOptionWrap(Value* value, const std::string& name) {
-    // Infer option type from the value's type
-    auto optionType = getOptionType(value->getType());
-    return arena_.allocate<OptionWrapInst>(value, optionType, name);
-}
-
-OptionUnwrapInst* Module::createOptionUnwrap(Value* option, const std::string& name) {
-    return arena_.allocate<OptionUnwrapInst>(option, name);
-}
-
-OptionCheckInst* Module::createOptionCheck(Value* option, const std::string& name) {
-    return arena_.allocate<OptionCheckInst>(option, name);
-}
 
 // Control flow (terminators)
 ReturnInst* Module::createReturn(Value* value) {

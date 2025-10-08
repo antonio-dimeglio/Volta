@@ -1,6 +1,7 @@
 #include "semantic/SemanticAnalyzer.hpp"
 #include <algorithm>
 #include <cassert>
+#include <functional>
 #include <unordered_set>
 
 namespace volta::semantic {
@@ -206,11 +207,25 @@ std::shared_ptr<Type> SemanticAnalyzer::resolveTypeAnnotation(const volta::ast::
 
 
             case volta::ast::CompoundType::Kind::Option: {
+                // Option is now a user-defined generic enum, not a builtin!
+                // Treat it as a generic enum instantiation: Option[T]
                 if (compound->typeArgs.size() != 1) {
                     return typeCache_.getUnknown();
                 }
+
+                // Look up the Option enum type
+                auto symbol = symbolTable_->lookup("Option");
+                if (!symbol || symbol->type->kind() != Type::Kind::Enum) {
+                    // Fallback to legacy Option type if enum not found
+                    auto innerType = resolveTypeAnnotation(compound->typeArgs[0].get());
+                    return typeCache_.getOptionType(innerType);
+                }
+
+                // It's a user-defined enum! Instantiate it
+                auto* enumType = dynamic_cast<const EnumType*>(symbol->type.get());
                 auto innerType = resolveTypeAnnotation(compound->typeArgs[0].get());
-                return typeCache_.getOptionType(innerType);
+                auto instantiated = enumType->instantiate({innerType});
+                return instantiated ? instantiated : typeCache_.getUnknown();
             }
 
             case volta::ast::CompoundType::Kind::Tuple: {
@@ -235,6 +250,38 @@ std::shared_ptr<Type> SemanticAnalyzer::resolveTypeAnnotation(const volta::ast::
         }
         auto returnType = resolveTypeAnnotation(fnType->returnType.get());
         return typeCache_.getFunctionType(std::move(paramTypes), returnType);
+    }
+
+    // Handle GenericType (e.g., Pair[int], Option[String])
+    if (auto* generic = dynamic_cast<const volta::ast::GenericType*>(astType)) {
+        const std::string& typeName = generic->identifier->name;
+        auto symbol = symbolTable_->lookup(typeName);
+
+        if (!symbol) {
+            return typeCache_.getUnknown();
+        }
+
+        // Resolve type arguments
+        std::vector<std::shared_ptr<Type>> typeArgs;
+        for (const auto& arg : generic->typeArgs) {
+            typeArgs.push_back(resolveTypeAnnotation(arg.get()));
+        }
+
+        // Check if it's a generic enum
+        if (symbol->type->kind() == Type::Kind::Enum) {
+            auto* enumType = dynamic_cast<const EnumType*>(symbol->type.get());
+            auto instantiated = enumType->instantiate(typeArgs);
+            return instantiated ? instantiated : typeCache_.getUnknown();
+        }
+
+        // Check if it's a generic struct
+        if (symbol->type->kind() == Type::Kind::Struct) {
+            auto* structType = dynamic_cast<const StructType*>(symbol->type.get());
+            auto instantiated = structType->instantiate(typeArgs);
+            return instantiated ? instantiated : typeCache_.getUnknown();
+        }
+
+        return typeCache_.getUnknown();
     }
 
     // Handle NamedType (user-defined structs or type aliases)
@@ -280,6 +327,20 @@ void SemanticAnalyzer::collectEnum(const volta::ast::EnumDeclaration& enumDecl) 
         std::string variantName = astVariant->name;
         std::vector<std::shared_ptr<Type>> semanticTypes;
         for (const auto& astType : astVariant->associatedTypes) {
+            // Check if this is a type parameter (like T in Option[T])
+            if (auto* named = dynamic_cast<const volta::ast::NamedType*>(astType.get())) {
+                const std::string& typeName = named->identifier->name;
+
+                // Is this one of the enum's type parameters?
+                auto it = std::find(typeParams.begin(), typeParams.end(), typeName);
+                if (it != typeParams.end()) {
+                    // Yes! Create a TypeVariable instead of resolving
+                    semanticTypes.push_back(std::make_shared<TypeVariable>(typeName));
+                    continue;
+                }
+            }
+
+            // Not a type parameter - resolve normally
             auto resolved = resolveTypeAnnotation(astType.get());
             semanticTypes.push_back(resolved);
         }
@@ -307,15 +368,72 @@ void SemanticAnalyzer::collectEnum(const volta::ast::EnumDeclaration& enumDecl) 
 
 void SemanticAnalyzer::collectFunction(const volta::ast::FnDeclaration& fn) {
     std::vector<std::shared_ptr<Type>> paramTypes;
+    std::vector<bool> paramMutability;
 
-    for (auto& param : fn.parameters) {
-        auto resolvedType = resolveTypeAnnotation(param->type.get());
-        paramTypes.push_back(resolvedType);
+    // If this is a method on a generic struct, we need to handle type parameters
+    std::vector<std::string> structTypeParams;
+    if (fn.isMethod && !fn.receiverType.empty()) {
+        // Look up the receiver type (struct/enum)
+        auto receiverSymbol = symbolTable_->lookup(fn.receiverType);
+        if (receiverSymbol) {
+            if (auto* structType = dynamic_cast<const StructType*>(receiverSymbol->type.get())) {
+                structTypeParams = structType->typeParams();
+            } else if (auto* enumType = dynamic_cast<const EnumType*>(receiverSymbol->type.get())) {
+                structTypeParams = enumType->typeParams();
+            }
+        }
     }
 
-    auto returnTypeResolved = resolveTypeAnnotation(fn.returnType.get());
+    // Helper lambda to resolve type with awareness of struct's type parameters
+    std::function<std::shared_ptr<Type>(const volta::ast::Type*)> resolveTypeWithParams;
+    resolveTypeWithParams = [&](const volta::ast::Type* astType) -> std::shared_ptr<Type> {
+        if (!structTypeParams.empty()) {
+            // Check if it's a simple named type that's a type parameter
+            if (auto* named = dynamic_cast<const volta::ast::NamedType*>(astType)) {
+                const std::string& typeName = named->identifier->name;
+                auto it = std::find(structTypeParams.begin(), structTypeParams.end(), typeName);
+                if (it != structTypeParams.end()) {
+                    // Yes! Create a TypeVariable instead of resolving
+                    return std::make_shared<TypeVariable>(typeName);
+                }
+            }
 
-    auto fnType = typeCache_.getFunctionType(std::move(paramTypes), returnTypeResolved);
+            // Check if it's a generic type like Box[T]
+            if (auto* generic = dynamic_cast<const volta::ast::GenericType*>(astType)) {
+                const std::string& typeName = generic->identifier->name;
+
+                // Recursively resolve type arguments
+                std::vector<std::shared_ptr<Type>> resolvedTypeArgs;
+                for (const auto& arg : generic->typeArgs) {
+                    resolvedTypeArgs.push_back(resolveTypeWithParams(arg.get()));
+                }
+
+                // Look up the base type (e.g., Box)
+                auto symbol = symbolTable_->lookup(typeName);
+                if (symbol && symbol->type->kind() == Type::Kind::Struct) {
+                    auto* structType = dynamic_cast<const StructType*>(symbol->type.get());
+                    if (structType) {
+                        auto instantiated = structType->instantiate(resolvedTypeArgs);
+                        if (instantiated) {
+                            return instantiated;
+                        }
+                    }
+                }
+            }
+        }
+        // Not a type parameter - resolve normally
+        return resolveTypeAnnotation(astType);
+    };
+
+    for (auto& param : fn.parameters) {
+        auto resolvedType = resolveTypeWithParams(param->type.get());
+        paramTypes.push_back(resolvedType);
+        paramMutability.push_back(param->isMutable);
+    }
+
+    auto returnTypeResolved = resolveTypeWithParams(fn.returnType.get());
+
+    auto fnType = typeCache_.getFunctionType(std::move(paramTypes), returnTypeResolved, std::move(paramMutability));
 
     // For methods, use qualified name: "ReceiverType.methodName"
     std::string functionName = fn.identifier;
@@ -328,8 +446,13 @@ void SemanticAnalyzer::collectFunction(const volta::ast::FnDeclaration& fn) {
 }
 
 void SemanticAnalyzer::collectStruct(const volta::ast::StructDeclaration& structDecl) {
+    // For now, we'll create a non-generic struct type even if type parameters are present
+    // Full generic struct support (instantiation, type checking with type parameters) is future work
+    // This allows parsing to succeed without implementing full generics
+
     std::vector<StructType::Field> fields;
     std::unordered_set<std::string> seenFields;
+    std::vector<std::string> typeParams = structDecl.typeParams;
 
     for (auto& field : structDecl.fields) {
         // Check for duplicate fields
@@ -341,12 +464,30 @@ void SemanticAnalyzer::collectStruct(const volta::ast::StructDeclaration& struct
             continue;
         }
 
-        auto resolvedFieldtype = resolveTypeAnnotation(field->type.get());
-        auto structField = StructType::Field(field->identifier, resolvedFieldtype);
+        // Resolve field type - handle type parameters similar to enum variants
+        std::shared_ptr<Type> resolvedFieldType;
+        if (auto* named = dynamic_cast<const volta::ast::NamedType*>(field->type.get())) {
+            const std::string& typeName = named->identifier->name;
+
+            // Check if this is one of the struct's type parameters
+            auto it = std::find(typeParams.begin(), typeParams.end(), typeName);
+            if (it != typeParams.end()) {
+                // Create a TypeVariable for the type parameter
+                resolvedFieldType = std::make_shared<TypeVariable>(typeName);
+            } else {
+                // Not a type parameter - resolve normally
+                resolvedFieldType = resolveTypeAnnotation(field->type.get());
+            }
+        } else {
+            // Not a named type - resolve normally
+            resolvedFieldType = resolveTypeAnnotation(field->type.get());
+        }
+
+        auto structField = StructType::Field(field->identifier, resolvedFieldType);
         fields.push_back(structField);
     }
 
-    auto structType = std::make_shared<StructType>(structDecl.identifier, std::move(fields));
+    auto structType = std::make_shared<StructType>(structDecl.identifier, typeParams, std::move(fields));
     declareType(structDecl.identifier, structType, structDecl.location);
 }
 
@@ -420,11 +561,18 @@ void SemanticAnalyzer::analyzeStatement(const volta::ast::Statement* stmt) {
 void SemanticAnalyzer::analyzeVarDeclaration(const volta::ast::VarDeclaration* varDecl) {
     // PURPOSE: Type check variable declaration and add to symbol table
     // BEHAVIOR: Handle both explicit types (x: int = 5) and inference (x := 5)
-    auto initType = analyzeExpression(varDecl->initializer.get());
-    std::shared_ptr<volta::semantic::Type> finalType;
-    if (varDecl->typeAnnotation) {
-        auto declaredType = resolveTypeAnnotation(varDecl->typeAnnotation->type.get());
 
+    // If we have a type annotation, resolve it first to use as expected type
+    std::shared_ptr<volta::semantic::Type> declaredType;
+    if (varDecl->typeAnnotation) {
+        declaredType = resolveTypeAnnotation(varDecl->typeAnnotation->type.get());
+    }
+
+    // Analyze initializer with expected type if available
+    auto initType = analyzeExpression(varDecl->initializer.get(), declaredType);
+
+    std::shared_ptr<volta::semantic::Type> finalType;
+    if (declaredType) {
         if (!areTypesCompatible(declaredType.get(), initType.get())) {
             typeError("Type mismatch in variable declaration", declaredType.get(), initType.get(), varDecl->location);
         }
@@ -441,18 +589,37 @@ void SemanticAnalyzer::analyzeVarDeclaration(const volta::ast::VarDeclaration* v
 void SemanticAnalyzer::analyzeFnDeclaration(const volta::ast::FnDeclaration* fnDecl) {
     // PURPOSE: Type check function body
     // BEHAVIOR: Function signature already collected in Pass 1, now check body
-    enterScope();
-   
-    for (auto& param : fnDecl->parameters) {
-        auto resType = resolveTypeAnnotation(param->type.get());
-        declareVariable(param->identifier, resType, false, fnDecl->location);
+
+    // Look up the already-collected function type (which has correct type parameter handling)
+    std::string functionName = fnDecl->identifier;
+    if (fnDecl->isMethod) {
+        functionName = fnDecl->receiverType + "." + fnDecl->identifier;
     }
-    
-    // TODO Step 3: Set return type context
-    //   - Resolve return type: resolveTypeAnnotation(fnDecl->returnType.get())
-    //   - Call enterFunction(returnType)
-    //   - This allows return statements to check against expected type
-    auto retType = resolveTypeAnnotation(fnDecl->returnType.get());
+
+    auto fnSymbol = symbolTable_->lookup(functionName);
+    if (!fnSymbol || fnSymbol->type->kind() != Type::Kind::Function) {
+        // Shouldn't happen if collectFunction worked correctly
+        error("Function '" + functionName + "' not found in symbol table", fnDecl->location);
+        return;
+    }
+
+    auto* fnType = dynamic_cast<const FunctionType*>(fnSymbol->type.get());
+    if (!fnType) {
+        error("Symbol '" + functionName + "' is not a function", fnDecl->location);
+        return;
+    }
+
+    enterScope();
+
+    // Use the parameter types from the collected function type
+    for (size_t i = 0; i < fnDecl->parameters.size(); ++i) {
+        auto paramType = fnType->paramTypes()[i];
+        bool isMutable = i < fnType->paramMutability().size() ? fnType->paramMutability()[i] : false;
+        declareVariable(fnDecl->parameters[i]->identifier, paramType, isMutable, fnDecl->location);
+    }
+
+    // Use the return type from the collected function type
+    auto retType = fnType->returnType();
     enterFunction(retType);
 
     
@@ -572,22 +739,23 @@ void SemanticAnalyzer::analyzeReturnStatement(const volta::ast::ReturnStatement*
     }
 
     std::shared_ptr<Type> returnType;
+    auto expectedType = currentFunctionReturnType();
 
     if (returnStmt->expression) {
-        returnType = analyzeExpression(returnStmt->expression.get());
+        // Pass expected type for contextual inference!
+        returnType = analyzeExpression(returnStmt->expression.get(), expectedType);
     } else {
         // Empty return statement
         returnType = typeCache_.getVoid();
     }
-
-    auto expectedType = currentFunctionReturnType();
 
     if (!areTypesCompatible(expectedType.get(), returnType.get())) {
         typeError("Return type mismatch", expectedType.get(), returnType.get(), returnStmt->location);
     }
 }
 
-std::shared_ptr<Type> SemanticAnalyzer::analyzeExpression(const volta::ast::Expression* expr) {
+std::shared_ptr<Type> SemanticAnalyzer::analyzeExpression(const volta::ast::Expression* expr,
+                                                          std::shared_ptr<Type> expectedType) {
     std::shared_ptr<Type> resultType;
 
     if (dynamic_cast<const volta::ast::IntegerLiteral*>(expr) ||
@@ -597,34 +765,34 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeExpression(const volta::ast::Expr
         resultType = analyzeLiteral(expr);
     }
     else if (auto* binExpr = dynamic_cast<const volta::ast::BinaryExpression*>(expr)) {
-        resultType = analyzeBinaryExpression(binExpr);
+        resultType = analyzeBinaryExpression(binExpr, expectedType);
     }
     else if (auto* unaryExpr = dynamic_cast<const volta::ast::UnaryExpression*>(expr)) {
-        resultType = analyzeUnaryExpression(unaryExpr);
+        resultType = analyzeUnaryExpression(unaryExpr, expectedType);
     }
     else if (auto* identifier = dynamic_cast<const volta::ast::IdentifierExpression*>(expr)) {
         resultType = analyzeIdentifier(identifier);
     }
     else if (auto* callExpr = dynamic_cast<const volta::ast::CallExpression*>(expr)) {
-        resultType = analyzeCallExpression(callExpr);
+        resultType = analyzeCallExpression(callExpr, expectedType);
     }
     else if (auto* matchExpr = dynamic_cast<const volta::ast::MatchExpression*>(expr)) {
         resultType = analyzeMatchExpression(matchExpr);
     }
     else if (auto* memberExpr = dynamic_cast<const volta::ast::MemberExpression*>(expr)) {
-        resultType = analyzeMemberExpression(memberExpr);
+        resultType = analyzeMemberExpression(memberExpr, expectedType);
     }
     else if (auto* methodCall = dynamic_cast<const volta::ast::MethodCallExpression*>(expr)) {
-        resultType = analyzeMethodCallExpression(methodCall);
+        resultType = analyzeMethodCallExpression(methodCall, expectedType);
     }
     else if (auto* arrayLit = dynamic_cast<const volta::ast::ArrayLiteral*>(expr)) {
-        resultType = analyzeArrayLiteral(arrayLit);
+        resultType = analyzeArrayLiteral(arrayLit, expectedType);
     }
     else if (auto* indexExpr = dynamic_cast<const volta::ast::IndexExpression*>(expr)) {
         resultType = analyzeIndexExpression(indexExpr);
     }
     else if (auto* structLit = dynamic_cast<const volta::ast::StructLiteral*>(expr)) {
-        resultType = analyzeStructLiteral(structLit);
+        resultType = analyzeStructLiteral(structLit, expectedType);
     } else if (auto* castExpr = dynamic_cast<const volta::ast::CastExpression*>(expr)) {
         resultType = analyzeCastExpression(castExpr);
     }
@@ -656,7 +824,10 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeIdentifier(const volta::ast::Iden
     return lookupVariable(identifier->name, identifier->location);
 }
 
-std::shared_ptr<Type> SemanticAnalyzer::analyzeBinaryExpression(const volta::ast::BinaryExpression* binExpr) {
+std::shared_ptr<Type> SemanticAnalyzer::analyzeBinaryExpression(const volta::ast::BinaryExpression* binExpr,
+                                                                std::shared_ptr<Type> expectedType) {
+    // expectedType not used for binary expressions (can't infer operand types from result)
+    (void)expectedType;
     auto leftType = analyzeExpression(binExpr->left.get());
     auto rightType = analyzeExpression(binExpr->right.get());
 
@@ -709,12 +880,16 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeBinaryExpression(const volta::ast
     return inferBinaryOpType(binExpr->op, leftType.get(), rightType.get());
 }
 
-std::shared_ptr<Type> SemanticAnalyzer::analyzeUnaryExpression(const volta::ast::UnaryExpression* unaryExpr) {
+std::shared_ptr<Type> SemanticAnalyzer::analyzeUnaryExpression(const volta::ast::UnaryExpression* unaryExpr,
+                                                               std::shared_ptr<Type> expectedType) {
+    (void)expectedType;  // Not used
     auto operandType = analyzeExpression(unaryExpr->operand.get());
     return inferUnaryOpType(unaryExpr->op, operandType.get());
 }
 
-std::shared_ptr<Type> SemanticAnalyzer::analyzeCallExpression(const volta::ast::CallExpression* callExpr) {
+std::shared_ptr<Type> SemanticAnalyzer::analyzeCallExpression(const volta::ast::CallExpression* callExpr,
+                                                              std::shared_ptr<Type> expectedType) {
+    (void)expectedType;  // Could be used for function overload resolution in future
     // First, analyze all argument types
     std::vector<std::shared_ptr<Type>> argTypes;
     for (const auto& arg : callExpr->arguments) {
@@ -729,6 +904,15 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeCallExpression(const volta::ast::
         if (symbol.has_value()) {
             auto* fnType = dynamic_cast<const FunctionType*>(symbol->type.get());
             if (fnType) {
+                // Check mutability for each argument
+                const auto& mutability = fnType->paramMutability();
+                for (size_t i = 0; i < callExpr->arguments.size(); ++i) {
+                    if (!mutability.empty() && i < mutability.size() && mutability[i]) {
+                        if (!isExpressionMutable(callExpr->arguments[i].get())) {
+                            error("Cannot pass immutable expression to mutable parameter", callExpr->location);
+                        }
+                    }
+                }
                 return fnType->returnType();
             }
         }
@@ -764,6 +948,14 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeCallExpression(const volta::ast::
         if (!areTypesCompatible(expectedType.get(), argTypes[i].get())) {
             typeError("Argument type mismatch", expectedType.get(), argTypes[i].get(), callExpr->location);
         }
+
+        // Check mutability: if parameter is mutable, argument must be mutable
+        const auto& mutability = fnType->paramMutability();
+        if (!mutability.empty() && i < mutability.size() && mutability[i]) {
+            if (!isExpressionMutable(callExpr->arguments[i].get())) {
+                error("Cannot pass immutable expression to mutable parameter", callExpr->location);
+            }
+        }
     }
 
     return fnType->returnType();
@@ -787,9 +979,11 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeMatchExpression(const volta::ast:
     return resultType ? resultType : typeCache_.getUnknown();
 }
 
-std::shared_ptr<Type> SemanticAnalyzer::analyzeMemberExpression(const volta::ast::MemberExpression* memberExpr) {
+std::shared_ptr<Type> SemanticAnalyzer::analyzeMemberExpression(const volta::ast::MemberExpression* memberExpr,
+                                                                std::shared_ptr<Type> expectedType) {
     // For member access like `Color.Red`, the object is an identifier expression
     // We need to check if it's an enum type
+    // expectedType could be used for enum variants without data (like Option.None)
     auto* identExpr = dynamic_cast<const volta::ast::IdentifierExpression*>(memberExpr->object.get());
 
     if (identExpr) {
@@ -805,6 +999,24 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeMemberExpression(const volta::ast
                 error("Enum '" + enumType->name() + "' has no variant '" + variantName + "'",
                       memberExpr->location);
                 return typeCache_.getUnknown();
+            }
+
+            // For generic enums with variants that have NO data (like Option.None),
+            // use expected type for inference!
+            if (!enumType->typeParams().empty() && variant->associatedTypes.empty()) {
+                if (expectedType) {
+                    if (auto* expectedEnum = dynamic_cast<const EnumType*>(expectedType.get())) {
+                        if (expectedEnum->name() == enumType->name() && expectedEnum->isInstantiated()) {
+                            // Return the instantiated type from context!
+                            return expectedType;
+                        }
+                    }
+                }
+                // No expected type - can't infer
+                error("Cannot infer type parameters for '" + enumType->name() + "." + variantName +
+                      "' - use in a context with known type or provide explicit type arguments",
+                      memberExpr->location);
+                return typeCache_.getUnknown();  // Return Unknown instead of template
             }
 
             // Return the enum type (the variant constructs an instance of the enum)
@@ -833,11 +1045,14 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeMemberExpression(const volta::ast
     return field->type;
 }
 
-std::shared_ptr<Type> SemanticAnalyzer::analyzeMethodCallExpression(const volta::ast::MethodCallExpression* methodCall) {
-    // Check if this is enum variant construction: Option.Some(42)
+std::shared_ptr<Type> SemanticAnalyzer::analyzeMethodCallExpression(const volta::ast::MethodCallExpression* methodCall,
+                                                                   std::shared_ptr<Type> expectedType) {
+    // Check if the object is a type name (for static methods or enum variants)
     auto* identExpr = dynamic_cast<const volta::ast::IdentifierExpression*>(methodCall->object.get());
     if (identExpr) {
         auto symbol = symbolTable_->lookup(identExpr->name);
+
+        // Case 1: Enum variant construction (Option.Some(42))
         if (symbol && symbol->type->kind() == Type::Kind::Enum) {
             auto* enumType = dynamic_cast<const EnumType*>(symbol->type.get());
             const std::string& variantName = methodCall->method->name;
@@ -865,18 +1080,29 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeMethodCallExpression(const volta:
                 argumentTypes.push_back(analyzeExpression(arg.get()));
             }
 
-            // If the enum is generic (has type parameters), infer them from arguments
+            // If the enum is generic (has type parameters), infer them from arguments OR expected type
             if (!enumType->typeParams().empty()) {
-                // Infer type arguments from the actual arguments
                 std::vector<std::shared_ptr<Type>> inferredTypeArgs;
 
-                // Try to infer type parameters
-                // For now, simple inference: if variant expects T and we pass int, T = int
-                for (size_t i = 0; i < variant->associatedTypes.size(); ++i) {
-                    auto* typeVar = dynamic_cast<const TypeVariable*>(variant->associatedTypes[i].get());
-                    if (typeVar) {
-                        // This is a type variable - use the argument's type
-                        inferredTypeArgs.push_back(argumentTypes[i]);
+                // STRATEGY 1: Infer from arguments (if variant has data)
+                if (!variant->associatedTypes.empty()) {
+                    for (size_t i = 0; i < variant->associatedTypes.size(); ++i) {
+                        auto* typeVar = dynamic_cast<const TypeVariable*>(variant->associatedTypes[i].get());
+                        if (typeVar) {
+                            // This is a type variable - use the argument's type
+                            inferredTypeArgs.push_back(argumentTypes[i]);
+                        }
+                    }
+                }
+
+                // STRATEGY 2: If no inference from args (e.g., Option.None), use expected type!
+                if (inferredTypeArgs.empty() && expectedType) {
+                    // Check if expected type is an instantiation of this enum
+                    if (auto* expectedEnum = dynamic_cast<const EnumType*>(expectedType.get())) {
+                        if (expectedEnum->name() == enumType->name() && expectedEnum->isInstantiated()) {
+                            // Use the type arguments from expected type!
+                            inferredTypeArgs = expectedEnum->typeArgs();
+                        }
                     }
                 }
 
@@ -901,7 +1127,6 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeMethodCallExpression(const volta:
             }
 
             // For non-generic enums, check types normally
-            // ONLY run this if we didn't already handle it above (generic enums return early)
             if (enumType->typeParams().empty()) {
                 for (size_t i = 0; i < argumentTypes.size(); ++i) {
                     if (!areTypesCompatible(variant->associatedTypes[i].get(), argumentTypes[i].get())) {
@@ -910,14 +1135,118 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeMethodCallExpression(const volta:
                               methodCall->location);
                     }
                 }
+                // Non-generic enum, return the enum type directly
+                return symbol->type;
             }
 
-            // Return the enum type (template or instantiated)
-            return symbol->type;
+            // If we reach here, it's a generic enum with NO arguments and NO expected type
+            // We can't infer - this is an error
+            error("Cannot infer type parameters for '" + enumType->name() + "." + variantName +
+                  "' - provide explicit type or use in a context with known type",
+                  methodCall->location);
+            return symbol->type;  // Return template type (will fail type checking)
+        }
+
+        // Case 2: Static method call on struct type (Point.new(1.0, 1.0))
+        // Check if it's a type name (not a variable)
+        if (symbol && symbol->type->kind() == Type::Kind::Struct) {
+            auto* structType = dynamic_cast<const StructType*>(symbol->type.get());
+
+            // Distinguish between type name and variable:
+            // - Type name: identExpr->name == structType->name() (e.g., "Point" == "Point")
+            // - Variable: identExpr->name != structType->name() (e.g., "p" != "Point")
+            if (identExpr->name == structType->name()) {
+                // It's a static method call on the type itself
+                const std::string& methodName = methodCall->method->name;
+                const std::string qualifiedName = structType->name() + "." + methodName;
+
+                // Lookup the static method
+                auto methodSymbol = symbolTable_->lookup(qualifiedName);
+                if (!methodSymbol) {
+                    error("Struct '" + structType->name() + "' has no static method '" + methodName + "'",
+                          methodCall->location);
+                    return typeCache_.getUnknown();
+                }
+
+                auto* fnType = dynamic_cast<const FunctionType*>(methodSymbol->type.get());
+                if (!fnType) {
+                    error("'" + qualifiedName + "' is not a function", methodCall->location);
+                    return typeCache_.getUnknown();
+                }
+
+                // Static methods don't have 'self' parameter, so arg count should match exactly
+                if (methodCall->arguments.size() != fnType->paramTypes().size()) {
+                    error("Wrong number of arguments to method '" + methodName + "'",
+                          methodCall->location);
+                    return typeCache_.getUnknown();
+                }
+
+                // Analyze all arguments first
+                std::vector<std::shared_ptr<Type>> argTypes;
+                for (const auto& arg : methodCall->arguments) {
+                    argTypes.push_back(analyzeExpression(arg.get()));
+                }
+
+                // For generic structs, infer type parameters from argument types
+                std::vector<std::shared_ptr<Type>> inferredTypeArgs;
+                if (!structType->typeParams().empty()) {
+                    // Initialize with nullptrs
+                    inferredTypeArgs.resize(structType->typeParams().size(), nullptr);
+
+                    // Infer type arguments by matching argument types with parameter types
+                    for (size_t i = 0; i < argTypes.size(); ++i) {
+                        auto paramType = fnType->paramTypes()[i];
+
+                        // If param is a type variable, use the arg type
+                        if (paramType->kind() == Type::Kind::TypeVariable) {
+                            auto* typeVar = dynamic_cast<const TypeVariable*>(paramType.get());
+                            // Find which type parameter this is
+                            for (size_t j = 0; j < structType->typeParams().size(); ++j) {
+                                if (structType->typeParams()[j] == typeVar->name()) {
+                                    if (!inferredTypeArgs[j]) {
+                                        inferredTypeArgs[j] = argTypes[i];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Type-check arguments (with substituted types if generic)
+                const auto& mutability = fnType->paramMutability();
+                for (size_t i = 0; i < argTypes.size(); ++i) {
+                    auto expectedType = fnType->paramTypes()[i];
+
+                    // Substitute type variables if we inferred them
+                    if (!inferredTypeArgs.empty() && !structType->typeParams().empty()) {
+                        expectedType = substituteTypeVariables(expectedType, structType->typeParams(), inferredTypeArgs);
+                    }
+
+                    if (!areTypesCompatible(expectedType.get(), argTypes[i].get())) {
+                        typeError("Argument type mismatch in method call",
+                                 expectedType.get(), argTypes[i].get(), methodCall->location);
+                    }
+
+                    // Check mutability
+                    if (!mutability.empty() && i < mutability.size() && mutability[i]) {
+                        if (!isExpressionMutable(methodCall->arguments[i].get())) {
+                            error("Cannot pass immutable expression to mutable parameter", methodCall->location);
+                        }
+                    }
+                }
+
+                // Substitute type variables in return type
+                auto returnType = fnType->returnType();
+                if (!inferredTypeArgs.empty() && !structType->typeParams().empty()) {
+                    returnType = substituteTypeVariables(returnType, structType->typeParams(), inferredTypeArgs);
+                }
+
+                return returnType;
+            }
         }
     }
 
-    // Otherwise, it's a regular method call on a struct
+    // Otherwise, it's a regular instance method call on a struct
     auto objectType = analyzeExpression(methodCall->object.get());
 
     auto* structType = dynamic_cast<const StructType*>(objectType.get());
@@ -927,25 +1256,70 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeMethodCallExpression(const volta:
     }
 
     const std::string& methodName = methodCall->method->name;
-    const std::string qualifiedName = structType->name() + "." + methodName;
+    // Use base name without type arguments for method lookup
+    // E.g., "Box[int].getValue" -> "Box.getValue"
+    std::string baseName = structType->name();
+    size_t bracketPos = baseName.find('[');
+    if (bracketPos != std::string::npos) {
+        baseName = baseName.substr(0, bracketPos);
+    }
+    const std::string qualifiedName = baseName + "." + methodName;
 
     auto methodSymbol = symbolTable_->lookup(qualifiedName);
     if (!methodSymbol) {
-        error("Struct '" + structType->name() + "' has no method '" + methodName + "'",
+        error("Struct '" + baseName + "' has no method '" + methodName + "'",
               methodCall->location);
         return typeCache_.getUnknown();
     }
 
-    auto* fnType = dynamic_cast<const FunctionType*>(methodSymbol->type.get());
-    if (!fnType) {
+    auto baseFnType = dynamic_cast<const FunctionType*>(methodSymbol->type.get());
+    if (!baseFnType) {
         error("'" + qualifiedName + "' is not a method", methodCall->location);
         return typeCache_.getUnknown();
+    }
+
+    // If the struct is a generic instantiation, we need to substitute type variables
+    // in the method's function type
+    std::shared_ptr<FunctionType> fnType = std::const_pointer_cast<FunctionType>(
+        std::shared_ptr<const FunctionType>(methodSymbol->type, baseFnType)
+    );
+
+    if (structType->isInstantiated() && !structType->typeArgs().empty()) {
+        // Substitute type parameters in the function type
+        std::vector<std::shared_ptr<Type>> instantiatedParamTypes;
+        for (const auto& paramType : baseFnType->paramTypes()) {
+            instantiatedParamTypes.push_back(
+                substituteTypeVariables(paramType, structType->typeParams(), structType->typeArgs())
+            );
+        }
+
+        auto instantiatedReturnType = substituteTypeVariables(
+            baseFnType->returnType(),
+            structType->typeParams(),
+            structType->typeArgs()
+        );
+
+        fnType = std::make_shared<FunctionType>(
+            std::move(instantiatedParamTypes),
+            instantiatedReturnType,
+            baseFnType->paramMutability()
+        );
+    }
+
+    // Check mutability of 'self' parameter (first parameter)
+    const auto& mutability = fnType->paramMutability();
+    if (!mutability.empty() && mutability.size() > 0 && mutability[0]) {
+        // Method expects mutable self
+        if (!isExpressionMutable(methodCall->object.get())) {
+            error("Cannot call method with mutable 'self' on immutable object", methodCall->location);
+        }
     }
 
     size_t expectedArgCount = fnType->paramTypes().size() - 1;
     if (methodCall->arguments.size() != expectedArgCount) {
         error("Wrong number of arguments to method '" + methodName + "'",
               methodCall->location);
+        return typeCache_.getUnknown();  // Return early to avoid further errors
     } else {
         for (size_t i = 0; i < methodCall->arguments.size(); ++i) {
             auto argType = analyzeExpression(methodCall->arguments[i].get());
@@ -954,13 +1328,23 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeMethodCallExpression(const volta:
                 typeError("Argument type mismatch in method call",
                          expectedType.get(), argType.get(), methodCall->location);
             }
+
+            // Check mutability of additional parameters (skip self, which is at index 0)
+            size_t paramIndex = i + 1;
+            if (!mutability.empty() && paramIndex < mutability.size() && mutability[paramIndex]) {
+                if (!isExpressionMutable(methodCall->arguments[i].get())) {
+                    error("Cannot pass immutable expression to mutable parameter", methodCall->location);
+                }
+            }
         }
     }
 
     return fnType->returnType();
 }
 
-std::shared_ptr<Type> SemanticAnalyzer::analyzeArrayLiteral(const volta::ast::ArrayLiteral* arrayLit) {
+std::shared_ptr<Type> SemanticAnalyzer::analyzeArrayLiteral(const volta::ast::ArrayLiteral* arrayLit,
+                                                            std::shared_ptr<Type> expectedType) {
+    (void)expectedType;  // Could use to infer element type in empty arrays
     if (arrayLit->elements.empty()) {
         return typeCache_.getArrayType(typeCache_.getUnknown());
     }
@@ -991,7 +1375,8 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeIndexExpression(const volta::ast:
     return typeCache_.getUnknown();
 }
 
-std::shared_ptr<Type> SemanticAnalyzer::analyzeStructLiteral(const volta::ast::StructLiteral* structLit) {
+std::shared_ptr<Type> SemanticAnalyzer::analyzeStructLiteral(const volta::ast::StructLiteral* structLit,
+                                                             std::shared_ptr<Type> expectedType) {
     const std::string& structName = structLit->structName->name;
     auto symbol = symbolTable_->lookup(structName);
 
@@ -1005,12 +1390,44 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeStructLiteral(const volta::ast::S
         return typeCache_.getUnknown();
     }
 
-    auto structType = std::dynamic_pointer_cast<StructType>(symbol->type);
+    auto baseStructType = std::dynamic_pointer_cast<StructType>(symbol->type);
+    std::shared_ptr<StructType> structType = baseStructType;
+
+    // If expectedType is a generic struct instantiation (e.g., Pair[int]),
+    // use it to validate and return the correct type
+    if (expectedType && expectedType->kind() == Type::Kind::Struct) {
+        auto* expectedStruct = dynamic_cast<const StructType*>(expectedType.get());
+        if (expectedStruct && expectedStruct->name() == structName && expectedStruct->isInstantiated()) {
+            // Use the expected type's instantiation
+            structType = std::static_pointer_cast<StructType>(expectedType);
+        }
+    }
+
+    // If the struct is generic but not yet instantiated, we need to infer type arguments from field values
+    if (baseStructType->typeParams().size() > 0 && !structType->isInstantiated()) {
+        // Infer type arguments from field initializers
+        std::vector<std::shared_ptr<Type>> inferredTypeArgs;
+
+        // For simple case: all fields have the same type parameter (like Pair[T])
+        // Analyze the first field to infer T
+        if (!structLit->fields.empty()) {
+            auto firstFieldValue = analyzeExpression(structLit->fields[0]->value.get());
+            inferredTypeArgs.push_back(firstFieldValue);
+
+            // Instantiate the struct with inferred types
+            auto instantiated = baseStructType->instantiate(inferredTypeArgs);
+            if (instantiated) {
+                structType = instantiated;
+            }
+        }
+    }
+
+    auto finalStructType = structType;
 
     // Validate and type-check all fields
     for (const auto& fieldInit : structLit->fields) {
         const std::string& fieldName = fieldInit->identifier->name;
-        const auto* field = structType->getField(fieldName);
+        const auto* field = finalStructType->getField(fieldName);
 
         if (!field) {
             error("Struct '" + structName + "' has no field '" + fieldName + "'",
@@ -1028,13 +1445,13 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeStructLiteral(const volta::ast::S
     // Sort fields to match struct definition order for easier IR generation
     auto& fields = const_cast<volta::ast::StructLiteral*>(structLit)->fields;
     std::sort(fields.begin(), fields.end(),
-        [&structType](const auto& a, const auto& b) {
-            int indexA = structType->getFieldIndex(a->identifier->name);
-            int indexB = structType->getFieldIndex(b->identifier->name);
+        [&finalStructType](const auto& a, const auto& b) {
+            int indexA = finalStructType->getFieldIndex(a->identifier->name);
+            int indexB = finalStructType->getFieldIndex(b->identifier->name);
             return indexA < indexB;
         });
 
-    return symbol->type;
+    return finalStructType;
 }
 
 bool SemanticAnalyzer::areTypesCompatible(const Type* expected, const Type* actual) {
@@ -1163,6 +1580,84 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeCastExpression(const volta::ast::
     
     // 4. Return the target type
     return targetType;
+}
+
+std::shared_ptr<Type> SemanticAnalyzer::substituteTypeVariables(
+    const std::shared_ptr<Type>& type,
+    const std::vector<std::string>& typeParams,
+    const std::vector<std::shared_ptr<Type>>& typeArgs
+) {
+    // If it's a type variable, substitute it
+    if (auto* typeVar = dynamic_cast<const TypeVariable*>(type.get())) {
+        for (size_t i = 0; i < typeParams.size(); ++i) {
+            if (typeParams[i] == typeVar->name()) {
+                // Make sure we have a valid type arg
+                if (i < typeArgs.size() && typeArgs[i]) {
+                    return typeArgs[i];
+                }
+            }
+        }
+        // Couldn't substitute, return as-is
+        return type;
+    }
+
+    // If it's a struct type with type parameters (like Box[T])
+    if (auto* structType = dynamic_cast<const StructType*>(type.get())) {
+        // Check if this struct has type parameters that need substitution
+        if (!structType->typeParams().empty()) {
+            // Get the base struct template by name
+            std::string baseName = structType->name();
+            size_t bracketPos = baseName.find('[');
+            if (bracketPos != std::string::npos) {
+                baseName = baseName.substr(0, bracketPos);
+            }
+
+            // Build new type args by substituting type variables
+            std::vector<std::shared_ptr<Type>> newTypeArgs;
+
+            if (structType->isInstantiated()) {
+                // Already instantiated with concrete or variable types
+                // Substitute variables in the type args
+                for (const auto& arg : structType->typeArgs()) {
+                    newTypeArgs.push_back(substituteTypeVariables(arg, typeParams, typeArgs));
+                }
+            } else {
+                // Not instantiated - struct uses type parameters like T
+                // Match struct's type params with our substitution map
+                for (const auto& structTypeParam : structType->typeParams()) {
+                    bool found = false;
+                    for (size_t i = 0; i < typeParams.size(); ++i) {
+                        if (typeParams[i] == structTypeParam) {
+                            if (i < typeArgs.size() && typeArgs[i]) {
+                                newTypeArgs.push_back(typeArgs[i]);
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!found) {
+                        // Couldn't find substitution - use Unknown
+                        newTypeArgs.push_back(typeCache_.getUnknown());
+                    }
+                }
+            }
+
+            // Instantiate the struct with the new type args
+            auto baseStruct = symbolTable_->lookup(baseName);
+            if (baseStruct && baseStruct->type->kind() == Type::Kind::Struct) {
+                auto* base = dynamic_cast<const StructType*>(baseStruct->type.get());
+                if (base) {
+                    auto instantiated = base->instantiate(newTypeArgs);
+                    if (instantiated) {
+                        return instantiated;
+                    }
+                }
+            }
+        }
+    }
+
+    // For other types (primitives, already concrete types, etc.), return as-is
+    return type;
 }
 
 }

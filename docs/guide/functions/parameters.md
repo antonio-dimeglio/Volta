@@ -20,6 +20,54 @@ fn calculate_bmi(weight: float, height: float) -> float {
 bmi := calculate_bmi(70.0, 1.75)
 ```
 
+## Mutable Parameters
+
+By default, function parameters are immutable. To allow a function to modify a parameter, use the `mut` keyword:
+
+```volta
+fn increment(mut n: int) {
+    n = n + 1
+}
+
+fn swap(mut a: int, mut b: int) {
+    temp := a
+    a = b
+    b = temp
+}
+```
+
+**Important:** You can only pass mutable expressions to mutable parameters:
+
+```volta
+mut x: int = 10
+increment(x)           # ✓ OK - x is mutable
+
+y := 5
+increment(y)           # ✗ Error - y is immutable
+
+increment(42)          # ✗ Error - literals are immutable
+increment(get_value()) # ✗ Error - function results are immutable
+```
+
+### Mutable Parameters with Structs
+
+Mutable parameters are essential for modifying struct fields:
+
+```volta
+struct Point {
+    x: int,
+    y: int
+}
+
+fn move_point(mut point: Point, dx: int, dy: int) {
+    point.x = point.x + dx
+    point.y = point.y + dy
+}
+
+mut p: Point = Point { x: 0, y: 0 }
+move_point(p, 10, 20)  # p is now at (10, 20)
+```
+
 ## Return Values
 
 Functions specify their return type with `->`:

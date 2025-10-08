@@ -120,13 +120,6 @@ TEST_F(IRBuilderTest, TypeHelpers_ArrayType) {
     EXPECT_EQ(arrType->kind(), IRType::Kind::Array);
 }
 
-TEST_F(IRBuilderTest, TypeHelpers_OptionType) {
-    auto intType = builder->getIntType();
-    auto optType = builder->getOptionType(intType);
-
-    ASSERT_NE(optType, nullptr);
-    EXPECT_EQ(optType->kind(), IRType::Kind::Option);
-}
 
 // ============================================================================
 // Function and Block Creation Tests
@@ -233,13 +226,6 @@ TEST_F(IRBuilderTest, ConstantString_Creation) {
     EXPECT_EQ(s->getValue(), "hello world");
 }
 
-TEST_F(IRBuilderTest, ConstantNone_Creation) {
-    auto optType = builder->getOptionType(builder->getIntType());
-    auto* none = builder->getNone(optType);
-
-    ASSERT_NE(none, nullptr);
-    EXPECT_EQ(none->getType(), optType);
-}
 
 TEST_F(IRBuilderTest, UndefValue_Creation) {
     auto* undef = builder->getUndef(builder->getIntType());

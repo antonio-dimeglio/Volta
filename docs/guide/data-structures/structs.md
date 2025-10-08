@@ -149,7 +149,9 @@ for p in points {
 }
 ```
 
-## Immutability
+## Mutability
+
+### Immutable Structs (Default)
 
 Structs are immutable by default:
 
@@ -161,6 +163,115 @@ p := Point { x: 3.0, y: 4.0 }
 
 # Create new instance instead
 new_p := Point { x: 5.0, y: 4.0 }
+```
+
+### Mutable Structs
+
+To modify struct fields, declare the variable as mutable:
+
+```volta
+mut p: Point = Point { x: 3.0, y: 4.0 }
+p.x = 5.0  # ✓ OK - p is mutable
+p.y = 10.0 # ✓ OK
+```
+
+### Methods with Mutable Self
+
+Methods can modify the struct by using `mut self`:
+
+```volta
+struct Counter {
+    value: int
+}
+
+fn Counter.increment(mut self) {
+    self.value = self.value + 1
+}
+
+fn Counter.reset(mut self) {
+    self.value = 0
+}
+
+mut counter: Counter = Counter { value: 0 }
+counter.increment()  # value is now 1
+counter.increment()  # value is now 2
+counter.reset()      # value is now 0
+```
+
+**Important:** You can only call methods with `mut self` on mutable instances:
+
+```volta
+counter := Counter { value: 0 }  # immutable
+counter.increment()  # ✗ Error - cannot call mut method on immutable instance
+
+mut counter2: Counter = Counter { value: 0 }  # mutable
+counter2.increment()  # ✓ OK
+```
+
+## Generic Structs
+
+Structs can be generic over types:
+
+```volta
+# Generic container that works with any type
+struct Box[T] {
+    value: T
+}
+
+# Create instances with different types
+intBox: Box[int] = Box { value: 42 }
+floatBox: Box[float] = Box { value: 3.14 }
+strBox: Box[str] = Box { value: "hello" }
+
+print(intBox.value)   # 42
+print(floatBox.value) # 3.14
+```
+
+### Generic Methods
+
+Methods on generic structs can use the type parameters:
+
+```volta
+struct Box[T] {
+    value: T
+}
+
+fn Box.new(val: T) -> Box[T] {
+    return Box { value: val }
+}
+
+fn Box.getValue(self) -> T {
+    return self.value
+}
+
+fn Box.map[U](self, transform: fn(T) -> U) -> Box[U] {
+    return Box { value: transform(self.value) }
+}
+
+# Usage
+intBox: Box[int] = Box.new(42)
+value: int = intBox.getValue()
+```
+
+### Multiple Type Parameters
+
+Structs can have multiple type parameters:
+
+```volta
+struct Pair[T, U] {
+    first: T,
+    second: U
+}
+
+fn Pair.swap(self) -> Pair[U, T] {
+    return Pair { first: self.second, second: self.first }
+}
+
+# Create a pair
+p: Pair[int, str] = Pair { first: 42, second: "hello" }
+
+# Swap creates a Pair[str, int]
+swapped: Pair[str, int] = p.swap()
 ```
 
 ## Constructor-like Functions
