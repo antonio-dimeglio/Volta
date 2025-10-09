@@ -114,8 +114,13 @@ void compileAndRun(const std::string& source, const CompilerOptions& options) {
             ? options.inputFile.substr(0, options.inputFile.find_last_of('.'))
             : options.outputFile;
 
+        #ifdef __APPLE__
+        std::string compileCmd = "/opt/homebrew/opt/llvm@18/bin/clang " + llFile +
+                                " bin/libvolta.a -L/opt/homebrew/opt/bdw-gc/lib -lgc -o " + exeName;
+        #else
         std::string compileCmd = "clang-18 " + llFile +
                                 " bin/libvolta.a -lgc -o " + exeName;
+        #endif
 
         std::cout << "Compiling: " << compileCmd << "\n";
         if (system(compileCmd.c_str()) == 0) {

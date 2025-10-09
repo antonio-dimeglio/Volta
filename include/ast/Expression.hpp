@@ -54,8 +54,6 @@ struct BooleanLiteral : Expression {
         : Expression(location), value(value) {}
 };
 
-// Note: NoneLiteral and SomeLiteral removed - Some and None are now enum variants
-
 struct ArrayLiteral : Expression {
     std::vector<std::unique_ptr<Expression>> elements;
 

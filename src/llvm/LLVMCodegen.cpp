@@ -7,6 +7,8 @@
 #include <llvm/MC/TargetRegistry.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Target/TargetOptions.h>
+#include <llvm/TargetParser/Host.h>
+#include "LLVMCodegen.hpp"
 
 using namespace llvm;
 
@@ -19,10 +21,11 @@ LLVMCodegen::LLVMCodegen(const std::string& moduleName)
       currentFunction_(nullptr),
       analyzer_(nullptr),
       hasErrors_(false) {
+    // Set the target triple to match the host system
+    module_->setTargetTriple(sys::getDefaultTargetTriple());
 }
 
 LLVMCodegen::~LLVMCodegen() = default;
-
 
 bool LLVMCodegen::generate(
     const volta::ast::Program* program,
@@ -68,6 +71,7 @@ bool LLVMCodegen::emitLLVMIR(const std::string& filename) {
 bool LLVMCodegen::compileToObject(const std::string &filename) {
     return false;
 }
+
 void LLVMCodegen::generateFunction(const volta::ast::FnDeclaration *fn) {
     std::string fnName = fn->identifier;
 
@@ -154,7 +158,57 @@ llvm::Value *LLVMCodegen::generateExpression(const volta::ast::Expression *expr)
     return nullptr;
 }
 
-Value* LLVMCodegen::generateCallExpression(const volta::ast::CallExpression* call) {
+llvm::Value *LLVMCodegen::generateBinaryExpression(const volta::ast::BinaryExpression *expr) {
+    Value* lhs = generateExpression(expr->left.get());
+    Value* rhs = generateExpression(expr->right.get());
+
+    if (!lhs || !rhs) return nullptr;
+
+    // Get types from semantic analyzer
+    auto lhsType = analyzer_->getExpressionType(expr->left.get());
+    auto rhsType = analyzer_->getExpressionType(expr->right.get());
+    bool isSigned = lhsType->isSignedInteger();
+
+    // Promote to common type
+    Type* targetType = getPromotedType(lhs->getType(), rhs->getType());
+    lhs = convertToType(lhs, targetType, lhsType->isSignedInteger());
+    rhs = convertToType(rhs, targetType, rhsType->isSignedInteger());
+
+    bool isFloat = targetType->isFloatingPointTy();
+
+    switch(expr->op) {
+        case ast::BinaryExpression::Operator::Add:
+            return isFloat ? builder_->CreateFAdd(lhs, rhs, "faddTmp") 
+                        : builder_->CreateAdd(lhs, rhs, "addTmp");
+        
+        case ast::BinaryExpression::Operator::Subtract:
+            return isFloat ? builder_->CreateFSub(lhs, rhs, "fsubTmp") 
+                        : builder_->CreateSub(lhs, rhs, "subTmp");
+        
+        case ast::BinaryExpression::Operator::Multiply:
+            return isFloat ? builder_->CreateFMul(lhs, rhs, "fmulTmp") 
+                        : builder_->CreateMul(lhs, rhs, "mulTmp");
+        
+        case ast::BinaryExpression::Operator::Divide:
+            if (isFloat) return builder_->CreateFDiv(lhs, rhs, "fdivTmp");
+            return isSigned ? builder_->CreateSDiv(lhs, rhs, "sdivTmp")
+                            : builder_->CreateUDiv(lhs, rhs, "udivTmp");
+        
+        case ast::BinaryExpression::Operator::Modulo:
+            if (isFloat) return builder_->CreateFRem(lhs, rhs, "fremTmp");
+            return isSigned ? builder_->CreateSRem(lhs, rhs, "sremTmp")
+                            : builder_->CreateURem(lhs, rhs, "uremTmp");
+        
+        default:
+            return nullptr;
+    }
+}
+llvm::Value *LLVMCodegen::generateUnaryExpression(const volta::ast::UnaryExpression *expr) {
+    return nullptr;
+}
+
+Value *LLVMCodegen::generateCallExpression(const volta::ast::CallExpression *call)
+{
     auto* callee = dynamic_cast<const volta::ast::IdentifierExpression*>(call->callee.get());
     if (!callee) {
         reportError("Complex callee not supported yet");
@@ -361,6 +415,60 @@ llvm::Type *LLVMCodegen::lowerType(
 void LLVMCodegen::reportError(const std::string &message) {
     std::cerr << "Codegen error: " << message << "\n";
     hasErrors_ = true;
+}
+
+
+llvm::Type* LLVMCodegen::getPromotedType(llvm::Type* t1, llvm::Type* t2) {
+    // Float hierarchy: double > float > integers
+    if (t1->isDoubleTy() || t2->isDoubleTy()) return Type::getDoubleTy(*context_);
+    if (t1->isFloatTy() || t2->isFloatTy()) return Type::getFloatTy(*context_);
+    
+    // Integer hierarchy: larger bit width wins
+    if (t1->isIntegerTy() && t2->isIntegerTy()) {
+        unsigned w1 = t1->getIntegerBitWidth();
+        unsigned w2 = t2->getIntegerBitWidth();
+        return w1 >= w2 ? t1 : t2;
+    }
+    
+    return t1; // fallback
+}
+
+
+llvm::Value* LLVMCodegen::convertToType(llvm::Value* val, llvm::Type* targetType, bool isSigned) {
+    Type* srcType = val->getType();
+    if (srcType == targetType) return val;
+    
+    // Int -> Float/Double
+    if (srcType->isIntegerTy() && targetType->isFloatingPointTy()) {
+        return isSigned ? 
+            builder_->CreateSIToFP(val, targetType) :
+            builder_->CreateUIToFP(val, targetType);
+    }
+    
+    // Float -> Double or Double -> Float
+    if (srcType->isFloatingPointTy() && targetType->isFloatingPointTy()) {
+        unsigned srcBits = srcType->getPrimitiveSizeInBits();
+        unsigned dstBits = targetType->getPrimitiveSizeInBits();
+        return srcBits < dstBits ?
+            builder_->CreateFPExt(val, targetType) :
+            builder_->CreateFPTrunc(val, targetType);
+    }
+    
+    // Int -> Int (different widths)
+    if (srcType->isIntegerTy() && targetType->isIntegerTy()) {
+        unsigned srcBits = srcType->getIntegerBitWidth();
+        unsigned dstBits = targetType->getIntegerBitWidth();
+        if (srcBits < dstBits) {
+            return isSigned ? 
+                builder_->CreateSExt(val, targetType) :
+                builder_->CreateZExt(val, targetType);
+        } else {
+            return builder_->CreateTrunc(val, targetType);
+        }
+    }
+    
+    return val;
+
 }
 
 }

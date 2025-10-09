@@ -3,12 +3,12 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
-#include <llvm-18/llvm/IR/LLVMContext.h>
-#include <llvm-18/llvm/IR/Module.h>
-#include <llvm-18/llvm/IR/IRBuilder.h>
-#include <llvm-18/llvm/IR/Function.h>
-#include <llvm-18/llvm/IR/Type.h>
-#include <llvm-18/llvm/IR/Value.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/Type.h>
+#include <llvm/IR/Value.h>
 #include "ast/Statement.hpp"
 #include "ast/Expression.hpp"
 #include "semantic/SemanticAnalyzer.hpp"
@@ -120,7 +120,18 @@ private:
 
     llvm::Value* generateExpression(const volta::ast::Expression* expr);
 
+    llvm::Value* generateBinaryExpression(const volta::ast::BinaryExpression* expr);
+
+    llvm::Value* generateUnaryExpression(const volta::ast::UnaryExpression* expr);
+    
     llvm::Value* generateCallExpression(const volta::ast::CallExpression* call);
+    
+
+    // Type promotion utils
+    llvm::Type* getPromotedType(llvm::Type* t1, llvm::Type* t2);
+    llvm::Value* convertToType(llvm::Value* val, llvm::Type* targetType, bool isSigned);
+
+
 
     llvm::Value* generatePrintCall(const volta::ast::CallExpression* call);
 

@@ -62,14 +62,23 @@ MAKEFLAGS += --no-print-directory
 # =============================================================================
 
 CXX := g++
-CXXFLAGS := -std=c++20 -Wall -Wextra -O2 -Iinclude -I/usr/include/llvm-18 -I/usr/include/llvm-c-18 -Wno-unused-parameter -Wno-unused-variable -Wno-comment
+
+# Platform-specific compiler flags
+ifeq ($(PLATFORM),Linux)
+	CXXFLAGS := -std=c++20 -Wall -Wextra -O2 -Iinclude -I/usr/include/llvm-18 -I/usr/include/llvm-c-18 -Wno-unused-parameter -Wno-unused-variable -Wno-comment
+else ifeq ($(PLATFORM),macOS)
+	CXXFLAGS := -std=c++20 -Wall -Wextra -O2 -Iinclude -I/opt/homebrew/opt/llvm@18/include -Wno-unused-parameter -Wno-unused-variable -Wno-comment
+else
+	CXXFLAGS := -std=c++20 -Wall -Wextra -O2 -Iinclude -I/usr/include/llvm-18 -I/usr/include/llvm-c-18 -Wno-unused-parameter -Wno-unused-variable -Wno-comment
+endif
+
 DEBUG_FLAGS := -fsanitize=address -fsanitize=undefined -g -O0 -DDEBUG
 
 # Platform-specific linker flags
 ifeq ($(PLATFORM),Linux)
 	LDFLAGS := -lffi -ldl -L/usr/lib/llvm-18/lib -lLLVM-18
 else ifeq ($(PLATFORM),macOS)
-	LDFLAGS := -lffi -ldl -L/usr/lib/llvm-18/lib -lLLVM-18
+	LDFLAGS := -lffi -ldl -L/opt/homebrew/opt/llvm@18/lib -lLLVM-18
 else ifeq ($(PLATFORM),Windows)
 	LDFLAGS := -lffi
 else ifeq ($(PLATFORM),MSYS2)
@@ -194,7 +203,11 @@ $(MAIN_OBJECT): $(MAIN_SOURCE) | $(BUILD_DIR)
 $(RUNTIME_OBJ): $(RUNTIME_SRC) | $(BUILD_DIR)
 	@$(MKDIR) $(dir $@)
 	@echo "Compiling runtime library..."
+ifeq ($(PLATFORM),macOS)
+	@gcc -c $(RUNTIME_SRC) -o $(RUNTIME_OBJ) -Iinclude -I/opt/homebrew/opt/bdw-gc/include
+else
 	@gcc -c $(RUNTIME_SRC) -o $(RUNTIME_OBJ) -Iinclude -I/usr/include
+endif
 
 # Create runtime static library
 $(RUNTIME_LIB): $(RUNTIME_OBJ) | $(BIN_DIR)
