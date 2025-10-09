@@ -38,8 +38,8 @@ mini: f8 = 1.5          # 8-bit float (experimental, GPU/ML)
 Integer and float literals use default types:
 
 ```volta
-x := 42        # i32 (default integer type)
-y := 3.14      # f32 (default float type)
+let x := 42        # i32 (default integer type)
+let y := 3.14      # f32 (default float type)
 ```
 
 ### Implicit Conversions
@@ -47,9 +47,9 @@ y := 3.14      # f32 (default float type)
 Volta allows implicit conversions between all numeric types:
 
 ```volta
-x: i32 = 42
-y: f64 = x     # i32 -> f64 conversion
-z: i64 = y     # f64 -> i64 conversion
+let x: i32 = 42
+let y: f64 = x     # i32 -> f64 conversion
+let z: i64 = y     # f64 -> i64 conversion
 ```
 
 ### Boolean
@@ -57,8 +57,8 @@ z: i64 = y     # f64 -> i64 conversion
 Boolean values (`true` or `false`):
 
 ```volta
-is_active: bool = true
-has_error := false
+let is_active: bool = true
+let has_error := false
 ```
 
 ### String
@@ -66,8 +66,8 @@ has_error := false
 UTF-8 strings:
 
 ```volta
-name: str = "Volta"
-message := "Hello, World!"
+let name: str = "Volta"
+let message := "Hello, World!"
 ```
 
 ## Collection Types
@@ -77,9 +77,9 @@ message := "Hello, World!"
 Dynamic arrays of a single type:
 
 ```volta
-numbers: Array[i32] = [1, 2, 3, 4, 5]
-empty: Array[f32] = []
-names := ["Alice", "Bob", "Charlie"]
+let numbers: Array[i32] = [1, 2, 3, 4, 5]
+let empty: Array[f32] = []
+let names := ["Alice", "Bob", "Charlie"]
 ```
 
 ### Tuples
@@ -87,8 +87,8 @@ names := ["Alice", "Bob", "Charlie"]
 Fixed-size collections of mixed types:
 
 ```volta
-point: (i32, i32) = (3, 4)
-person := ("Alice", 30, true)
+let point: (i32, i32) = (3, 4)
+let person := ("Alice", 30, true)
 ```
 
 ## Option Types
@@ -100,8 +100,8 @@ fn find(arr: Array[i32], target: i32) -> Option[i32] {
     # Returns Some(value) or None
 }
 
-result: Option[i32] = Some(42)
-empty: Option[str] = None
+let result: Option[i32] = Some(42)
+let empty: Option[str] = None
 ```
 
 ## Type Annotations
@@ -117,7 +117,7 @@ fn process(data: Array[f32], threshold: f32) -> Option[f32] {
 Local variables can use type inference:
 
 ```volta
-x := 42              # i32
-y := 3.14            # f32
-items := [1, 2, 3]   # Array[i32]
+let x := 42              # i32
+let y := 3.14            # f32
+let items := [1, 2, 3]   # Array[i32]
 ```

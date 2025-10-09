@@ -5,17 +5,17 @@ Volta's syntax grammar reference.
 ## Variables
 
 ```ebnf
-variable_declaration := 
-    identifier ":" type "=" expression
-  | identifier ":" "mut" type "=" expression
-  | identifier ":=" expression
+variable_declaration :=
+    "let" identifier ":" type "=" expression
+  | "let" "mut" identifier ":" type "=" expression
+  | "let" identifier ":=" expression
 ```
 
 Examples:
 ```volta
-x: int = 42
-counter: mut int = 0
-y := 100
+let x: i32 = 42
+let mut counter: i32 = 0
+let y := 100
 ```
 
 ## Functions
@@ -34,11 +34,11 @@ parameter := identifier ":" type
 
 Examples:
 ```volta
-fn add(a: int, b: int) -> int {
+fn add(a: i32, b: i32) -> i32 {
     return a + b
 }
 
-fn square(x: int) -> int = x * x
+fn square(x: i32) -> i32 = x * x
 ```
 
 ## Expressions
@@ -109,8 +109,9 @@ match_arm := pattern ("if" expression)? "=>" expression
 
 ```ebnf
 type :=
-    "int"
-  | "float"
+    "i8" | "i16" | "i32" | "i64"
+  | "u8" | "u16" | "u32" | "u64"
+  | "f16" | "f32" | "f64" | "f8"
   | "bool"
   | "str"
   | "Array" "[" type "]"
@@ -123,11 +124,11 @@ tuple_type := "(" type ("," type)* ")"
 
 Examples:
 ```volta
-int
-float
-Array[int]
+i32
+f64
+Array[i32]
 Option[str]
-(int, int)
+(i32, i32)
 Point
 ```
 
@@ -144,8 +145,8 @@ field := identifier ":" type
 Example:
 ```volta
 struct Point {
-    x: float,
-    y: float
+    x: f64,
+    y: f64
 }
 ```
 

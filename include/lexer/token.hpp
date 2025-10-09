@@ -61,6 +61,7 @@ enum class TokenType {
     MATCH,
     STRUCT,
     MUT,
+    LET,
     IMPORT,
     AS,
     TYPE,

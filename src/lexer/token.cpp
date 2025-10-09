@@ -49,6 +49,7 @@ std::string tokenTypeToString(TokenType type) {
         case TokenType::MATCH: return "MATCH";
         case TokenType::STRUCT: return "STRUCT";
         case TokenType::MUT: return "MUT";
+        case TokenType::LET: return "LET";
         case TokenType::AS: return "AS";
         case TokenType::IMPORT: return "IMPORT";
         case TokenType::ENUM: return "ENUM";
@@ -87,6 +88,7 @@ const std::unordered_map<std::string, TokenType>& getKeywords() {
         {"match", TokenType::MATCH},
         {"struct", TokenType::STRUCT},
         {"mut", TokenType::MUT},
+        {"let", TokenType::LET},
         {"enum", TokenType::ENUM},
         {"type", TokenType::TYPE},
         {"import", TokenType::IMPORT},

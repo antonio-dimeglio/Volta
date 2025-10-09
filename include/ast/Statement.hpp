@@ -134,16 +134,19 @@ struct VarDeclaration : Statement {
     std::string identifier;
     std::unique_ptr<TypeAnnotation> typeAnnotation;  // nullptr for := syntax
     std::unique_ptr<Expression> initializer;
+    bool isMutable;
 
     VarDeclaration(
         std::string identifier,
         std::unique_ptr<TypeAnnotation> typeAnnotation,
         std::unique_ptr<Expression> initializer,
-        volta::errors::SourceLocation location
+        volta::errors::SourceLocation location,
+        bool isMutable = false
     ) : Statement(location),
         identifier(identifier),
         typeAnnotation(std::move(typeAnnotation)),
-        initializer(std::move(initializer)) {}
+        initializer(std::move(initializer)),
+        isMutable(isMutable) {}
 };
 
 struct Parameter {

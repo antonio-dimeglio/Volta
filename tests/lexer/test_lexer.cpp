@@ -174,29 +174,33 @@ TEST_F(LexerTest, Arrows) {
 }
 
 TEST_F(LexerTest, Comments) {
-    Lexer lexer("x := 42 # this is a comment\ny := 10");
+    Lexer lexer("let x := 42 # this is a comment\nlet y := 10");
     auto tokens = lexer.tokenize();
 
-    ASSERT_EQ(tokens.size(), 7); // x, :=, 42, y, :=, 10, EOF
-    EXPECT_EQ(tokens[0].type, TokenType::IDENTIFIER);
-    EXPECT_EQ(tokens[0].lexeme, "x");
-    EXPECT_EQ(tokens[1].type, TokenType::INFER_ASSIGN);
-    EXPECT_EQ(tokens[2].type, TokenType::INTEGER);
-    EXPECT_EQ(tokens[2].lexeme, "42");
-    EXPECT_EQ(tokens[3].type, TokenType::IDENTIFIER);
-    EXPECT_EQ(tokens[3].lexeme, "y");
+    ASSERT_EQ(tokens.size(), 9); // let, x, :=, 42, let, y, :=, 10, EOF
+    EXPECT_EQ(tokens[0].type, TokenType::LET);
+    EXPECT_EQ(tokens[1].type, TokenType::IDENTIFIER);
+    EXPECT_EQ(tokens[1].lexeme, "x");
+    EXPECT_EQ(tokens[2].type, TokenType::INFER_ASSIGN);
+    EXPECT_EQ(tokens[3].type, TokenType::INTEGER);
+    EXPECT_EQ(tokens[3].lexeme, "42");
+    EXPECT_EQ(tokens[4].type, TokenType::LET);
+    EXPECT_EQ(tokens[5].type, TokenType::IDENTIFIER);
+    EXPECT_EQ(tokens[5].lexeme, "y");
 }
 
 TEST_F(LexerTest, LineAndColumnTracking) {
-    Lexer lexer("x := 42\ny := 10");
+    Lexer lexer("let x := 42\nlet y := 10");
     auto tokens = lexer.tokenize();
 
-    EXPECT_EQ(tokens[0].line, 1);
+    EXPECT_EQ(tokens[0].line, 1); // let
     EXPECT_EQ(tokens[0].column, 1);
-    EXPECT_EQ(tokens[1].line, 1);
-    EXPECT_EQ(tokens[1].column, 3);
-    EXPECT_EQ(tokens[3].line, 2);
-    EXPECT_EQ(tokens[3].column, 1);
+    EXPECT_EQ(tokens[1].line, 1); // x
+    EXPECT_EQ(tokens[1].column, 5);
+    EXPECT_EQ(tokens[2].line, 1); // :=
+    EXPECT_EQ(tokens[2].column, 7);
+    EXPECT_EQ(tokens[4].line, 2); // let on line 2
+    EXPECT_EQ(tokens[4].column, 1);
 }
 
 TEST_F(LexerTest, ComplexExpression) {

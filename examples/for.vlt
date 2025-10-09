@@ -1,0 +1,27 @@
+fn sum_range(n: i32) -> i32 {
+    let mut total := 0
+    for i in 0..=n {
+        total = total + i
+    }
+    return total
+}
+
+fn diff_range(n: i32) -> i32 {
+    let mut total := 0
+    for i in n..0 {
+        total = total - i
+    }
+    return total 
+}
+
+fn main() -> i32 {
+    let mut result1 := sum_range(10)
+    print("\t")
+    print(result1)
+    print("\n")
+    let mut result2 := diff_range(10)
+    print("\t")
+    print(result2)
+    print("\n")
+    return 0
+}

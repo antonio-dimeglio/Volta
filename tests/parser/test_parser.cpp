@@ -32,7 +32,7 @@ TEST_F(ParserTest, ParseEmptyProgram) {
 }
 
 TEST_F(ParserTest, ParseSimpleProgram) {
-    auto parser = createParser("x := 42");
+    auto parser = createParser("let x := 42");
     auto program = parser->parseProgram();
     ASSERT_NE(program, nullptr);
     EXPECT_EQ(program->statements.size(), 1);
@@ -229,16 +229,16 @@ TEST_F(ParserTest, ParseExpressionStatement) {
 }
 
 TEST_F(ParserTest, ParseBlock) {
-    auto parser = createParser("{ x := 1\n y := 2 }");
+    auto parser = createParser("{ let x := 1\n let y := 2 }");
     auto block = parser->parseBlock();
     ASSERT_NE(block, nullptr);
     EXPECT_EQ(block->statements.size(), 2);
 }
 
 TEST_F(ParserTest, ParseIfStatement) {
-    auto parser = createParser("if x > 0 { x := 1 }");
+    auto parser = createParser("if x > 0 { let x := 1 }");
     // Consume 'if' token first since parseIfStatement expects it consumed
-    auto program = createParser("if x > 0 { x := 1 }");
+    auto program = createParser("if x > 0 { let x := 1 }");
     auto stmt = program->parseStatement();
     ASSERT_NE(stmt, nullptr);
     auto* ifStmt = dynamic_cast<IfStatement*>(stmt.get());
@@ -248,7 +248,7 @@ TEST_F(ParserTest, ParseIfStatement) {
 }
 
 TEST_F(ParserTest, ParseIfElseStatement) {
-    auto parser = createParser("if x > 0 { x := 1 } else { x := 0 }");
+    auto parser = createParser("if x > 0 { let x := 1 } else { let x := 0 }");
     auto stmt = parser->parseStatement();
     ASSERT_NE(stmt, nullptr);
     auto* ifStmt = dynamic_cast<IfStatement*>(stmt.get());
@@ -257,7 +257,7 @@ TEST_F(ParserTest, ParseIfElseStatement) {
 }
 
 TEST_F(ParserTest, ParseIfElseIfElseStatement) {
-    auto parser = createParser("if x > 0 { x := 1 } else if x < 0 { x := 2 } else { x := 0 }");
+    auto parser = createParser("if x > 0 { let x := 1 } else if x < 0 { let x := 2 } else { let x := 0 }");
     auto stmt = parser->parseStatement();
     ASSERT_NE(stmt, nullptr);
     auto* ifStmt = dynamic_cast<IfStatement*>(stmt.get());
@@ -267,7 +267,7 @@ TEST_F(ParserTest, ParseIfElseIfElseStatement) {
 }
 
 TEST_F(ParserTest, ParseWhileStatement) {
-    auto parser = createParser("while x > 0 { x := x - 1 }");
+    auto parser = createParser("while x > 0 { let x := x - 1 }");
     auto stmt = parser->parseStatement();
     ASSERT_NE(stmt, nullptr);
     auto* whileStmt = dynamic_cast<WhileStatement*>(stmt.get());
@@ -276,7 +276,7 @@ TEST_F(ParserTest, ParseWhileStatement) {
 }
 
 TEST_F(ParserTest, ParseForStatement) {
-    auto parser = createParser("for i in 0..10 { x := x + i }");
+    auto parser = createParser("for i in 0..10 { let x := x + i }");
     auto stmt = parser->parseStatement();
     ASSERT_NE(stmt, nullptr);
     auto* forStmt = dynamic_cast<ForStatement*>(stmt.get());
@@ -316,30 +316,38 @@ TEST_F(ParserTest, ParseImportStatement) {
 // ============================================================================
 
 TEST_F(ParserTest, ParseVarDeclarationWithType) {
-    auto parser = createParser("x: int = 42");
-    auto decl = parser->parseVarDeclaration();
+    auto parser = createParser("let x: int = 42");
+    auto stmt = parser->parseStatement();
+    ASSERT_NE(stmt, nullptr);
+    auto* decl = dynamic_cast<VarDeclaration*>(stmt.get());
     ASSERT_NE(decl, nullptr);
     EXPECT_EQ(decl->identifier, "x");
     EXPECT_NE(decl->typeAnnotation, nullptr);
     EXPECT_NE(decl->initializer, nullptr);
+    EXPECT_FALSE(decl->isMutable);
 }
 
 TEST_F(ParserTest, ParseVarDeclarationInferred) {
-    auto parser = createParser("x := 42");
-    auto decl = parser->parseVarDeclaration();
+    auto parser = createParser("let x := 42");
+    auto stmt = parser->parseStatement();
+    ASSERT_NE(stmt, nullptr);
+    auto* decl = dynamic_cast<VarDeclaration*>(stmt.get());
     ASSERT_NE(decl, nullptr);
     EXPECT_EQ(decl->identifier, "x");
     EXPECT_EQ(decl->typeAnnotation, nullptr);
     EXPECT_NE(decl->initializer, nullptr);
+    EXPECT_FALSE(decl->isMutable);
 }
 
 TEST_F(ParserTest, ParseVarDeclarationMutable) {
-    auto parser = createParser("x: mut int = 42");
-    auto decl = parser->parseVarDeclaration();
+    auto parser = createParser("let mut x: int = 42");
+    auto stmt = parser->parseStatement();
+    ASSERT_NE(stmt, nullptr);
+    auto* decl = dynamic_cast<VarDeclaration*>(stmt.get());
     ASSERT_NE(decl, nullptr);
     EXPECT_EQ(decl->identifier, "x");
     EXPECT_NE(decl->typeAnnotation, nullptr);
-    EXPECT_TRUE(decl->typeAnnotation->isMutable);
+    EXPECT_TRUE(decl->isMutable);
 }
 
 TEST_F(ParserTest, ParseFnDeclarationSimple) {
@@ -566,7 +574,7 @@ TEST_F(ParserTest, ParseComplexProgram) {
             }
         }
 
-        x := factorial(5)
+        let x := factorial(5)
     )");
     auto program = parser->parseProgram();
     ASSERT_NE(program, nullptr);
@@ -655,7 +663,7 @@ TEST_F(ParserTest, ParseOptionTypeNone) {
 }
 
 TEST_F(ParserTest, ParseOptionTypeInVariable) {
-    auto parser = createParser("value: Option[int] = Some(10)");
+    auto parser = createParser("let value: Option[int] = Some(10)");
     auto stmt = parser->parseStatement();
     ASSERT_NE(stmt, nullptr);
 }
@@ -719,7 +727,7 @@ TEST_F(ParserTest, ParseArraySlicingOpenStart) {
 }
 
 TEST_F(ParserTest, ParseNestedGenerics) {
-    auto parser = createParser("value: Array[Array[int]] = [[1, 2], [3, 4]]");
+    auto parser = createParser("let value: Array[Array[int]] = [[1, 2], [3, 4]]");
     auto stmt = parser->parseStatement();
     ASSERT_NE(stmt, nullptr);
 }

@@ -16,7 +16,7 @@ Save this as `hello.volta` and run:
 ## Adding Variables
 
 ```volta
-name: str = "Alessandro"
+let name: str = "Alessandro"
 print("Hello, " + name + "!")
 ```
 
@@ -27,26 +27,26 @@ fn greet(name: str) -> str {
     return "Hello, " + name + "!"
 }
 
-message := greet("Volta")
+let message := greet("Volta")
 print(message)
 ```
 
 ## A Simple Calculator
 
 ```volta
-fn add(a: int, b: int) -> int {
+fn add(a: i32, b: i32) -> i32 {
     return a + b
 }
 
-fn multiply(a: int, b: int) -> int {
+fn multiply(a: i32, b: i32) -> i32 {
     return a * b
 }
 
-x := 5
-y := 3
+let x := 5
+let y := 3
 
-sum := add(x, y)
-product := multiply(x, y)
+let sum := add(x, y)
+let product := multiply(x, y)
 
 print("Sum: " + str(sum))
 print("Product: " + str(product))

@@ -139,6 +139,39 @@ VoltaString* volta_string_new(const char* data, size_t length);
  */
 int64_t volta_string_length(VoltaString* str);
 
+/**
+ * Compare two Volta strings for equality
+ *
+ * Checks if two strings have the same length and content.
+ *
+ * @param a First string to compare
+ * @param b Second string to compare
+ * @return 1 if equal, 0 if not equal
+ */
+int8_t volta_string_eq(VoltaString* a, VoltaString* b);
+
+/**
+ * Compare two Volta strings lexicographically
+ *
+ * Returns a value indicating the relative ordering of two strings.
+ *
+ * @param a First string to compare
+ * @param b Second string to compare
+ * @return <0 if a<b, 0 if a==b, >0 if a>b (like strcmp)
+ */
+int32_t volta_string_cmp(VoltaString* a, VoltaString* b);
+
+/**
+ * Concatenate two Volta strings
+ *
+ * Creates a new string by concatenating two strings.
+ *
+ * @param a First string
+ * @param b Second string
+ * @return New string containing a + b
+ */
+VoltaString* volta_string_concat(VoltaString* a, VoltaString* b);
+
 // ============================================================================
 // Array Type
 // ============================================================================

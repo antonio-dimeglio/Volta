@@ -42,7 +42,7 @@ public:
 
     // Symbol operations
     bool declare(const std::string& name, Symbol symbol);
-    std::optional<Symbol> lookup(const std::string& name);
+    std::optional<Symbol> lookup(const std::string& name) const;
     std::optional<Symbol> lookupInCurrentScope(const std::string& name);
 
     // Overload resolution

@@ -82,24 +82,24 @@ TEST_F(SemanticAnalyzerTest, FunctionTypeEquality) {
 // ============================================================================
 
 TEST_F(SemanticAnalyzerTest, SimpleVariableDeclaration) {
-    EXPECT_TRUE(analyzeSource("x: i32 = 42"));
+    EXPECT_TRUE(analyzeSource("let x: i32 = 42"));
     EXPECT_FALSE(errorReporter->hasErrors());
 }
 
 TEST_F(SemanticAnalyzerTest, TypeInference) {
-    EXPECT_TRUE(analyzeSource("x := 42"));
+    EXPECT_TRUE(analyzeSource("let x := 42"));
     EXPECT_FALSE(errorReporter->hasErrors());
 }
 
 TEST_F(SemanticAnalyzerTest, TypeMismatch) {
     // With implicit numeric conversions, f32 -> i32 is allowed
-    EXPECT_TRUE(analyzeSource("x: i32 = 3.14"));
+    EXPECT_TRUE(analyzeSource("let x: i32 = 3.14"));
     EXPECT_FALSE(errorReporter->hasErrors());
 }
 
 TEST_F(SemanticAnalyzerTest, MutableVariable) {
     EXPECT_TRUE(analyzeSource(R"(
-        x: mut i32 = 5
+        let mut x: i32 = 5
         x = 10
     )"));
     EXPECT_FALSE(errorReporter->hasErrors());
@@ -107,7 +107,7 @@ TEST_F(SemanticAnalyzerTest, MutableVariable) {
 
 TEST_F(SemanticAnalyzerTest, ImmutableVariableAssignment) {
     EXPECT_FALSE(analyzeSource(R"(
-        x: i32 = 5
+        let x: i32 = 5
         x = 10
     )"));
     EXPECT_TRUE(errorReporter->hasErrors());
@@ -120,8 +120,8 @@ TEST_F(SemanticAnalyzerTest, UndefinedVariable) {
 
 TEST_F(SemanticAnalyzerTest, VariableRedeclaration) {
     EXPECT_FALSE(analyzeSource(R"(
-        x: i32 = 5
-        x: i32 = 10
+        let x: i32 = 5
+        let x: i32 = 10
     )"));
     EXPECT_TRUE(errorReporter->hasErrors());
 }
@@ -161,7 +161,7 @@ TEST_F(SemanticAnalyzerTest, FunctionCallWithCorrectArgs) {
         fn add(a: i32, b: i32) -> i32 {
             return a + b
         }
-        result := add(5, 10)
+        let result := add(5, 10)
     )"));
     EXPECT_FALSE(errorReporter->hasErrors());
 }
@@ -171,7 +171,7 @@ TEST_F(SemanticAnalyzerTest, FunctionCallWrongArgCount) {
         fn add(a: i32, b: i32) -> i32 {
             return a + b
         }
-        result := add(5)
+        let result := add(5)
     )"));
     EXPECT_TRUE(errorReporter->hasErrors());
 }
@@ -181,7 +181,7 @@ TEST_F(SemanticAnalyzerTest, FunctionCallWrongArgType) {
         fn add(a: i32, b: i32) -> i32 {
             return a + b
         }
-        result := add(5, 3.14)
+        let result := add(5, 3.14)
     )"));
     EXPECT_TRUE(errorReporter->hasErrors());
 }
@@ -216,9 +216,9 @@ TEST_F(SemanticAnalyzerTest, RecursiveFunction) {
 
 TEST_F(SemanticAnalyzerTest, IfStatementWithBoolCondition) {
     EXPECT_TRUE(analyzeSource(R"(
-        x := 5
+        let x := 5
         if x > 3 {
-            y := 10
+            let y := 10
         }
     )"));
     EXPECT_FALSE(errorReporter->hasErrors());
@@ -227,7 +227,7 @@ TEST_F(SemanticAnalyzerTest, IfStatementWithBoolCondition) {
 TEST_F(SemanticAnalyzerTest, IfStatementNonBoolCondition) {
     EXPECT_FALSE(analyzeSource(R"(
         if 42 {
-            y := 10
+            let y := 10
         }
     )"));
     EXPECT_TRUE(errorReporter->hasErrors());
@@ -235,11 +235,11 @@ TEST_F(SemanticAnalyzerTest, IfStatementNonBoolCondition) {
 
 TEST_F(SemanticAnalyzerTest, IfElseStatement) {
     EXPECT_TRUE(analyzeSource(R"(
-        x := 5
+        let x := 5
         if x > 3 {
-            y := 10
+            let y := 10
         } else {
-            y := 20
+            let y := 20
         }
     )"));
     EXPECT_FALSE(errorReporter->hasErrors());
@@ -247,7 +247,7 @@ TEST_F(SemanticAnalyzerTest, IfElseStatement) {
 
 TEST_F(SemanticAnalyzerTest, WhileLoop) {
     EXPECT_TRUE(analyzeSource(R"(
-        counter: mut i32 = 0
+        let mut counter: i32 = 0
         while counter < 10 {
             counter = counter + 1
         }
@@ -258,7 +258,7 @@ TEST_F(SemanticAnalyzerTest, WhileLoop) {
 TEST_F(SemanticAnalyzerTest, WhileLoopNonBoolCondition) {
     EXPECT_FALSE(analyzeSource(R"(
         while 42 {
-            x := 1
+            let x := 1
         }
     )"));
     EXPECT_TRUE(errorReporter->hasErrors());
@@ -266,9 +266,9 @@ TEST_F(SemanticAnalyzerTest, WhileLoopNonBoolCondition) {
 
 TEST_F(SemanticAnalyzerTest, ForLoopWithArray) {
     EXPECT_TRUE(analyzeSource(R"(
-        numbers := [1, 2, 3, 4, 5]
+        let numbers := [1, 2, 3, 4, 5]
         for num in numbers {
-            x := num + 1
+            let x := num + 1
         }
     )"));
     EXPECT_FALSE(errorReporter->hasErrors());
@@ -277,7 +277,7 @@ TEST_F(SemanticAnalyzerTest, ForLoopWithArray) {
 TEST_F(SemanticAnalyzerTest, ForLoopWithRange) {
     EXPECT_TRUE(analyzeSource(R"(
         for i in 0..10 {
-            x := i * 2
+            let x := i * 2
         }
     )"));
     EXPECT_FALSE(errorReporter->hasErrors());
@@ -289,41 +289,41 @@ TEST_F(SemanticAnalyzerTest, ForLoopWithRange) {
 
 TEST_F(SemanticAnalyzerTest, ArithmeticOperations) {
     EXPECT_TRUE(analyzeSource(R"(
-        a := 5 + 3
-        b := 10 - 2
-        c := 4 * 7
-        d := 20 / 4
-        e := 17 % 5
+        let a := 5 + 3
+        let b := 10 - 2
+        let c := 4 * 7
+        let d := 20 / 4
+        let e := 17 % 5
     )"));
     EXPECT_FALSE(errorReporter->hasErrors());
 }
 
 TEST_F(SemanticAnalyzerTest, ComparisonOperations) {
     EXPECT_TRUE(analyzeSource(R"(
-        a := 5 > 3
-        b := 10 < 20
-        c := 5 >= 5
-        d := 3 <= 10
-        e := 5 == 5
-        f := 5 != 3
+        let a := 5 > 3
+        let b := 10 < 20
+        let c := 5 >= 5
+        let d := 3 <= 10
+        let e := 5 == 5
+        let f := 5 != 3
     )"));
     EXPECT_FALSE(errorReporter->hasErrors());
 }
 
 TEST_F(SemanticAnalyzerTest, LogicalOperations) {
     EXPECT_TRUE(analyzeSource(R"(
-        a := true and false
-        b := true or false
-        c := not true
+        let a := true and false
+        let b := true or false
+        let c := not true
     )"));
     EXPECT_FALSE(errorReporter->hasErrors());
 }
 
 TEST_F(SemanticAnalyzerTest, UnaryNegation) {
     EXPECT_TRUE(analyzeSource(R"(
-        x := 5
-        y := -x
-        z := -3.14
+        let x := 5
+        let y := -x
+        let z := -3.14
     )"));
     EXPECT_FALSE(errorReporter->hasErrors());
 }
@@ -334,10 +334,10 @@ TEST_F(SemanticAnalyzerTest, UnaryNegation) {
 
 TEST_F(SemanticAnalyzerTest, NestedScopes) {
     EXPECT_TRUE(analyzeSource(R"(
-        x := 5
+        let x := 5
         if true {
-            y := 10
-            z := x + y
+            let y := 10
+            let z := x + y
         }
     )"));
     EXPECT_FALSE(errorReporter->hasErrors());
@@ -346,21 +346,21 @@ TEST_F(SemanticAnalyzerTest, NestedScopes) {
 TEST_F(SemanticAnalyzerTest, VariableOutOfScope) {
     EXPECT_FALSE(analyzeSource(R"(
         if true {
-            x := 5
+            let x := 5
         }
-        y := x + 10
+        let y := x + 10
     )"));
     EXPECT_TRUE(errorReporter->hasErrors());
 }
 
 TEST_F(SemanticAnalyzerTest, VariableShadowing) {
     EXPECT_TRUE(analyzeSource(R"(
-        x := 5
+        let x := 5
         if true {
-            x := 10
-            y := x
+            let x := 10
+            let y := x
         }
-        z := x
+        let z := x
     )"));
     EXPECT_FALSE(errorReporter->hasErrors());
 }
@@ -368,7 +368,7 @@ TEST_F(SemanticAnalyzerTest, VariableShadowing) {
 TEST_F(SemanticAnalyzerTest, FunctionParameterScope) {
     EXPECT_TRUE(analyzeSource(R"(
         fn test(x: i32) -> i32 {
-            y := x + 5
+            let y := x + 5
             return y
         }
     )"));
@@ -422,14 +422,14 @@ TEST_F(SemanticAnalyzerTest, StructDeclaration) {
 
 TEST_F(SemanticAnalyzerTest, ArrayLiteral) {
     EXPECT_TRUE(analyzeSource(R"(
-        numbers := [1, 2, 3, 4, 5]
+        let numbers := [1, 2, 3, 4, 5]
     )"));
     EXPECT_FALSE(errorReporter->hasErrors());
 }
 
 TEST_F(SemanticAnalyzerTest, EmptyArray) {
     EXPECT_TRUE(analyzeSource(R"(
-        empty: Array[i32] = []
+        let empty: Array[i32] = []
     )"));
     EXPECT_FALSE(errorReporter->hasErrors());
 }
@@ -448,7 +448,7 @@ TEST_F(SemanticAnalyzerTest, ComplexProgramWithMultipleFunctions) {
         }
 
         fn main() -> i32 {
-            result := fibonacci(10)
+            let result := fibonacci(10)
             return result
         }
     )"));
@@ -465,7 +465,7 @@ TEST_F(SemanticAnalyzerTest, VariablesAndFunctionsInteraction) {
             return square(a) + square(b)
         }
 
-        result := sumOfSquares(3, 4)
+        let result := sumOfSquares(3, 4)
     )"));
     EXPECT_FALSE(errorReporter->hasErrors());
 }
@@ -473,7 +473,7 @@ TEST_F(SemanticAnalyzerTest, VariablesAndFunctionsInteraction) {
 TEST_F(SemanticAnalyzerTest, NestedControlFlow) {
     EXPECT_TRUE(analyzeSource(R"(
         fn findMax(arr: Array[i32]) -> i32 {
-            max: mut i32 = 0
+            let mut max: i32 = 0
             for num in arr {
                 if num > max {
                     max = num
@@ -529,7 +529,7 @@ TEST_F(SemanticAnalyzerTest, EnumConstructionSimple) {
         enum Color { Red, Green, Blue }
 
         fn test() -> i32 {
-            c := Color.Red
+            let c := Color.Red
             return 0
         }
     )"));
@@ -541,8 +541,8 @@ TEST_F(SemanticAnalyzerTest, EnumConstructionWithData) {
         enum Option { Some(i32), None }
 
         fn test() -> i32 {
-            x := Option.Some(42)
-            y := Option.None
+            let x := Option.Some(42)
+            let y := Option.None
             return 0
         }
     )"));
@@ -903,7 +903,7 @@ TEST_F(SemanticAnalyzerTest, MatchPatternShadowing) {
         }
 
         fn test(opt: Option) -> i32 {
-            x := 100
+            let x := 100
             return match opt {
                 Option.Some(x) => x,
                 Option.None => x

@@ -111,10 +111,18 @@ struct Point {
 }
 ```
 
-### mut
-Declare a mutable variable:
+### let
+Declare a variable:
 ```volta
-counter: mut int = 0
+let x: i32 = 42
+let mut counter: i32 = 0
+let name := "Volta"  # type inferred
+```
+
+### mut
+Modifier for mutable variables (used with `let`):
+```volta
+let mut counter: i32 = 0
 counter = counter + 1
 ```
 
@@ -194,7 +202,6 @@ if not is_valid {
 These keywords are reserved but may not be fully implemented:
 
 - `type` - Type aliases
-- `let` - Alternative variable declaration
 - `const` - Compile-time constants
 - `trait` - Trait definitions
 - `impl` - Trait implementations
@@ -206,7 +213,7 @@ These keywords are reserved but may not be fully implemented:
 ## Complete List
 
 ```
-fn, return, if, else, while, for, in, match, enum, struct, import, mut,
+fn, return, if, else, while, for, in, match, enum, struct, import, let, mut,
 true, false, Some, None, Ok, Err, and, or, not, break, continue
 ```
 

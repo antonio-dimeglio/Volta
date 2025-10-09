@@ -77,7 +77,7 @@ bool SymbolTable::declare(const std::string& name, Symbol symbol) {
     return true;
 }
 
-std::optional<Symbol> SymbolTable::lookup(const std::string& name) {
+std::optional<Symbol> SymbolTable::lookup(const std::string& name) const {
     for (auto it = scopes_.rbegin(); it != scopes_.rend(); ++it) {
         auto& currScope = it->symbols;
         auto jt = currScope.find(name);

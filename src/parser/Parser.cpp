@@ -32,12 +32,7 @@ std::unique_ptr<volta::ast::Statement> Parser::parseStatement() {
     if (match(TokenType::FUNCTION)) return parseFnDeclaration();
     if (match(TokenType::STRUCT)) return parseStructDeclaration();
     if (match(TokenType::ENUM)) return parseEnumDeclaration();
-    if (check(TokenType::IDENTIFIER)) {
-        const Token& next = peekNext();
-        if (next.type == TokenType::INFER_ASSIGN || next.type == TokenType::COLON) {
-            return parseVarDeclaration();
-        }
-    }
+    if (match(TokenType::LET)) return parseVarDeclaration();
 
     return parseExpressionStatement();
 }
@@ -226,6 +221,10 @@ std::unique_ptr<volta::ast::ImportStatement> Parser::parseImportStatement() {
 // Declaration parsing
 std::unique_ptr<volta::ast::VarDeclaration> Parser::parseVarDeclaration() {
     auto startLoc = currentLocation();
+
+    // Check for mutability keyword
+    bool isMutable = match(TokenType::MUT);
+
     auto varName = consume(TokenType::IDENTIFIER, "Expected identifier for variable declaration").lexeme;
 
     if (peek().type == TokenType::INFER_ASSIGN) {
@@ -236,7 +235,8 @@ std::unique_ptr<volta::ast::VarDeclaration> Parser::parseVarDeclaration() {
             varName,
             nullptr,
             std::move(initializer),
-            startLoc
+            startLoc,
+            isMutable
         );
     } else {
         consume(TokenType::COLON, "Expected either infer-assign operator or type definition after variable.");
@@ -248,7 +248,8 @@ std::unique_ptr<volta::ast::VarDeclaration> Parser::parseVarDeclaration() {
             varName,
             std::move(typeAnnotation),
             std::move(initializer),
-            startLoc
+            startLoc,
+            isMutable
         );
     }
 }

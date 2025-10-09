@@ -17,15 +17,15 @@ Run it with:
 
 ```volta
 # Immutable by default
-x: int = 42
-name: str = "Alessandro"
+let x: i32 = 42
+let name: str = "Alessandro"
 
 # Mutable variables
-counter: mut int = 0
+let mut counter: i32 = 0
 counter = counter + 1
 
 # Type inference with :=
-y := 100
+let y := 100
 ```
 
 ## Simple Function

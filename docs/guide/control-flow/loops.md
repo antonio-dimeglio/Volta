@@ -22,14 +22,14 @@ for i in -3..3 {
 ## For Loops with Arrays
 
 ```volta
-numbers := [1, 2, 3, 4, 5]
+let numbers := [1, 2, 3, 4, 5]
 
 for num in numbers {
     print(num)
 }
 
 # Array of strings
-names := ["Alice", "Bob", "Charlie"]
+let names := ["Alice", "Bob", "Charlie"]
 for name in names {
     print("Hello, " + name)
 }
@@ -38,7 +38,7 @@ for name in names {
 ## While Loops
 
 ```volta
-counter: mut int = 0
+let mut counter: i32 = 0
 
 while counter < 5 {
     print(counter)
@@ -87,8 +87,8 @@ for i in range(3) {
 ### Sum of array elements
 
 ```volta
-numbers := [1, 2, 3, 4, 5]
-sum: mut int = 0
+let numbers := [1, 2, 3, 4, 5]
+let mut sum: i32 = 0
 
 for num in numbers {
     sum = sum + num
@@ -100,9 +100,9 @@ print("Sum: " + str(sum))
 ### Finding an element
 
 ```volta
-numbers := [10, 20, 30, 40, 50]
-target := 30
-found: mut bool = false
+let numbers := [10, 20, 30, 40, 50]
+let target := 30
+let mut found: bool = false
 
 for num in numbers {
     if num == target {
@@ -119,8 +119,8 @@ if found {
 ### Counting even numbers
 
 ```volta
-numbers := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-count: mut int = 0
+let numbers := [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+let mut count: i32 = 0
 
 for num in numbers {
     if num % 2 == 0 {
@@ -134,7 +134,7 @@ print("Even numbers: " + str(count))
 ### While loop with condition
 
 ```volta
-x: mut int = 1
+let mut x: i32 = 1
 
 while x <= 100 {
     print(x)

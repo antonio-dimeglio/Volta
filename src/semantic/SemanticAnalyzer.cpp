@@ -584,7 +584,7 @@ void SemanticAnalyzer::analyzeStatement(const volta::ast::Statement* stmt) {
 
 void SemanticAnalyzer::analyzeVarDeclaration(const volta::ast::VarDeclaration* varDecl) {
     // PURPOSE: Type check variable declaration and add to symbol table
-    // BEHAVIOR: Handle both explicit types (x: int = 5) and inference (x := 5)
+    // BEHAVIOR: Handle both explicit types (let x: int = 5) and inference (let x := 5)
 
     // If we have a type annotation, resolve it first to use as expected type
     std::shared_ptr<volta::semantic::Type> declaredType;
@@ -605,8 +605,7 @@ void SemanticAnalyzer::analyzeVarDeclaration(const volta::ast::VarDeclaration* v
         finalType = initType;
     }
 
-    bool isMutable = varDecl->typeAnnotation ? varDecl->typeAnnotation->isMutable : false;
-    declareVariable(varDecl->identifier, finalType, isMutable, varDecl->location);
+    declareVariable(varDecl->identifier, finalType, varDecl->isMutable, varDecl->location);
 
 }
 

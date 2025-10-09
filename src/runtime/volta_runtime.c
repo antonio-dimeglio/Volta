@@ -58,6 +58,43 @@ int64_t volta_string_length(VoltaString* str) {
     return str->length;
 }
 
+int8_t volta_string_eq(VoltaString* a, VoltaString* b) {
+    if (a == b) return 1;  // Same pointer
+    if (!a || !b) return 0;  // One is NULL
+    if (a->length != b->length) return 0;  // Different lengths
+    return memcmp(a->data, b->data, a->length) == 0 ? 1 : 0;
+}
+
+int32_t volta_string_cmp(VoltaString* a, VoltaString* b) {
+    if (a == b) return 0;  // Same pointer
+    if (!a) return -1;  // NULL comes before everything
+    if (!b) return 1;
+
+    size_t minLen = a->length < b->length ? a->length : b->length;
+    int cmp = memcmp(a->data, b->data, minLen);
+    if (cmp != 0) return cmp;
+
+    // Equal up to minLen, so shorter string is "less"
+    if (a->length < b->length) return -1;
+    if (a->length > b->length) return 1;
+    return 0;
+}
+
+VoltaString* volta_string_concat(VoltaString* a, VoltaString* b) {
+    if (!a || !b) return NULL;
+
+    size_t newLength = a->length + b->length;
+    VoltaString* result = volta_gc_alloc(sizeof(VoltaString));
+    result->length = newLength;
+    result->data = volta_gc_alloc(newLength + 1);
+
+    memcpy(result->data, a->data, a->length);
+    memcpy(result->data + a->length, b->data, b->length);
+    result->data[newLength] = '\0';
+
+    return result;
+}
+
 VoltaArray* volta_array_new(size_t capacity) {
     VoltaArray* arr = volta_gc_alloc(sizeof(VoltaArray));
     arr->length = 0;
