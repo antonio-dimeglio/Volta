@@ -22,6 +22,7 @@ namespace volta::vir {
 class RuntimeFunctions {
 public:
     RuntimeFunctions(llvm::Module* module, llvm::LLVMContext* context);
+    llvm::Function* getFunction(const std::string& name) const;
 
     // Memory management
     llvm::Function* getGCAlloc() const { return gcAlloc_; }
@@ -61,11 +62,13 @@ private:
 
     llvm::Module* module_;
     llvm::LLVMContext* context_;
+    std::unordered_map<std::string, llvm::Function*> functionMap_;
 
     // Runtime function declarations
     llvm::Function* gcAlloc_;
     llvm::Function* gcCollect_;
     llvm::Function* printInt_;
+    llvm::Function* printUInt_;
     llvm::Function* printFloat_;
     llvm::Function* printBool_;
     llvm::Function* printString_;

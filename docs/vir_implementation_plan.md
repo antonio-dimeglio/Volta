@@ -375,9 +375,9 @@
 
 ---
 
-## Phase 7: Arrays (Week 7-8)
+## Phase 7: Fixed Arrays (Week 7)
 
-**Strategy:** Implement in two stages - fixed arrays first (compiler built-in), then dynamic arrays (stdlib).
+**Goal:** Implement `[T; N]` as compiler primitives. No generics, no dynamic arrays yet.
 
 ### Week 7 Days 1-2: Fixed Array Infrastructure
 
@@ -450,15 +450,187 @@
 
 - [ ] **Verify:** Works end-to-end, exits with code 102
 
-**Checkpoint after Week 7:**
+**End of Phase 7 Checkpoint:**
 - ✅ Fixed arrays `[T; N]` fully working
 - ✅ Stack and heap allocation working
 - ✅ Bounds checking working
 - ✅ Can write fixed-size buffers, coordinates, etc.
+- ✅ **Primitive for dynamic arrays ready!**
 
-### Week 8 Day 1: Runtime Helper for Dynamic Array Backing Storage
+---
 
-**Goal:** Add runtime function to allocate heap-allocated fixed arrays with dynamic size.
+## Phase 8: Non-Generic Structs (Week 8-9)
+
+**Goal:** Implement concrete (non-generic) structs with methods. Foundation for generics later.
+
+### Week 8 Days 1-3: Struct Declaration & Instantiation
+
+- [ ] **VIR Nodes:** `VIRStructDecl`, `VIRStructNew`, `VIRStructGet`, `VIRStructSet`
+- [ ] **Lowering:**
+  - [ ] Struct type declarations
+  - [ ] Struct literals
+  - [ ] Field access (get/set)
+- [ ] **Codegen:**
+  - [ ] Declare LLVM struct types
+  - [ ] Heap allocation via GC
+  - [ ] GEP (GetElementPtr) for field access
+- [ ] **Test:**
+  ```volta
+  struct Point {
+      x: f64,
+      y: f64
+  }
+
+  fn test_struct() -> f64 {
+      let p: Point = Point { x: 3.0, y: 4.0 }
+      return p.x  // 3.0
+  }
+  ```
+
+### Week 8 Days 4-5: Struct Methods
+
+- [ ] **Lowering:** Method call desugaring
+  - [ ] `p.distance()` → `Point_distance(p)`
+- [ ] **Test:**
+  ```volta
+  struct Point { x: f64, y: f64 }
+
+  fn Point.distance(self: Point) -> f64 {
+      return sqrt(self.x * self.x + self.y * self.y)
+  }
+
+  fn main() -> i32 {
+      let p: Point = Point { x: 3.0, y: 4.0 }
+      let d: f64 = p.distance()  // 5.0
+      return 0
+  }
+  ```
+
+### Week 9 Days 1-2: Mutable Struct Methods
+
+- [ ] **Lowering:** Track `mut self` in methods
+- [ ] **Test:**
+  ```volta
+  struct Counter { value: i32 }
+
+  fn Counter.increment(mut self: Counter) {
+      self.value = self.value + 1
+  }
+
+  fn main() -> i32 {
+      let mut c: Counter = Counter { value: 0 }
+      c.increment()
+      c.increment()
+      return c.value  // 2
+  }
+  ```
+
+### Week 9 Days 3-5: Nested Structs & Structs with Fixed Arrays
+
+- [ ] **Test:**
+  ```volta
+  struct Vec3 {
+      data: [f64; 3]
+  }
+
+  struct BoundingBox {
+      min: Vec3,
+      max: Vec3
+  }
+
+  fn test_nested() -> f64 {
+      let bbox: BoundingBox = BoundingBox {
+          min: Vec3 { data: [0.0, 0.0, 0.0] },
+          max: Vec3 { data: [1.0, 1.0, 1.0] }
+      }
+      return bbox.max.data[0]  // 1.0
+  }
+  ```
+
+**End of Phase 8 Checkpoint:**
+- ✅ Non-generic structs fully working
+- ✅ Methods (immutable and mutable) work
+- ✅ Nested structures work
+- ✅ Structs can contain fixed arrays
+- ✅ **Ready for generics!**
+
+---
+
+## Phase 9: Generic Structs & Monomorphization (Week 10)
+
+**Goal:** Add generic type parameters to structs and functions. Enable `Array[T]` implementation.
+
+### Week 10 Days 1-2: Monomorphization Infrastructure
+
+- [ ] **Lowering:**
+  - [ ] Track generic instantiations: `std::unordered_map<std::string, std::vector<Type*>>`
+  - [ ] Name mangling: `Box[i32]` → `Box_i32`, `Box[f64]` → `Box_f64`
+  - [ ] Generate separate VIR structs for each instantiation
+- [ ] **Test:**
+  ```volta
+  struct Box[T] {
+      value: T
+  }
+
+  fn test_basic_generic() -> i32 {
+      let intBox: Box[i32] = Box { value: 42 }
+      return intBox.value
+  }
+  ```
+
+### Week 10 Days 3-4: Generic Struct Methods
+
+- [ ] **Lowering:**
+  - [ ] Monomorphize methods: `Box[T].get()` → `Box_i32_get()`, `Box_f64_get()`
+  - [ ] Method call desugaring with mangled names
+- [ ] **Test:**
+  ```volta
+  struct Box[T] { value: T }
+
+  fn Box.get[T](self: Box[T]) -> T {
+      return self.value
+  }
+
+  fn Box.set[T](mut self: Box[T], newValue: T) {
+      self.value = newValue
+  }
+
+  fn test_generic_methods() -> i32 {
+      let mut intBox: Box[i32] = Box { value: 10 }
+      intBox.set(42)
+      return intBox.get()  // 42
+  }
+  ```
+
+### Week 10 Day 5: Generic Functions
+
+- [ ] **Lowering:** Monomorphize standalone generic functions
+- [ ] **Test:**
+  ```volta
+  fn identity[T](x: T) -> T {
+      return x
+  }
+
+  fn test_generic_functions() -> i32 {
+      let a: i32 = identity(42)
+      let b: f64 = identity(3.14)
+      return a  // 42
+  }
+  ```
+
+**End of Phase 9 Checkpoint:**
+- ✅ Generic structs work!
+- ✅ Monomorphization complete!
+- ✅ Multiple instantiations of same generic type work
+- ✅ **Ready to implement `Array[T]` in stdlib!**
+
+---
+
+## Phase 10: Dynamic Arrays using Generics (Week 11)
+
+**Goal:** Implement `Array[T]` as a generic struct in Volta's standard library. Validate that generics work for real use cases.
+
+### Week 11 Day 1: Runtime Helper for Array Backing Storage
 
 - [ ] **Runtime Function:**
   ```c
@@ -474,9 +646,7 @@
 
 - [ ] **Test:** Can allocate heap arrays with runtime-determined size
 
-### Week 8 Days 2-3: Dynamic Array Stdlib Implementation
-
-**Goal:** Implement `Array[T]` as a generic struct in Volta stdlib.
+### Week 11 Days 2-3: Dynamic Array Stdlib Implementation
 
 - [ ] **Create stdlib file:** `stdlib/array.vlt`
   ```volta
@@ -533,8 +703,6 @@
   }
   ```
 
-- [ ] **Prerequisite:** Ensure generic struct monomorphization works (from Phase 10, may need to bring forward)
-
 - [ ] **Test:**
   ```volta
   fn test_dynamic_arrays() -> i32 {
@@ -553,16 +721,9 @@
   }
   ```
 
-- [ ] **Verify:** Compiles and works end-to-end
+- [ ] **Verify:** Compiles and works end-to-end!
 
-**Checkpoint after Week 8 Day 3:**
-- ✅ Dynamic arrays `Array[T]` working
-- ✅ Implemented **in Volta itself** (not compiler magic!)
-- ✅ Basic operations: `new()`, `push()`, `pop()`, `get()`, `length()`
-
-### Week 8 Days 4-5: Higher-Order Array Functions
-
-**Goal:** Implement `map()`, `filter()`, `reduce()` with wrapper generation.
+### Week 11 Days 4-5: Higher-Order Array Functions
 
 - [ ] **Stdlib additions:**
   ```volta
@@ -600,8 +761,7 @@
   ```
 
 - [ ] **VIR Wrapper Generation:**
-  - [ ] Already implemented in Phase 6 (wrapper infrastructure)
-  - [ ] Ensure monomorphized array methods work with function pointers
+  - [ ] Should already work from Phase 6
   - [ ] `arr.map(double)` → `VIRCall("Array_i32_map_i32", [arr, VIRWrapFunction("double")])`
 
 - [ ] **Test:**
@@ -611,7 +771,12 @@
   fn add(acc: i32, x: i32) -> i32 { return acc + x }
 
   fn test_hof() -> i32 {
-      let nums: Array[i32] = [1, 2, 3, 4, 5]
+      let mut nums: Array[i32] = Array.new()
+      nums.push(1)
+      nums.push(2)
+      nums.push(3)
+      nums.push(4)
+      nums.push(5)
 
       let doubled: Array[i32] = nums.map(double)  // [2, 4, 6, 8, 10]
       let evens: Array[i32] = nums.filter(is_even)  // [2, 4]
@@ -623,98 +788,22 @@
 
 - [ ] **Verify:** **examples/array_complex.vlt** works!
 
-**End of Phase 7 Checkpoint:**
-- ✅ Fixed arrays `[T; N]` fully working (compiler built-in)
-- ✅ Dynamic arrays `Array[T]` fully working (stdlib implementation!)
-- ✅ **Wrapper generation works - core problem solved!**
+**End of Phase 10 Checkpoint:**
+- ✅ Dynamic arrays `Array[T]` fully working!
+- ✅ Implemented **in Volta itself** (not compiler magic!)
+- ✅ Monomorphization validated on real use case
 - ✅ Higher-order functions (`map`, `filter`, `reduce`) working
 - ✅ **No boxing overhead** due to monomorphization
-- ✅ **examples/array_complex.vlt** works!
+- ✅ **examples/array_complex.vlt** compiles and runs!
 
 **Key Insight Validated:**
-Dynamic arrays are just a thin wrapper over fixed arrays! The compiler provides the primitive (`[T; N]`), and the stdlib builds the abstraction (`Array[T]`). This is how systems languages like Rust work.
+Dynamic arrays are just a thin wrapper over fixed arrays! The compiler provides the primitive (`[T; N]`) and generics (monomorphization), and the stdlib builds the abstraction (`Array[T]`). This is how systems languages like Rust work.
 
 ---
 
-## Phase 8: Structs (Week 9-10)
+## Phase 11: Enums & Pattern Matching (Week 12-13)
 
-### Week 9 Days 1-3: Struct Declaration & Instantiation
-- [ ] **VIR Nodes:** `VIRStructNew`, `VIRStructGet`, `VIRStructSet`
-- [ ] **VIR Memory:** `VIRGEPFieldAccess`
-- [ ] **Lowering:** Struct literals, field access
-- [ ] **Codegen:** Declare structs, heap allocation, GEP
-- [ ] **Test:**
-  ```volta
-  struct Point {
-      x: f64,
-      y: f64
-  }
-
-  fn test_struct() -> f64 {
-      let p: Point = Point { x: 3.0, y: 4.0 }
-      return p.x  // 3.0
-  }
-  ```
-
-### Week 9 Days 4-5: Struct Methods
-- [ ] **Lowering:** Method call desugaring for structs
-- [ ] **Test:**
-  ```volta
-  struct Point { x: f64, y: f64 }
-
-  fn Point.distance(self: Point) -> f64 {
-      return sqrt(self.x * self.x + self.y * self.y)
-  }
-
-  fn main() -> i32 {
-      let p: Point = Point { x: 3.0, y: 4.0 }
-      let d: f64 = p.distance()  // 5.0
-      return 0
-  }
-  ```
-
-### Week 10 Days 1-2: Mutable Struct Methods
-- [ ] **Lowering:** Track `mut self` in method calls
-- [ ] **Test:**
-  ```volta
-  struct Counter { value: i32 }
-
-  fn Counter.increment(mut self: Counter) {
-      self.value = self.value + 1
-  }
-
-  fn main() -> i32 {
-      let mut c: Counter = Counter { value: 0 }
-      c.increment()
-      c.increment()
-      return c.value  // 2
-  }
-  ```
-
-### Week 10 Days 3-5: Nested Structs & Arrays of Structs
-- [ ] **Test:**
-  ```volta
-  struct Point { x: i32, y: i32 }
-
-  fn test_array_of_structs() -> i32 {
-      let points: Array[Point] = [
-          Point { x: 1, y: 2 },
-          Point { x: 3, y: 4 }
-      ]
-      return points[1].y  // 4
-  }
-  ```
-
-**End of Phase 8 Checkpoint:**
-- ✅ Structs fully working
-- ✅ Methods (instance and mutable) work
-- ✅ **Real data structures possible!**
-
----
-
-## Phase 9: Enums & Pattern Matching (Week 11-12)
-
-### Week 11 Days 1-3: Basic Enums
+### Week 12 Days 1-3: Basic Enums
 - [ ] **VIR Nodes:** `VIREnumNew`, `VIREnumGetTag`, `VIREnumGetData`
 - [ ] **Lowering:** Enum variant construction
 - [ ] **Codegen:** Tag + data representation
@@ -731,7 +820,7 @@ Dynamic arrays are just a thin wrapper over fixed arrays! The compiler provides 
   }
   ```
 
-### Week 11 Days 4-5: Enums with Data
+### Week 12 Days 4-5: Enums with Data
 - [ ] **Test:**
   ```volta
   enum Option[T] {
@@ -744,7 +833,7 @@ Dynamic arrays are just a thin wrapper over fixed arrays! The compiler provides 
   }
   ```
 
-### Week 12 Days 1-3: Pattern Matching
+### Week 13 Days 1-3: Pattern Matching
 - [ ] **VIR Nodes:** `VIRMatch`, `VIRPattern*` (all pattern types)
 - [ ] **Lowering:** Pattern compilation
 - [ ] **Codegen:** Switch on tag, bind variables
@@ -760,7 +849,7 @@ Dynamic arrays are just a thin wrapper over fixed arrays! The compiler provides 
   }
   ```
 
-### Week 12 Days 4-5: Pattern Guards & Complex Patterns
+### Week 13 Days 4-5: Pattern Guards & Complex Patterns
 - [ ] **Test:**
   ```volta
   match value {
@@ -770,48 +859,14 @@ Dynamic arrays are just a thin wrapper over fixed arrays! The compiler provides 
   }
   ```
 
-**End of Phase 9 Checkpoint:**
+**End of Phase 11 Checkpoint:**
 - ✅ Enums work
 - ✅ Pattern matching works
 - ✅ **Option[T] and Result[T, E] functional!**
 
 ---
 
-## Phase 10: Generics (Week 13)
-
-### Week 13 Days 1-3: Generic Structs
-- [ ] **Lowering:** Monomorphization tracking
-- [ ] **Lowering:** Name mangling (Box[T] → Box_i32)
-- [ ] **Test:**
-  ```volta
-  struct Box[T] { value: T }
-
-  fn test_generics() -> i32 {
-      let intBox: Box[i32] = Box { value: 42 }
-      let floatBox: Box[f64] = Box { value: 3.14 }
-      return intBox.value
-  }
-  ```
-
-### Week 13 Days 4-5: Generic Functions
-- [ ] **Test:**
-  ```volta
-  fn identity[T](x: T) -> T { return x }
-
-  fn main() -> i32 {
-      let a: i32 = identity(42)
-      let b: f64 = identity(3.14)
-      return a
-  }
-  ```
-
-**End of Phase 10 Checkpoint:**
-- ✅ Generics work!
-- ✅ **Monomorphization complete!**
-
----
-
-## Phase 11: Validation & Testing (Week 14)
+## Phase 12: Validation & Testing (Week 14)
 
 ### Week 14 Days 1-2: VIR Validator
 - [ ] Implement `VIRValidator` class
@@ -825,14 +880,14 @@ Dynamic arrays are just a thin wrapper over fixed arrays! The compiler provides 
 - [ ] Performance testing
 - [ ] Documentation updates
 
-**End of Phase 11 Checkpoint:**
+**End of Phase 12 Checkpoint:**
 - ✅ VIR validator works
 - ✅ All tests pass
 - ✅ **No regressions!**
 
 ---
 
-## Phase 12: Migration & Cleanup (Week 14 Day 5)
+## Phase 13: Migration & Cleanup (Week 14 Day 5)
 
 ### Final Day: Switch Over
 - [ ] Update main compiler driver to use VIR by default

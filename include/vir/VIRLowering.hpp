@@ -1,6 +1,7 @@
 #pragma once
 
 #include "vir/VIRModule.hpp"
+#include "vir/RuntimeFunctionRegistry.hpp"
 #include "ast/Statement.hpp"
 #include "semantic/SemanticAnalyzer.hpp"
 #include <memory>
@@ -44,6 +45,9 @@ private:
 
     // Temporary variable generation
     size_t tempCounter_ = 0;
+
+    // Runtime function registry
+    RuntimeFunctionRegistry runtimeRegistry_;
 
     // ========================================================================
     // Top-Level Lowering

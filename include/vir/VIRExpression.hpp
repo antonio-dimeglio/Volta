@@ -442,7 +442,96 @@ private:
 };
 
 // ============================================================================
-// Array Operations (for later phases)
+// Fixed Array Operations (Phase 7)
+// ============================================================================
+
+/**
+ * VIRFixedArrayNew - Create a fixed-size array [T; N]
+ *
+ * Represents the creation of a compile-time sized array. The array can be
+ * stack-allocated or heap-allocated based on escape analysis.
+ *
+ * Examples:
+ *   [1, 2, 3] with type [i32; 3]
+ *   [0; 256] with type [u8; 256] (repeat pattern)
+ */
+class VIRFixedArrayNew : public VIRExpr {
+public:
+    VIRFixedArrayNew(std::vector<std::unique_ptr<VIRExpr>> elements,
+                     size_t size,
+                     std::shared_ptr<volta::semantic::Type> elementType,
+                     bool isStackAllocated,
+                     volta::errors::SourceLocation loc,
+                     const volta::ast::ASTNode* ast);
+
+    const std::vector<std::unique_ptr<VIRExpr>>& getElements() const { return elements_; }
+    size_t getSize() const { return size_; }
+    std::shared_ptr<volta::semantic::Type> getElementType() const { return elementType_; }
+    bool isStackAllocated() const { return isStackAllocated_; }
+    std::shared_ptr<volta::semantic::Type> getType() const override;
+
+private:
+    std::vector<std::unique_ptr<VIRExpr>> elements_;  // Initial values (may be size 1 for repeat pattern)
+    size_t size_;                                      // Compile-time array size
+    std::shared_ptr<volta::semantic::Type> elementType_;
+    bool isStackAllocated_;  // Determined by escape analysis
+};
+
+/**
+ * VIRFixedArrayGet - Index into a fixed-size array
+ *
+ * Retrieves an element from a fixed array using compile-time known size.
+ * Index must be bounds-checked via VIRBoundsCheck before this node.
+ *
+ * Example: coords[1] where coords: [f64; 3]
+ */
+class VIRFixedArrayGet : public VIRExpr {
+public:
+    VIRFixedArrayGet(std::unique_ptr<VIRExpr> array,
+                     std::unique_ptr<VIRExpr> index,
+                     std::shared_ptr<volta::semantic::Type> elementType,
+                     volta::errors::SourceLocation loc,
+                     const volta::ast::ASTNode* ast);
+
+    const VIRExpr* getArray() const { return array_.get(); }
+    const VIRExpr* getIndex() const { return index_.get(); }
+    std::shared_ptr<volta::semantic::Type> getType() const override { return elementType_; }
+
+private:
+    std::unique_ptr<VIRExpr> array_;
+    std::unique_ptr<VIRExpr> index_;  // Already bounds-checked
+    std::shared_ptr<volta::semantic::Type> elementType_;
+};
+
+/**
+ * VIRFixedArraySet - Update an element in a fixed-size array
+ *
+ * Stores a value at a specific index in a fixed array.
+ * Index must be bounds-checked via VIRBoundsCheck before this node.
+ *
+ * Example: coords[1] = 5.0 where coords: [f64; 3]
+ */
+class VIRFixedArraySet : public VIRExpr {
+public:
+    VIRFixedArraySet(std::unique_ptr<VIRExpr> array,
+                     std::unique_ptr<VIRExpr> index,
+                     std::unique_ptr<VIRExpr> value,
+                     volta::errors::SourceLocation loc,
+                     const volta::ast::ASTNode* ast);
+
+    const VIRExpr* getArray() const { return array_.get(); }
+    const VIRExpr* getIndex() const { return index_.get(); }
+    const VIRExpr* getValue() const { return value_.get(); }
+    std::shared_ptr<volta::semantic::Type> getType() const override;  // Returns unit type
+
+private:
+    std::unique_ptr<VIRExpr> array_;
+    std::unique_ptr<VIRExpr> index_;  // Already bounds-checked
+    std::unique_ptr<VIRExpr> value_;
+};
+
+// ============================================================================
+// Dynamic Array Operations (Phase 10 - implemented in Volta stdlib)
 // ============================================================================
 
 class VIRArrayNew : public VIRExpr {

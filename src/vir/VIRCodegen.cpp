@@ -10,9 +10,44 @@ RuntimeFunctions::RuntimeFunctions(llvm::Module* module, llvm::LLVMContext* cont
     : module_(module), context_(context) {
     declareRuntimeFunctions();
 }
+void RuntimeFunctions::declareRuntimeFunctions()
+{
+    llvm::Type* voidTy = llvm::Type::getVoidTy(*context_);
+    llvm::Type* i8Ty = llvm::Type::getInt8Ty(*context_);
+    llvm::Type* i32Ty = llvm::Type::getInt32Ty(*context_);
+    llvm::Type* i64Ty = llvm::Type::getInt64Ty(*context_);
+    llvm::Type* f64Ty = llvm::Type::getDoubleTy(*context_);
+    llvm::Type* strTy = llvm::PointerType::getUnqual(i8Ty); 
 
-void RuntimeFunctions::declareRuntimeFunctions() {
-    // TODO: Implement in Phase 3 - Declare all volta_* runtime functions
+    auto printIntType = llvm::FunctionType::get(voidTy, {i64Ty}, false);
+    printInt_ = llvm::Function::Create(printIntType, llvm::Function::ExternalLinkage, "volta_print_int", module_);
+
+    auto printUIntType = llvm::FunctionType::get(voidTy, {i64Ty}, false);
+    printUInt_ = llvm::Function::Create(printUIntType, llvm::Function::ExternalLinkage, "volta_print_uint", module_);
+
+    auto printFloatType = llvm::FunctionType::get(voidTy, {f64Ty}, false);
+    printFloat_ = llvm::Function::Create(printFloatType, llvm::Function::ExternalLinkage, "volta_print_float", module_);
+
+    auto printBoolType = llvm::FunctionType::get(voidTy, {i8Ty}, false);
+    printBool_ = llvm::Function::Create(printBoolType, llvm::Function::ExternalLinkage, "volta_print_bool", module_);
+
+    auto printStringType = llvm::FunctionType::get(voidTy, {strTy}, false);
+    printString_ = llvm::Function::Create(printStringType, llvm::Function::ExternalLinkage, "volta_print_string", module_);
+
+    functionMap_["volta_print_int"] = printInt_;
+    functionMap_["volta_print_uint"] = printUInt_;
+    functionMap_["volta_print_float"] = printFloat_;
+    functionMap_["volta_print_bool"] = printBool_;
+    functionMap_["volta_print_string"] = printString_;
+}
+
+
+llvm::Function *RuntimeFunctions::getFunction(const std::string &name) const {
+    auto it = functionMap_.find(name);
+    if (it != functionMap_.end()) {
+        return it->second;
+    }
+    return nullptr; 
 }
 
 // ============================================================================
@@ -631,8 +666,56 @@ llvm::Value* VIRCodegen::codegen(const VIRCall* call) {
 }
 
 llvm::Value* VIRCodegen::codegen(const VIRCallRuntime* call) {
-    // TODO: Implement in Phase 3
-    return nullptr;
+    llvm::Function* runtimeFunc = runtime_->getFunction(call->getRuntimeFunc());
+
+    if (!runtimeFunc) {
+        reportError("Runtime function not found: " + call->getRuntimeFunc());
+        return nullptr;
+    }
+
+    // Codegen arguments and cast them to match runtime function signature
+    std::vector<llvm::Value*> args;
+    auto* funcType = runtimeFunc->getFunctionType();
+
+    for (size_t i = 0; i < call->getArgs().size(); ++i) {
+        llvm::Value* argValue = codegen(call->getArgs()[i].get());
+        llvm::Type* expectedType = funcType->getParamType(i);
+        llvm::Type* actualType = argValue->getType();
+
+        // Cast if types don't match
+        if (actualType != expectedType) {
+            // Integer extension/truncation
+            if (actualType->isIntegerTy() && expectedType->isIntegerTy()) {
+                auto actualBits = actualType->getIntegerBitWidth();
+                auto expectedBits = expectedType->getIntegerBitWidth();
+
+                if (actualBits < expectedBits) {
+                    // Extend (use zero extend for bool->i8, sign extend for others)
+                    if (actualType->isIntegerTy(1)) {
+                        argValue = builder_->CreateZExt(argValue, expectedType);
+                    } else {
+                        argValue = builder_->CreateSExt(argValue, expectedType);
+                    }
+                } else if (actualBits > expectedBits) {
+                    // Truncate
+                    argValue = builder_->CreateTrunc(argValue, expectedType);
+                }
+            }
+            // Float extension (f32 -> f64)
+            else if (actualType->isFloatTy() && expectedType->isDoubleTy()) {
+                argValue = builder_->CreateFPExt(argValue, expectedType);
+            }
+            // Float truncation (f64 -> f32) - shouldn't happen for print
+            else if (actualType->isDoubleTy() && expectedType->isFloatTy()) {
+                argValue = builder_->CreateFPTrunc(argValue, expectedType);
+            }
+        }
+
+        args.push_back(argValue);
+    }
+
+    // Create the call instruction
+    return builder_->CreateCall(runtimeFunc, args);
 }
 
 llvm::Value* VIRCodegen::codegen(const VIRCallIndirect* call) {

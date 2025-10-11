@@ -189,7 +189,46 @@ std::shared_ptr<volta::semantic::Type> VIRStructSet::getType() const {
 }
 
 // ============================================================================
-// Array Operations - Constructors
+// Fixed Array Operations - Constructors
+// ============================================================================
+
+VIRFixedArrayNew::VIRFixedArrayNew(std::vector<std::unique_ptr<VIRExpr>> elements,
+                                     size_t size,
+                                     std::shared_ptr<volta::semantic::Type> elementType,
+                                     bool isStackAllocated,
+                                     volta::errors::SourceLocation loc,
+                                     const volta::ast::ASTNode* ast)
+    : VIRExpr(loc, ast), elements_(std::move(elements)), size_(size),
+      elementType_(elementType), isStackAllocated_(isStackAllocated) {}
+
+std::shared_ptr<volta::semantic::Type> VIRFixedArrayNew::getType() const {
+    // Returns FixedArrayType(elementType, size)
+    // TODO: Get fixed array type from semantic::Type
+    return nullptr;  // Placeholder for now
+}
+
+VIRFixedArrayGet::VIRFixedArrayGet(std::unique_ptr<VIRExpr> array,
+                                     std::unique_ptr<VIRExpr> index,
+                                     std::shared_ptr<volta::semantic::Type> elementType,
+                                     volta::errors::SourceLocation loc,
+                                     const volta::ast::ASTNode* ast)
+    : VIRExpr(loc, ast), array_(std::move(array)), index_(std::move(index)), elementType_(elementType) {}
+
+VIRFixedArraySet::VIRFixedArraySet(std::unique_ptr<VIRExpr> array,
+                                     std::unique_ptr<VIRExpr> index,
+                                     std::unique_ptr<VIRExpr> value,
+                                     volta::errors::SourceLocation loc,
+                                     const volta::ast::ASTNode* ast)
+    : VIRExpr(loc, ast), array_(std::move(array)), index_(std::move(index)), value_(std::move(value)) {}
+
+std::shared_ptr<volta::semantic::Type> VIRFixedArraySet::getType() const {
+    // Returns void/unit type
+    // TODO: Get unit type from semantic::Type
+    return nullptr;  // Placeholder for now
+}
+
+// ============================================================================
+// Dynamic Array Operations - Constructors
 // ============================================================================
 
 VIRArrayNew::VIRArrayNew(std::unique_ptr<VIRExpr> capacity, std::shared_ptr<volta::semantic::Type> elementType,

@@ -498,6 +498,41 @@ std::unique_ptr<VIRExpr> VIRLowering::lowerCallExpression(const volta::ast::Call
     if (!identCallee) return nullptr; // We do not yet support method calls.
     std::string funcName = identCallee->name;
 
+    // Check if this is a runtime function
+    if (runtimeRegistry_.isRuntimeFunction(funcName)) {
+        // Get argument types for dispatch
+        std::vector<std::shared_ptr<semantic::Type>> argTypes;
+        for (const auto& arg : call->arguments) {
+            argTypes.push_back(analyzer_->getExpressionType(arg.get()));
+        }
+
+        // Get the C function name from registry
+        std::string cFuncName = runtimeRegistry_.getCFunctionName(funcName, argTypes);
+
+        if (cFuncName.empty()) {
+            // Error: unsupported type or invalid call
+            // TODO: Report error properly
+            return nullptr;
+        }
+
+        // Lower arguments
+        std::vector<std::unique_ptr<VIRExpr>> args;
+        for (auto& arg : call->arguments) {
+            args.push_back(lowerExpression(arg.get()));
+        }
+
+        // Create VIRCallRuntime
+        auto returnType = analyzer_->getExpressionType(call);
+        return std::make_unique<VIRCallRuntime>(
+            cFuncName,
+            std::move(args),
+            returnType,
+            call->location,
+            nullptr
+        );
+    }
+
+    // Regular user function call
     std::vector<std::unique_ptr<VIRExpr>> args;
     for (auto& arg : call->arguments) {
         args.push_back(lowerExpression(arg.get()));

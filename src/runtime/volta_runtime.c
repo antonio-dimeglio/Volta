@@ -54,18 +54,27 @@ size_t volta_gc_get_bytes_since_gc(void) {
 
 void volta_print_int(int64_t value) {
     printf("%" PRId64, value);
+    fflush(stdout);
 }
 
 void volta_print_uint(uint64_t value) {
     printf("%" PRIu64, value);
+    fflush(stdout);
+}
+
+void volta_print_float(double value) {
+    printf("%g", value);
+    fflush(stdout);
 }
 
 void volta_print_bool(int8_t value) {
     printf("%s\n", value ? "true" : "false");
+    fflush(stdout);
 }
 
 void volta_print_string(const char* str) {
     printf("%s\n", str);
+    fflush(stdout);
 }
 
 VoltaString* volta_string_new(const char* data, size_t length) {
