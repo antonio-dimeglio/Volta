@@ -4,19 +4,24 @@
 #include "parser/Parser.hpp"
 #include "error/ErrorReporter.hpp"
 #include "semantic/SemanticAnalyzer.hpp"
-#include "llvm/LLVMCodegen.hpp"
+// #include "llvm/LLVMCodegen.hpp"  // OLD: Direct AST → LLVM
+#include "vir/VIRLowering.hpp"     // NEW: AST → VIR
+#include "vir/VIRCodegen.hpp"      // NEW: VIR → LLVM
 #include "lsp/LSPProvider.hpp"
 #include "CLI11.hpp"
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
+#include <llvm/Support/raw_ostream.h>
 
 
 using namespace volta::lexer;
 using namespace volta::parser;
 using namespace volta::ast;
 using namespace volta::errors;
-using namespace volta::llvm_codegen;
+using namespace volta::vir;
 
 struct CompilerOptions {
     std::string inputFile;
@@ -62,6 +67,13 @@ void compileAndRun(const std::string& source, const CompilerOptions& options) {
     Parser parser(tokens);
     auto ast = parser.parseProgram();
 
+    // Check for parse errors
+    if (parser.getErrorReporter().hasErrors()) {
+        std::cerr << "\n=== PARSE ERRORS ===\n";
+        parser.getErrorReporter().printErrors(std::cerr);
+        return;
+    }
+
     if (options.dumpAST) {
         std::cout << "=== AST ===\n";
         ASTDumper astDumper;
@@ -82,12 +94,30 @@ void compileAndRun(const std::string& source, const CompilerOptions& options) {
 
     std::cout << "Semantic analysis passed!\n";
 
-    // ===== LLVM Generation ====
-    LLVMCodegen codegen("volta_program");
-    if (!codegen.generate(ast.get(), &analyzer)) {
-        std::cerr << "Code generation failed\n";
+    // ===== VIR Lowering (AST → VIR) =====
+    std::cout << "Lowering AST to VIR...\n";
+    VIRLowering lowering(ast.get(), &analyzer);
+    auto virModule = lowering.lower();
+
+    if (!virModule) {
+        std::cerr << "VIR lowering failed\n";
         return;
     }
+
+    std::cout << "VIR lowering complete!\n";
+
+    // ===== LLVM Code Generation (VIR → LLVM IR) =====
+    std::cout << "Generating LLVM IR from VIR...\n";
+    llvm::LLVMContext context;
+    llvm::Module module("volta_program", context);
+
+    VIRCodegen codegen(&context, &module, &analyzer);
+    if (!codegen.generate(virModule.get())) {
+        std::cerr << "LLVM code generation failed\n";
+        return;
+    }
+
+    std::cout << "Code generation complete!\n";
 
     if (options.emitLLVM) {
         // Emit LLVM IR (.ll file)
@@ -95,20 +125,31 @@ void compileAndRun(const std::string& source, const CompilerOptions& options) {
             ? options.inputFile.substr(0, options.inputFile.find_last_of('.')) + ".ll"
             : options.outputFile;
 
-        if (codegen.emitLLVMIR(llFile)) {
-            std::cout << "LLVM IR written to " << llFile << "\n";
+        std::error_code EC;
+        llvm::raw_fd_ostream dest(llFile, EC);
+
+        if (EC) {
+            std::cerr << "Failed to open file: " << EC.message() << "\n";
         } else {
-            std::cerr << "Failed to emit LLVM IR\n";
+            module.print(dest, nullptr);
+            dest.flush();
+            std::cout << "LLVM IR written to " << llFile << "\n";
         }
     }
 
     if (options.compile) {
         // Compile to executable
         std::string llFile = "/tmp/volta_temp.ll";
-        if (!codegen.emitLLVMIR(llFile)) {
-            std::cerr << "Failed to emit LLVM IR\n";
+        std::error_code EC;
+        llvm::raw_fd_ostream dest(llFile, EC);
+
+        if (EC) {
+            std::cerr << "Failed to emit LLVM IR: " << EC.message() << "\n";
             return;
         }
+
+        module.print(dest, nullptr);
+        dest.flush();
 
         std::string exeName = options.outputFile.empty()
             ? options.inputFile.substr(0, options.inputFile.find_last_of('.'))

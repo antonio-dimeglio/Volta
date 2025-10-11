@@ -25,9 +25,32 @@ void* volta_gc_alloc(size_t size) {
     return ptr;
 }
 
+
 void volta_gc_collect(void) {
     GC_gcollect();
 }
+
+void* volta_gc_alloc_atomic(size_t size) {
+    return GC_MALLOC_ATOMIC(size);
+}
+
+void* volta_gc_realloc(void* ptr, size_t new_size) {
+    return GC_REALLOC(ptr, new_size);
+}
+
+void volta_gc_register_finalizer(void* obj, void (*finalizer)(void*, void*)) {
+    GC_register_finalizer(obj, finalizer, NULL, NULL, NULL);
+}
+
+size_t volta_gc_get_heap_size(void) {
+    return GC_get_heap_size();
+}
+
+size_t volta_gc_get_bytes_since_gc(void) {
+    return GC_get_bytes_since_gc();
+}
+
+
 
 void volta_print_int(int64_t value) {
     printf("%" PRId64, value);
@@ -103,9 +126,38 @@ VoltaArray* volta_array_new(size_t capacity) {
     return arr;
 }
 
+VoltaArray* volta_array_from_values(void** values, size_t count) {
+    VoltaArray* arr = volta_array_new(count);
+    arr->length = count;
+    memcpy(arr->data, values, count * sizeof(void*));
+    return arr;
+}
+
+int64_t volta_array_length(VoltaArray* arr) {
+    return arr->length;
+}
+
+void* volta_array_get(VoltaArray* arr, int64_t index) {
+    if (index < 0 || (size_t)index >= arr->length) {
+        fprintf(stderr, "Array index out of bounds: %ld (length: %zu)\n",
+                index, arr->length);
+        exit(1);
+    }
+    return arr->data[index];
+}
+
+void volta_array_set(VoltaArray* arr, int64_t index, void* value) {
+    if (index < 0 || (size_t)index >= arr->length) {
+        fprintf(stderr, "Array index out of bounds: %ld (length: %zu)\n",
+                index, arr->length);
+        exit(1);
+    }
+    arr->data[index] = value;
+}
+
 void volta_array_push(VoltaArray* arr, void* elem) {
     if (arr->length >= arr->capacity) {
-        size_t new_capacity = arr->capacity * 2;
+        size_t new_capacity = arr->capacity == 0 ? 8 : arr->capacity * 2;
         void** new_data = volta_gc_alloc(new_capacity * sizeof(void*));
         memcpy(new_data, arr->data, arr->length * sizeof(void*));
         arr->data = new_data;
@@ -114,6 +166,29 @@ void volta_array_push(VoltaArray* arr, void* elem) {
     arr->data[arr->length++] = elem;
 }
 
-int64_t volta_array_length(VoltaArray* arr) {
-    return arr->length;
+void* volta_array_pop(VoltaArray* arr) {
+    if (arr->length == 0) {
+        fprintf(stderr, "Array pop on empty array\n");
+        exit(1);
+    }
+    return arr->data[--arr->length];
+}
+
+VoltaArray* volta_array_map(VoltaArray* arr, void* (*func)(void*)) {
+    VoltaArray* result = volta_array_new(arr->length);
+    result->length = arr->length;
+    for (size_t i = 0; i < arr->length; i++) {
+        result->data[i] = func(arr->data[i]);
+    }
+    return result;
+}
+
+VoltaArray* volta_array_filter(VoltaArray* arr, int (*predicate)(void*)) {
+    VoltaArray* result = volta_array_new(arr->length);
+    for (size_t i = 0; i < arr->length; i++) {
+        if (predicate(arr->data[i])) {
+            volta_array_push(result, arr->data[i]);
+        }
+    }
+    return result;
 }

@@ -394,7 +394,7 @@ std::unique_ptr<volta::ast::Expression> Parser::parseAssignment() {
     auto expr = parseLogicalOr();
 
     if (match({TokenType::ASSIGN, TokenType::PLUS_ASSIGN, TokenType::MINUS_ASSIGN,
-               TokenType::MULT_ASSIGN, TokenType::DIV_ASSIGN})) {
+               TokenType::MULT_ASSIGN, TokenType::DIV_ASSIGN, TokenType::MODULO_ASSIGN})) {
         auto op = previous();
         auto value = parseAssignment(); // Right-associative
 
@@ -406,6 +406,7 @@ std::unique_ptr<volta::ast::Expression> Parser::parseAssignment() {
             case TokenType::MINUS_ASSIGN: binOp = BinaryExpression::Operator::SubtractAssign; break;
             case TokenType::MULT_ASSIGN: binOp = BinaryExpression::Operator::MultiplyAssign; break;
             case TokenType::DIV_ASSIGN: binOp = BinaryExpression::Operator::DivideAssign; break;
+            case TokenType::MODULO_ASSIGN: binOp = BinaryExpression::Operator::ModuloAssign; break;
             default:
                 errorReporter.reportSyntaxError("Invalid assignment operator", currentLocation());
                 binOp = BinaryExpression::Operator::Assign;  // Placeholder to continue
@@ -1106,8 +1107,11 @@ std::unique_ptr<volta::ast::Type> Parser::parseType() {
     }
 
     errorReporter.reportSyntaxError("Expected type", currentLocation());
-    synchronize();
-    return std::make_unique<PrimitiveType>(PrimitiveType::Kind::Void);  // Dummy type
+    // Consume the unexpected token to avoid infinite loops
+    if (!isAtEnd()) {
+        advance();
+    }
+    return std::make_unique<PrimitiveType>(PrimitiveType::Kind::Void);  // Dummy type for error recovery
 }
 
 std::unique_ptr<volta::ast::TypeAnnotation> Parser::parseTypeAnnotation() {

@@ -1,0 +1,102 @@
+# Test file for array operations: new, push, pop, length, map, filter
+
+fn double(x: i32) -> i32 {
+    return x * 2
+}
+
+fn is_even(x: i32) -> bool {
+    return (x % 2) == 0
+}
+
+fn main() -> i32 {
+    print("=== Array Test Suite ===\n")
+
+    # Test 1: Array literal
+    print("\n1. Array literal: [10, 20, 30]\n")
+    let arr1 := [10, 20, 30]
+    print("   Length: ")
+    print(arr1.length())
+    print("\n")
+
+    # Test 2: Array indexing
+    print("\n2. Array indexing:\n")
+    print("   arr1[0] = ")
+    print(arr1[0])
+    print("\n")
+    print("   arr1[1] = ")
+    print(arr1[1])
+    print("\n")
+    print("   arr1[2] = ")
+    print(arr1[2])
+    print("\n")
+
+    # Test 3: Array.new() - create empty array
+    print("\n3. Array.new(5) - create with capacity:\n")
+    let mut arr2: Array[i32] = Array.new(5)
+    print("   Initial length: ")
+    print(arr2.length())
+    print("\n")
+
+    # Test 4: push() - add elements
+    print("\n4. Push elements (1, 2, 3, 4, 5):\n")
+    arr2.push(1)
+    arr2.push(2)
+    arr2.push(3)
+    arr2.push(4)
+    arr2.push(5)
+    print("   Length after pushes: ")
+    print(arr2.length())
+    print("\n")
+    print("   Elements: ")
+    for i in 0..=4 {
+        print(arr2[i])
+        print(" ")
+    }
+    print("\n")
+
+    # Test 5: pop() - remove last element
+    print("\n5. Pop last element:\n")
+    let popped := arr2.pop()
+    print("   Popped value: ")
+    print(popped)
+    print("\n")
+    print("   Length after pop: ")
+    print(arr2.length())
+    print("\n")
+
+    # Test 6: map() - transform all elements
+    print("\n6. Map (double all elements):\n")
+    let arr3: Array[i32] = arr2.map(double)
+    print("   Original: ")
+    for i in 0..=3 {
+        print(arr2[i])
+        print(" ")
+    }
+    print("\n")
+    print("   Doubled:  ")
+    for i in 0..=3 {
+        print(arr3[i])
+        print(" ")
+    }
+    print("\n")
+
+    # Test 7: filter() - keep only even numbers
+    print("\n7. Filter (keep even numbers from [1,2,3,4,5,6,7,8]):\n")
+    let arr4: Array[i32] = [1, 2, 3, 4, 5, 6, 7, 8]
+    let arr5: Array[i32] = arr4.filter(is_even)
+    print("   Original length: ")
+    print(arr4.length())
+    print("\n")
+    print("   Filtered length: ")
+    print(arr5.length())
+    print("\n")
+    print("   Even numbers: ")
+    for i in 0..=(arr5.length() - 1) {
+        print(arr5[i])
+        print(" ")
+    }
+    print("\n")
+
+    print("\n=== All tests complete ===\n")
+    return 0
+}

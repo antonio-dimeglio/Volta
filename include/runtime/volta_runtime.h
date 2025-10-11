@@ -49,6 +49,15 @@ void* volta_gc_alloc(size_t size);
  */
 void volta_gc_collect(void);
 
+void* volta_gc_alloc_atomic(size_t size);
+
+void* volta_gc_realloc(void* ptr, size_t new_size);
+
+void volta_gc_register_finalizer(void* obj, void (*finalizer)(void*, void*));
+
+size_t volta_gc_get_heap_size(void);
+size_t volta_gc_get_bytes_since_gc(void);
+
 // ============================================================================
 // Print Functions
 // ============================================================================
@@ -200,15 +209,16 @@ typedef struct {
 VoltaArray* volta_array_new(size_t capacity);
 
 /**
- * Append an element to a Volta array
+ * Create a Volta array from existing values
  *
- * Adds an element to the end of the array, growing the capacity if needed.
- * The array will automatically reallocate with increased capacity when full.
+ * Creates a new array and initializes it with the provided values.
+ * The array capacity and length are both set to count.
  *
- * @param arr Pointer to VoltaArray
- * @param elem Element to append (any pointer value)
+ * @param values Pointer to array of void* values to copy
+ * @param count Number of values in the array
+ * @return Pointer to new VoltaArray containing the values
  */
-void volta_array_push(VoltaArray* arr, void* elem);
+VoltaArray* volta_array_from_values(void** values, size_t count);
 
 /**
  * Get the length of a Volta array
@@ -220,6 +230,77 @@ void volta_array_push(VoltaArray* arr, void* elem);
  * @return Number of elements, or 0 if arr is NULL
  */
 int64_t volta_array_length(VoltaArray* arr);
+
+/**
+ * Get element at index in a Volta array
+ *
+ * Retrieves the element at the specified index with bounds checking.
+ * Terminates the program if index is out of bounds.
+ *
+ * @param arr Pointer to VoltaArray
+ * @param index Index of element to retrieve (0-based)
+ * @return Pointer to element at index
+ */
+void* volta_array_get(VoltaArray* arr, int64_t index);
+
+/**
+ * Set element at index in a Volta array
+ *
+ * Stores a value at the specified index with bounds checking.
+ * Terminates the program if index is out of bounds.
+ *
+ * @param arr Pointer to VoltaArray
+ * @param index Index where to store the value (0-based)
+ * @param value Value to store
+ */
+void volta_array_set(VoltaArray* arr, int64_t index, void* value);
+
+/**
+ * Append an element to a Volta array
+ *
+ * Adds an element to the end of the array, growing the capacity if needed.
+ * The array will automatically reallocate with increased capacity when full.
+ *
+ * @param arr Pointer to VoltaArray
+ * @param elem Element to append (any pointer value)
+ */
+void volta_array_push(VoltaArray* arr, void* elem);
+
+/**
+ * Remove and return the last element from a Volta array
+ *
+ * Removes the last element from the array and returns it.
+ * Terminates the program if the array is empty.
+ *
+ * @param arr Pointer to VoltaArray
+ * @return The removed element
+ */
+void* volta_array_pop(VoltaArray* arr);
+
+/**
+ * Apply a function to each element of an array
+ *
+ * Creates a new array by applying the given function to each element
+ * of the input array. The original array is not modified.
+ *
+ * @param arr Pointer to VoltaArray to map over
+ * @param func Function to apply to each element (takes void*, returns void*)
+ * @return New VoltaArray containing the transformed elements
+ */
+VoltaArray* volta_array_map(VoltaArray* arr, void* (*func)(void*));
+
+/**
+ * Filter an array based on a predicate
+ *
+ * Creates a new array containing only the elements for which the predicate
+ * returns true (non-zero). The original array is not modified.
+ *
+ * @param arr Pointer to VoltaArray to filter
+ * @param predicate Function to test each element (takes void*, returns int)
+ * @return New VoltaArray containing only elements that passed the predicate
+ */
+VoltaArray* volta_array_filter(VoltaArray* arr, int (*predicate)(void*));
+
 
 #ifdef __cplusplus
 }

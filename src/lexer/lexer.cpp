@@ -242,6 +242,7 @@ std::optional<Token> Lexer::scanSymbol() {
         if (twoChar == "*=") { advance(); return Token(TokenType::MULT_ASSIGN, twoChar, startLine, startCol); }
         if (twoChar == "**") { advance(); return Token(TokenType::POWER, twoChar, startLine, startCol); }
         if (twoChar == "/=") { advance(); return Token(TokenType::DIV_ASSIGN, twoChar, startLine, startCol); }
+        if (twoChar == "%=") { advance(); return Token(TokenType::MODULO_ASSIGN, twoChar, startLine, startCol); }
         if (twoChar == "==") { advance(); return Token(TokenType::EQUALS, twoChar, startLine, startCol); }
         if (twoChar == "!=") { advance(); return Token(TokenType::NOT_EQUALS, twoChar, startLine, startCol); }
         if (twoChar == ">=") { advance(); return Token(TokenType::GEQ, twoChar, startLine, startCol); }

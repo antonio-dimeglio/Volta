@@ -24,6 +24,18 @@ void SemanticAnalyzer::registerBuiltins() {
         symbolTable_->declare("print", symbol);
     }
 
+    // print(i64) -> void
+    {
+        std::vector<std::shared_ptr<Type>> params = {
+            typeCache_.getI64()
+        };
+        auto returnType = typeCache_.getVoid();
+        auto printType = typeCache_.getFunctionType(std::move(params), returnType);
+
+        auto symbol = Symbol("print", printType, false, volta::errors::SourceLocation());
+        symbolTable_->declare("print", symbol);
+    }
+
     // print(f32) -> void
     {
         std::vector<std::shared_ptr<Type>> params = {
@@ -1108,7 +1120,7 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeBinaryExpression(const volta::ast
     using Op = volta::ast::BinaryExpression::Operator;
     if (binExpr->op == Op::Assign || binExpr->op == Op::AddAssign ||
         binExpr->op == Op::SubtractAssign || binExpr->op == Op::MultiplyAssign ||
-        binExpr->op == Op::DivideAssign) {
+        binExpr->op == Op::DivideAssign || binExpr->op == Op::ModuloAssign) {
 
         // Check if left side is a valid l-value
         bool isValidLValue = false;
@@ -1372,6 +1384,32 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeMethodCallExpression(const volta:
     // Check if the object is a type name (for static methods or enum variants)
     auto* identExpr = dynamic_cast<const volta::ast::IdentifierExpression*>(methodCall->object.get());
     if (identExpr) {
+        // Case 0: Array.new() builtin (before symbol lookup, since Array is not in symbol table)
+        if (identExpr->name == "Array" && methodCall->method->name == "new") {
+            // Array.new(capacity: i64) -> Array[T] (where T comes from expected type)
+            if (methodCall->arguments.size() != 1) {
+                error("Array.new() expects exactly 1 argument (capacity)", methodCall->location);
+                return typeCache_.getArrayType(typeCache_.getUnknown());
+            }
+
+            auto capacityType = analyzeExpression(methodCall->arguments[0].get());
+            if (!capacityType->isInteger()) {
+                typeError("Array.new() capacity must be an integer",
+                         typeCache_.getI64().get(), capacityType.get(), methodCall->location);
+            }
+
+            
+
+            // Return expected type if it's an array, otherwise Array[Unknown]
+            if (expectedType && expectedType->kind() == Type::Kind::Array) {
+            
+                return expectedType;  // Use expected array type (e.g., Array[i32])
+            }
+            // No expected type - return Array[Unknown]
+            
+            return typeCache_.getArrayType(typeCache_.getUnknown());
+        }
+
         auto symbol = symbolTable_->lookup(identExpr->name);
 
         // Case 1: Enum variant construction (Option.Some(42))
@@ -1568,8 +1606,13 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeMethodCallExpression(const volta:
         }
     }
 
-    // Otherwise, it's a regular instance method call on a struct
+    // Otherwise, it's a regular instance method call on a struct or built-in type
     auto objectType = analyzeExpression(methodCall->object.get());
+
+    // Handle built-in array methods
+    if (objectType->kind() == Type::Kind::Array) {
+        return analyzeArrayMethodCall(methodCall, objectType);
+    }
 
     auto* structType = dynamic_cast<const StructType*>(objectType.get());
     if (!structType) {
@@ -1671,7 +1714,20 @@ std::shared_ptr<Type> SemanticAnalyzer::analyzeArrayLiteral(const volta::ast::Ar
         return typeCache_.getArrayType(typeCache_.getUnknown());
     }
 
+    // Analyze ALL elements, not just the first one!
     auto elemType = analyzeExpression(arrayLit->elements[0].get());
+
+    // Analyze remaining elements and check they match the first element's type
+    for (size_t i = 1; i < arrayLit->elements.size(); i++) {
+        auto otherElemType = analyzeExpression(arrayLit->elements[i].get());
+        if (!elemType->equals(otherElemType.get())) {
+            typeError("Array elements must have uniform type",
+                     elemType.get(),
+                     otherElemType.get(),
+                     arrayLit->elements[i]->location);
+        }
+    }
+
     return typeCache_.getArrayType(elemType);
 }
 
@@ -1793,7 +1849,7 @@ bool SemanticAnalyzer::areTypesCompatible(const Type* expected, const Type* actu
         return true;
     }
 
-    // For array types, check element compatibility
+    // For array types, check element compatibility (strict - no implicit conversions)
     if (expected->kind() == Type::Kind::Array && actual->kind() == Type::Kind::Array) {
         auto* expectedArray = dynamic_cast<const ArrayType*>(expected);
         auto* actualArray = dynamic_cast<const ArrayType*>(actual);
@@ -1803,8 +1859,9 @@ bool SemanticAnalyzer::areTypesCompatible(const Type* expected, const Type* actu
             return true;
         }
 
-        return areTypesCompatible(expectedArray->elementType().get(),
-                                  actualArray->elementType().get());
+        // Require exact type match for array elements (no implicit numeric conversion)
+        // Rationale: Converting arrays would require O(n) copy, should be explicit
+        return expectedArray->elementType()->equals(actualArray->elementType().get());
     }
 
     return false;
@@ -2001,6 +2058,137 @@ std::shared_ptr<Type> SemanticAnalyzer::substituteTypeVariables(
 
     // For other types (primitives, already concrete types, etc.), return as-is
     return type;
+}
+
+std::shared_ptr<Type> SemanticAnalyzer::analyzeArrayMethodCall(
+    const volta::ast::MethodCallExpression* methodCall,
+    std::shared_ptr<Type> arrayType) {
+
+    const std::string& methodName = methodCall->method->name;
+    auto* arrType = dynamic_cast<const ArrayType*>(arrayType.get());
+    if (!arrType) {
+        error("Internal error: analyzeArrayMethodCall called on non-array type", methodCall->location);
+        return typeCache_.getUnknown();
+    }
+
+    auto elementType = arrType->elementType();
+
+    // length() -> i64
+    if (methodName == "length") {
+        if (!methodCall->arguments.empty()) {
+            error("Method 'length' takes no arguments", methodCall->location);
+        }
+        return typeCache_.getI64();
+    }
+
+    // push(elem: T) -> void
+    if (methodName == "push") {
+        if (methodCall->arguments.size() != 1) {
+            error("Method 'push' expects exactly 1 argument", methodCall->location);
+            return typeCache_.getVoid();
+        }
+
+        auto argType = analyzeExpression(methodCall->arguments[0].get());
+        if (!areTypesCompatible(elementType.get(), argType.get())) {
+            typeError("Argument to 'push' must match array element type",
+                     elementType.get(), argType.get(), methodCall->location);
+        }
+
+        // Check mutability - can only push to mutable arrays
+        if (!isExpressionMutable(methodCall->object.get())) {
+            error("Cannot call 'push' on immutable array", methodCall->location);
+        }
+
+        return typeCache_.getVoid();
+    }
+
+    // pop() -> T
+    if (methodName == "pop") {
+        if (!methodCall->arguments.empty()) {
+            error("Method 'pop' takes no arguments", methodCall->location);
+        }
+
+        // Check mutability - can only pop from mutable arrays
+        if (!isExpressionMutable(methodCall->object.get())) {
+            error("Cannot call 'pop' on immutable array", methodCall->location);
+        }
+
+        return elementType;
+    }
+
+    // map(func: fn(T) -> U) -> Array[U]
+    if (methodName == "map") {
+        if (methodCall->arguments.size() != 1) {
+            error("Method 'map' expects exactly 1 argument (function)", methodCall->location);
+            return arrayType;
+        }
+
+        // Analyze the function argument
+        auto funcArg = analyzeExpression(methodCall->arguments[0].get());
+
+        // Check if it's a function type
+        auto* funcType = dynamic_cast<const FunctionType*>(funcArg.get());
+        if (!funcType) {
+            error("Argument to 'map' must be a function", methodCall->location);
+            return arrayType;
+        }
+
+        // Check function signature: should be fn(T) -> U
+        if (funcType->paramTypes().size() != 1) {
+            error("Function passed to 'map' must take exactly 1 parameter", methodCall->location);
+            return arrayType;
+        }
+
+        // Check parameter type matches element type
+        if (!areTypesCompatible(elementType.get(), funcType->paramTypes()[0].get())) {
+            typeError("Function parameter type must match array element type",
+                     elementType.get(), funcType->paramTypes()[0].get(), methodCall->location);
+        }
+
+        // Return Array[U] where U is the function's return type
+        return typeCache_.getArrayType(funcType->returnType());
+    }
+
+    // filter(predicate: fn(T) -> bool) -> Array[T]
+    if (methodName == "filter") {
+        if (methodCall->arguments.size() != 1) {
+            error("Method 'filter' expects exactly 1 argument (predicate function)", methodCall->location);
+            return arrayType;
+        }
+
+        // Analyze the function argument
+        auto funcArg = analyzeExpression(methodCall->arguments[0].get());
+
+        // Check if it's a function type
+        auto* funcType = dynamic_cast<const FunctionType*>(funcArg.get());
+        if (!funcType) {
+            error("Argument to 'filter' must be a function", methodCall->location);
+            return arrayType;
+        }
+
+        // Check function signature: should be fn(T) -> bool
+        if (funcType->paramTypes().size() != 1) {
+            error("Function passed to 'filter' must take exactly 1 parameter", methodCall->location);
+            return arrayType;
+        }
+
+        if (!areTypesCompatible(elementType.get(), funcType->paramTypes()[0].get())) {
+            typeError("Function parameter type must match array element type",
+                     elementType.get(), funcType->paramTypes()[0].get(), methodCall->location);
+        }
+
+        if (!funcType->returnType()->equals(typeCache_.getBool().get())) {
+            typeError("Function passed to 'filter' must return bool",
+                     typeCache_.getBool().get(), funcType->returnType().get(), methodCall->location);
+        }
+
+        // Return Array[T] (same element type)
+        return arrayType;
+    }
+
+    // Unknown method
+    error("Array has no method '" + methodName + "'", methodCall->location);
+    return typeCache_.getUnknown();
 }
 
 }

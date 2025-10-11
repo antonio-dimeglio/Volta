@@ -7,7 +7,5 @@ fn factorial(n: i32) -> i32 {
 
 fn main() -> i32 {
     let result := factorial(5)
-    print(result)  # Should print 120
-    print("\n")
-    return 0
+    return result
 }

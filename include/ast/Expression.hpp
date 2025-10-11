@@ -101,7 +101,7 @@ struct BinaryExpression : Expression {
         // Range
         Range, RangeInclusive,
         // Assignment
-        Assign, AddAssign, SubtractAssign, MultiplyAssign, DivideAssign
+        Assign, AddAssign, SubtractAssign, MultiplyAssign, DivideAssign, ModuloAssign
     };
 
     std::unique_ptr<Expression> left;

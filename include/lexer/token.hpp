@@ -39,6 +39,7 @@ enum class TokenType {
     MINUS_ASSIGN,
     MULT_ASSIGN,
     DIV_ASSIGN,
+    MODULO_ASSIGN,
     INFER_ASSIGN,
 
     // Range

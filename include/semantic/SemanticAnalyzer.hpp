@@ -170,6 +170,8 @@ private:
                                                   std::shared_ptr<Type> expectedType = nullptr);
     std::shared_ptr<Type> analyzeMethodCallExpression(const volta::ast::MethodCallExpression* methodCall,
                                                       std::shared_ptr<Type> expectedType = nullptr);
+    std::shared_ptr<Type> analyzeArrayMethodCall(const volta::ast::MethodCallExpression* methodCall,
+                                                 std::shared_ptr<Type> arrayType);
     std::shared_ptr<Type> analyzeArrayLiteral(const volta::ast::ArrayLiteral* arrayLit,
                                              std::shared_ptr<Type> expectedType = nullptr);
     std::shared_ptr<Type> analyzeIndexExpression(const volta::ast::IndexExpression* indexExpr);

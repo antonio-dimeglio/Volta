@@ -1,0 +1,18 @@
+fn array_sum(arr: Array[i32]) -> i32 {
+    let mut total := 0
+    for i in 0..=4 {
+        total = total + arr[i]
+    }
+    return total
+}
+
+
+fn main() -> i32 {
+    let arr := [1, 2, 3, 4, 5]
+    let res := array_sum(arr)
+    print("\t")
+    print(res)
+    print("\n")
+
+    return 0
+}
