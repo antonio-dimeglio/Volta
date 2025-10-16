@@ -1,0 +1,4 @@
+fn main() -> void {
+    // Size mismatch: declared [i32; 10] but literal has 3 elements
+    let x: [i32; 10] = [1, 2, 3];
+}

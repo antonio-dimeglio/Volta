@@ -1,0 +1,4 @@
+fn main() -> void {
+    // Negative array size
+    let x: [i32; -5] = [0; -5];
+}

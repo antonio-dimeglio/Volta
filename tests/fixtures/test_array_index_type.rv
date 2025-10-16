@@ -1,0 +1,5 @@
+fn main() -> void {
+    let arr: [i32; 3] = [1, 2, 3];
+    let x: i32 = arr[0];
+    let y: bool = arr[1];  // Should fail: can't assign i32 to bool
+}

@@ -1,0 +1,60 @@
+# Build directories
+build/
+cmake-build-*/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+
+# Compiled Object files
+*.o
+*.obj
+*.ko
+*.elf
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.a
+*.lib
+*.la
+*.lo
+
+# Executables
+*.exe
+*.out
+*.app
+reverie
+test_lexer
+test_parser
+
+# IDE specific
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Compiler generated
+*.d
+*.su
+*.i
+*.s
+
+# Valgrind
+*.log
+vgcore.*
+
+# LLVM IR files
+*.ll
+*.bc
+
+# Compiled reverie programs
+*.rvout

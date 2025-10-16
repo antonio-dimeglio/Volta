@@ -1,0 +1,29 @@
+// Missing return type
+fn no_return_type(x: i32) {
+    return x + 1;
+}
+
+// Missing semicolon
+fn missing_semicolon() -> i32 {
+    let x: i32 = 10
+    return x;
+}
+
+// Unmatched braces
+fn unmatched_brace() -> i32 {
+    let x: i32 = 5;
+    return x;
+// Missing closing brace
+
+// Invalid type
+fn bad_type(x: MyCustomType) -> i32 {
+    return x;
+}
+
+// Missing function body
+fn no_body() -> i32
+
+// Invalid expression
+fn bad_expr() -> i32 {
+    return + + +;
+}

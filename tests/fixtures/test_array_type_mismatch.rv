@@ -1,0 +1,4 @@
+fn main() -> void {
+    // Type mismatch: declared [i32; 3] but literal has floats
+    let x: [i32; 3] = [1.0, 2.0, 3.0];
+}

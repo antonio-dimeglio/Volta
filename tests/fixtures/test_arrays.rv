@@ -1,0 +1,10 @@
+fn main() -> void {
+    // Type inference with array literal
+    let x := [1, 2, 3];
+
+    // Explicit array type with matching literal
+    let y: [i32; 3] = [1, 2, 3];
+
+    // Array with repeat syntax
+    let z: [i32; 5] = [0; 5];
+}

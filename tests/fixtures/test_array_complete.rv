@@ -1,0 +1,16 @@
+fn main() -> void {
+    // Array declaration and initialization
+    let arr: [i32; 5] = [1, 2, 3, 4, 5];
+
+    // Array indexing
+    let first: i32 = arr[0];
+    let last: i32 = arr[4];
+
+    // Array with type inference
+    let nums := [10, 20, 30];
+    let x: i32 = nums[1];
+
+    // Nested arrays
+    let matrix: [[i32; 2]; 2] = [[1, 2]; 2];
+    let row: [i32; 2] = matrix[0];
+}
