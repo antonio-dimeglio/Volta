@@ -7,6 +7,10 @@ CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
 *.cmake
+!CMakeLists.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps/
 
 # Compiled Object files
 *.o
@@ -57,3 +61,19 @@ vgcore.*
 
 # Compiled reverie programs
 *.rvout
+
+# AI-generated content and configuration
+.claude/
+.cursor/
+.aider*
+.copilot/
+.continue/
+.windsurf/
+.tabnine/
+.codeium/
+.sourcegraph/
+.ai/
+*.ai.log
+*-ai-*
+.anthropic/
+.openai/

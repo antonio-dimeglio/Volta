@@ -311,7 +311,8 @@ const Type* TypeRegistry::inferLiteral(const Literal* literal) {
     if (tt == TokenType::True_ || tt == TokenType::False_) return bool_type.get();
     if (tt == TokenType::String) return string_type.get();
 
-
+    // Unknown literal type
+    return nullptr;
 }
 
 bool TypeRegistry::validateLiteralBounds(const Literal* literal, const Type* target_type) {

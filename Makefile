@@ -1,5 +1,5 @@
 # Volta Compiler Makefile
-# Simple Makefile for building without CMake
+# Auto-detecting Makefile with proper incremental builds
 
 # Platform detection
 UNAME_S := $(shell uname -s)
@@ -15,8 +15,8 @@ endif
 # Compiler settings
 CXX := g++
 CC := gcc
-CXXFLAGS := -std=c++20 -Wall -Wextra -pedantic -fexceptions -Wno-unused-parameter -Wno-unused-variable -I./include -I./include/Lexer -I./include/Parser -I./include/HIR -I./include/MIR -I./include/Semantic -I./include/Error -I./include/runtime
-CFLAGS := -std=c11 -Wall -Wextra -pedantic -I./include/runtime
+CXXFLAGS := -std=c++20 -Wall -Wextra -pedantic -fexceptions -Wno-unused-parameter -Wno-unused-variable
+CFLAGS := -std=c11 -Wall -Wextra -pedantic
 LDFLAGS :=
 LIBS :=
 
@@ -55,9 +55,14 @@ ifneq ($(LLVM_CONFIG),)
     LLVM_LDFLAGS := $(shell $(LLVM_CONFIG) --ldflags)
     LLVM_LIBS := $(shell $(LLVM_CONFIG) --libs core support irreader)
     # Suppress LLVM warnings by treating them as system headers
-    CXXFLAGS += -isystem $(shell $(LLVM_CONFIG) --includedir) -DLLVM_AVAILABLE
+    LLVM_INCLUDE_DIR := $(shell $(LLVM_CONFIG) --includedir)
+    CXXFLAGS += -isystem $(LLVM_INCLUDE_DIR) -DLLVM_AVAILABLE
     LDFLAGS += $(LLVM_LDFLAGS)
     LIBS += $(LLVM_LIBS)
+    # Add ncurses for LLVM on Linux
+    ifeq ($(PLATFORM),Linux)
+        LIBS += -lncurses
+    endif
     $(info Found LLVM 18: $(LLVM_CONFIG))
 else
     $(info LLVM 18 not found - building without LLVM support)
@@ -69,26 +74,35 @@ INC_DIR := include
 BUILD_DIR := build
 TEST_DIR := tests
 
-# Find all source files
-LEXER_SRCS := $(wildcard $(SRC_DIR)/Lexer/*.cpp)
-PARSER_SRCS := $(wildcard $(SRC_DIR)/Parser/*.cpp)
-HIR_SRCS := $(wildcard $(SRC_DIR)/HIR/*.cpp)
-MIR_SRCS := $(wildcard $(SRC_DIR)/MIR/*.cpp)
-SEMANTIC_SRCS := $(wildcard $(SRC_DIR)/Semantic/*.cpp)
-ERROR_SRCS := $(wildcard $(SRC_DIR)/Error/*.cpp)
-CODEGEN_SRCS := $(wildcard $(SRC_DIR)/Codegen/*.cpp)
-RUNTIME_SRCS := $(wildcard $(SRC_DIR)/runtime/*.c)
+# ============================================================================
+# AUTO-DETECT all source files and modules
+# ============================================================================
 
-LIB_SRCS := $(LEXER_SRCS) $(PARSER_SRCS) $(HIR_SRCS) $(MIR_SRCS) $(SEMANTIC_SRCS) $(ERROR_SRCS) $(CODEGEN_SRCS)
-LIB_OBJS := $(LIB_SRCS:$(SRC_DIR)/%.cpp=$(BUILD_DIR)/%.o)
-RUNTIME_OBJS := $(RUNTIME_SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+# Find all subdirectories in src/ (these are our modules)
+SRC_MODULES := $(filter-out $(SRC_DIR)/main.cpp, $(wildcard $(SRC_DIR)/*))
+SRC_MODULES := $(filter %/, $(SRC_MODULES))
+
+# Auto-discover all C++ source files (recursively)
+LIB_SRCS := $(shell find $(SRC_DIR) -name '*.cpp' -not -name 'main.cpp' 2>/dev/null)
+
+# Auto-discover all C source files in runtime (recursively)
+RUNTIME_SRCS := $(shell find $(SRC_DIR)/runtime -name '*.c' 2>/dev/null)
+
+# Auto-discover all include directories
+INC_DIRS := $(shell find $(INC_DIR) -type d 2>/dev/null)
+CXXFLAGS += $(foreach dir,$(INC_DIRS),-I$(dir))
+CFLAGS += $(foreach dir,$(INC_DIRS),-I$(dir))
+
+# Generate object file paths
+LIB_OBJS := $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(LIB_SRCS))
+RUNTIME_OBJS := $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(RUNTIME_SRCS))
 
 MAIN_SRC := $(SRC_DIR)/main.cpp
 MAIN_OBJ := $(BUILD_DIR)/main.o
 
-# Test sources
+# Test sources and binaries
 TEST_SRCS := $(wildcard $(TEST_DIR)/test_*.cpp)
-TEST_BINS := $(TEST_SRCS:$(TEST_DIR)/test_%.cpp=$(BUILD_DIR)/test_%)
+TEST_BINS := $(patsubst $(TEST_DIR)/test_%.cpp,$(BUILD_DIR)/test_%,$(TEST_SRCS))
 
 # Main executable
 EXECUTABLE := $(BUILD_DIR)/volta
@@ -122,14 +136,14 @@ else
     $(info Using system GTest (default paths))
 endif
 
-.PHONY: all clean test help build-dir
+.PHONY: all clean test help build-dir release
 
 # Default target
 all: $(EXECUTABLE)
 
 # Help target
 help:
-	@echo "Reverie Compiler Makefile"
+	@echo "Volta Compiler Makefile"
 	@echo ""
 	@echo "Targets:"
 	@echo "  make          - Build the compiler (default)"
@@ -145,21 +159,26 @@ help:
 	@echo "  make BUILD_TYPE=release"
 	@echo "  make test"
 
-# Build directory
-build-dir:
-	@mkdir -p $(BUILD_DIR)/Lexer
-	@mkdir -p $(BUILD_DIR)/Parser
-	@mkdir -p $(BUILD_DIR)/HIR
-	@mkdir -p $(BUILD_DIR)/MIR
-	@mkdir -p $(BUILD_DIR)/Semantic
-	@mkdir -p $(BUILD_DIR)/Error
-	@mkdir -p $(BUILD_DIR)/Codegen
-	@mkdir -p $(BUILD_DIR)/runtime
+# Create build directories as needed
+$(BUILD_DIR):
+	@mkdir -p $(BUILD_DIR)
 
-# Library
-$(LIB): build-dir $(LIB_OBJS) $(RUNTIME_OBJS)
+# Auto-create subdirectories for each module
+define CREATE_BUILD_DIR
+$(BUILD_DIR)/$(1):
+	@mkdir -p $(BUILD_DIR)/$(1)
+endef
+
+# Generate rules for all module directories
+MODULE_DIRS := $(sort $(dir $(LIB_OBJS) $(RUNTIME_OBJS)))
+$(foreach dir,$(MODULE_DIRS),$(eval $(dir): ; @mkdir -p $(dir)))
+
+# Library (force rebuild if sources change to avoid linking errors)
+$(LIB): $(LIB_OBJS) $(RUNTIME_OBJS) | $(BUILD_DIR)
 	@echo "Creating static library: $@"
+	@rm -f $@
 	@ar rcs $@ $(LIB_OBJS) $(RUNTIME_OBJS)
+	@ranlib $@
 
 # Main executable
 $(EXECUTABLE): $(LIB) $(MAIN_OBJ)
@@ -167,22 +186,19 @@ $(EXECUTABLE): $(LIB) $(MAIN_OBJ)
 	@$(CXX) $(CXXFLAGS) $(MAIN_OBJ) -L$(BUILD_DIR) -lvolta $(LDFLAGS) $(LIBS) -o $@
 	@echo "✓ Build successful! Executable: $(EXECUTABLE)"
 
-# Compile library object files (C++)
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
+# Pattern rule for C++ object files
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp | $(BUILD_DIR)
+	@mkdir -p $(dir $@)
 	@echo "Compiling: $<"
-	@$(CXX) $(CXXFLAGS) -c $< -o $@
+	@$(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@
 
-# Compile runtime object files (C)
-$(BUILD_DIR)/runtime/%.o: $(SRC_DIR)/runtime/%.c
+# Pattern rule for C object files
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
+	@mkdir -p $(dir $@)
 	@echo "Compiling: $<"
-	@$(CC) $(CFLAGS) -c $< -o $@
+	@$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
 
-# Compile main object file
-$(MAIN_OBJ): $(MAIN_SRC)
-	@echo "Compiling: $<"
-	@$(CXX) $(CXXFLAGS) -c $< -o $@
-
-# Test executables
+# Test executables - link against library after it's fully built
 $(BUILD_DIR)/test_%: $(TEST_DIR)/test_%.cpp $(LIB)
 	@echo "Building test: $@"
 	@$(CXX) $(CXXFLAGS) $(TEST_CXXFLAGS) $< -L$(BUILD_DIR) -lvolta $(TEST_LDFLAGS) $(LDFLAGS) $(LIBS) -o $@
@@ -235,10 +251,7 @@ clean:
 	@rm -rf $(BUILD_DIR)
 	@echo "✓ Clean complete!"
 
-# Dependency tracking (optional, for incremental builds)
+# Include dependency files for incremental builds
 -include $(LIB_OBJS:.o=.d)
+-include $(RUNTIME_OBJS:.o=.d)
 -include $(MAIN_OBJ:.o=.d)
-
-$(BUILD_DIR)/%.d: $(SRC_DIR)/%.cpp
-	@mkdir -p $(dir $@)
-	@$(CXX) $(CXXFLAGS) -MM -MT $(@:.d=.o) $< > $@
