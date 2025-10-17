@@ -241,6 +241,9 @@ private:
 
     // Helper to recursively intern types
     const Type* internTypeRecursive(const Type* ast_type);
+
+    // Helper to clone a type (for nested array interning)
+    std::unique_ptr<Type> cloneType(const Type* type) const;
 };
 
 } // namespace Semantic

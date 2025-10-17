@@ -62,24 +62,21 @@ const PrimitiveType* TypeRegistry::getPrimitive(PrimitiveTypeKind kind) const {
 }
 
 const ArrayType* TypeRegistry::internArray(const Type* element_type, int size) {
-
-
     std::unique_ptr<Type> owned_element;
 
     if (auto* prim = dynamic_cast<const PrimitiveType*>(element_type)) {
         owned_element = std::make_unique<PrimitiveType>(prim->kind);
     } else if (auto* arr = dynamic_cast<const ArrayType*>(element_type)) {
-    
-    
-        throw std::runtime_error("Nested array interning not yet supported");
+        const ArrayType* interned_inner = internArray(arr->element_type.get(), arr->size);
+        owned_element = std::make_unique<ArrayType>(
+            cloneType(interned_inner->element_type.get()),
+            interned_inner->size
+        );
     } else {
         throw std::runtime_error("Unsupported element type for array interning");
     }
 
-    auto cloned_element = std::move(owned_element);
-
-
-    auto new_arr = std::make_unique<ArrayType>(std::move(cloned_element), size);
+    auto new_arr = std::make_unique<ArrayType>(std::move(owned_element), size);
 
 
     auto it = array_types.find(new_arr);
@@ -507,6 +504,35 @@ llvm::Type* TypeRegistry::toLLVMType(const Type* type, llvm::LLVMContext& ctx) c
     }
 
     return nullptr;
+}
+
+// ============================================================================
+// Helper Methods
+// ============================================================================
+
+std::unique_ptr<Type> TypeRegistry::cloneType(const Type* type) const {
+    // Clone a type recursively (needed for nested array interning)
+
+    if (auto* prim = dynamic_cast<const PrimitiveType*>(type)) {
+        return std::make_unique<PrimitiveType>(prim->kind);
+    }
+
+    if (auto* arr = dynamic_cast<const ArrayType*>(type)) {
+        return std::make_unique<ArrayType>(
+            cloneType(arr->element_type.get()),
+            arr->size
+        );
+    }
+
+    if (auto* gen = dynamic_cast<const GenericType*>(type)) {
+        std::vector<std::unique_ptr<Type>> cloned_params;
+        for (const auto& param : gen->type_params) {
+            cloned_params.push_back(cloneType(param.get()));
+        }
+        return std::make_unique<GenericType>(gen->name, std::move(cloned_params));
+    }
+
+    throw std::runtime_error("Unsupported type for cloning: " + type->toString());
 }
 
 }  // namespace Semantic

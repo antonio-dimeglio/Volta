@@ -67,7 +67,7 @@ private:
     llvm::Value* generateUnaryExpr(const UnaryExpr* expr, const Type* expectedType = nullptr);
     llvm::Value* generateAssignment(const Assignment* expr);
     llvm::Value* generateArrayLiteral(const ArrayLiteral* expr);
-    llvm::Value* generateIndexExpr(const IndexExpr* expr);
+    llvm::Value* generateIndexExpr(const IndexExpr* expr, llvm::Type** outType = nullptr);
 
 
     void fillArrayLiteral(llvm::Value* arrayPtr, llvm::Type* arrayType, const ArrayLiteral* expr);

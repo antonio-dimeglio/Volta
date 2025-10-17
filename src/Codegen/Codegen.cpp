@@ -550,20 +550,28 @@ llvm::Value* Codegen::generateArrayLiteral(const ArrayLiteral* expr) {
     return arrayPtr;
 }
 
-llvm::Value* Codegen::generateIndexExpr(const IndexExpr* expr) {
-    llvm::Value* arr = generateExpr(expr->array.get());
+llvm::Value* Codegen::generateIndexExpr(const IndexExpr* expr, llvm::Type** outType) {
     llvm::Value* idx = generateExpr(expr->index.get());
-
+    if (!idx) {
+        return nullptr;
+    }
 
     if (auto* variable = dynamic_cast<const Variable*>(expr->array.get())) {
-        auto arrRef = variables[variable->token.lexeme].first;  
-        auto type = variables[variable->token.lexeme].second; 
-        
+        auto varIt = variables.find(variable->token.lexeme);
+        if (varIt == variables.end()) {
+            diag.error("Variable not found: " + variable->token.lexeme, 0, 0);
+            return nullptr;
+        }
+
+        auto arrRef = varIt->second.first;
+        auto type = varIt->second.second;
+
         llvm::ArrayType* arrayType = llvm::dyn_cast<llvm::ArrayType>(type);
         if (!arrayType) {
             diag.error("Cannot index non-array type", 0, 0);
             return nullptr;
         }
+
         llvm::Type* elementType = arrayType->getElementType();
         llvm::Value* elementPtr = builder->CreateGEP(
             type,
@@ -571,24 +579,43 @@ llvm::Value* Codegen::generateIndexExpr(const IndexExpr* expr) {
             {builder->getInt32(0), idx},
             "element_ptr"
         );
-        
+
         return builder->CreateLoad(elementType, elementPtr, "element");
     }
-    
-    diag.error("Array indexing only supported for variables currently", 0, 0);
-    return nullptr;
+    else {
+        diag.error("Array indexing only supported for variables after MIR elaboration", 0, 0);
+        return nullptr;
+    }
 }
 
 void Codegen::fillArrayLiteral(llvm::Value* arrayPtr, llvm::Type* arrayType, const ArrayLiteral* expr) {
-    for (size_t i = 0; i < expr->elements.size(); i++) {
-        llvm::Value* elemValue = generateExpr(expr->elements[i].get());
-        if (!elemValue) continue;
+    llvm::ArrayType* llvmArrayType = llvm::dyn_cast<llvm::ArrayType>(arrayType);
+    if (!llvmArrayType) {
+        diag.error("Expected array type in fillArrayLiteral", 0, 0);
+        return;
+    }
 
+    std::vector<const Expr*> flatElements;
+    std::function<void(const ArrayLiteral*)> flatten = [&](const ArrayLiteral* arr) {
+        for (const auto& elem : arr->elements) {
+            if (auto* nestedArr = dynamic_cast<const ArrayLiteral*>(elem.get())) {
+                flatten(nestedArr);
+            } else {
+                flatElements.push_back(elem.get());
+            }
+        }
+    };
+    flatten(expr);
+
+    for (size_t i = 0; i < flatElements.size(); i++) {
         llvm::Value* elemPtr = builder->CreateGEP(
             arrayType, arrayPtr,
             {builder->getInt32(0), builder->getInt32(i)},
             "element_ptr"
         );
+
+        llvm::Value* elemValue = generateExpr(flatElements[i]);
+        if (!elemValue) continue;
         builder->CreateStore(elemValue, elemPtr);
     }
 }

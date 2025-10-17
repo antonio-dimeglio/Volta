@@ -1,4 +1,5 @@
 #include "MIR/Elaboration.hpp"
+#include "HIR/HIR.hpp"
 #include "Semantic/SymbolTable.hpp"
 #include "Error/Error.hpp"
 #include <iostream>
@@ -21,20 +22,28 @@ Program MIRElaboration::elaborate(Program ast) {
 
 
 std::unique_ptr<Stmt> MIRElaboration::elaborateStmt(std::unique_ptr<Stmt> stmt) {
+    // VarDecl and FnDecl are special - they exist at top-level before HIR lowering
     if (auto* varDecl = dynamic_cast<VarDecl*>(stmt.get())) {
         return elaborateVarDecl(std::unique_ptr<VarDecl>(static_cast<VarDecl*>(stmt.release())));
     } else if (auto* fnDecl = dynamic_cast<FnDecl*>(stmt.get())) {
         return elaborateFnDecl(std::unique_ptr<FnDecl>(static_cast<FnDecl*>(stmt.release())));
-    } else if (auto* retStmt = dynamic_cast<ReturnStmt*>(stmt.get())) {
-        return elaborateReturnStmt(std::unique_ptr<ReturnStmt>(static_cast<ReturnStmt*>(stmt.release())));
-    } else if (auto* ifStmt = dynamic_cast<IfStmt*>(stmt.get())) {
-        return elaborateIfStmt(std::unique_ptr<IfStmt>(static_cast<IfStmt*>(stmt.release())));
-    } else if (auto* whileStmt = dynamic_cast<WhileStmt*>(stmt.get())) {
-        return elaborateWhileStmt(std::unique_ptr<WhileStmt>(static_cast<WhileStmt*>(stmt.release())));
-    } else if (auto* blockStmt = dynamic_cast<BlockStmt*>(stmt.get())) {
-        return elaborateBlockStmt(std::unique_ptr<BlockStmt>(static_cast<BlockStmt*>(stmt.release())));
-    } else if (auto* exprStmt = dynamic_cast<ExprStmt*>(stmt.get())) {
-        return elaborateExprStmt(std::unique_ptr<ExprStmt>(static_cast<ExprStmt*>(stmt.release())));
+    }
+
+    // All other statements are HIR nodes after lowering
+    else if (auto* hirRetStmt = dynamic_cast<HIR::HIRReturnStmt*>(stmt.get())) {
+        return elaborateReturnStmt(std::unique_ptr<HIR::HIRReturnStmt>(static_cast<HIR::HIRReturnStmt*>(stmt.release())));
+    } else if (auto* hirIfStmt = dynamic_cast<HIR::HIRIfStmt*>(stmt.get())) {
+        return elaborateIfStmt(std::unique_ptr<HIR::HIRIfStmt>(static_cast<HIR::HIRIfStmt*>(stmt.release())));
+    } else if (auto* hirWhileStmt = dynamic_cast<HIR::HIRWhileStmt*>(stmt.get())) {
+        return elaborateWhileStmt(std::unique_ptr<HIR::HIRWhileStmt>(static_cast<HIR::HIRWhileStmt*>(stmt.release())));
+    } else if (auto* hirBlockStmt = dynamic_cast<HIR::HIRBlockStmt*>(stmt.get())) {
+        return elaborateBlockStmt(std::unique_ptr<HIR::HIRBlockStmt>(static_cast<HIR::HIRBlockStmt*>(stmt.release())));
+    } else if (auto* hirExprStmt = dynamic_cast<HIR::HIRExprStmt*>(stmt.get())) {
+        return elaborateExprStmt(std::unique_ptr<HIR::HIRExprStmt>(static_cast<HIR::HIRExprStmt*>(stmt.release())));
+    } else if (auto* hirBreakStmt = dynamic_cast<HIR::HIRBreakStmt*>(stmt.get())) {
+        return elaborateBreakStmt(std::unique_ptr<HIR::HIRBreakStmt>(static_cast<HIR::HIRBreakStmt*>(stmt.release())));
+    } else if (auto* hirContinueStmt = dynamic_cast<HIR::HIRContinueStmt*>(stmt.get())) {
+        return elaborateContinueStmt(std::unique_ptr<HIR::HIRContinueStmt>(static_cast<HIR::HIRContinueStmt*>(stmt.release())));
     }
 
     return stmt;
@@ -109,59 +118,6 @@ std::unique_ptr<Stmt> MIRElaboration::elaborateFnDecl(std::unique_ptr<FnDecl> no
     }
 
     node->body = std::move(elaboratedBody);
-    return node;
-}
-
-std::unique_ptr<Stmt> MIRElaboration::elaborateReturnStmt(std::unique_ptr<ReturnStmt> node) {
-    if (node->value) {
-        node->value = elaborateExpr(std::move(node->value));
-    }
-    return node;
-}
-
-std::unique_ptr<Stmt> MIRElaboration::elaborateIfStmt(std::unique_ptr<IfStmt> node) {
-    node->condition = elaborateExpr(std::move(node->condition));
-
-    std::vector<std::unique_ptr<Stmt>> elaboratedThen;
-    for (auto& stmt : node->thenBody) {
-        elaboratedThen.push_back(elaborateStmt(std::move(stmt)));
-    }
-    node->thenBody = std::move(elaboratedThen);
-
-    if (!node->elseBody.empty()) {
-        std::vector<std::unique_ptr<Stmt>> elaboratedElse;
-        for (auto& stmt : node->elseBody) {
-            elaboratedElse.push_back(elaborateStmt(std::move(stmt)));
-        }
-        node->elseBody = std::move(elaboratedElse);
-    }
-
-    return node;
-}
-
-std::unique_ptr<Stmt> MIRElaboration::elaborateWhileStmt(std::unique_ptr<WhileStmt> node) {
-    node->condition = elaborateExpr(std::move(node->condition));
-
-    std::vector<std::unique_ptr<Stmt>> elaboratedBody;
-    for (auto& stmt : node->thenBody) {
-        elaboratedBody.push_back(elaborateStmt(std::move(stmt)));
-    }
-    node->thenBody = std::move(elaboratedBody);
-
-    return node;
-}
-
-std::unique_ptr<Stmt> MIRElaboration::elaborateBlockStmt(std::unique_ptr<BlockStmt> node) {
-    std::vector<std::unique_ptr<Stmt>> elaboratedStmts;
-    for (auto& stmt : node->statements) {
-        elaboratedStmts.push_back(elaborateStmt(std::move(stmt)));
-    }
-    node->statements = std::move(elaboratedStmts);
-    return node;
-}
-
-std::unique_ptr<Stmt> MIRElaboration::elaborateExprStmt(std::unique_ptr<ExprStmt> node) {
-    node->expr = elaborateExpr(std::move(node->expr));
     return node;
 }
 
@@ -424,4 +380,69 @@ std::unique_ptr<Expr> MIRElaboration::cloneExpr(const Expr* expr) {
     }
 
     return nullptr;
+}
+
+std::unique_ptr<Stmt> MIRElaboration::elaborateReturnStmt(std::unique_ptr<HIR::HIRReturnStmt> node) {
+    if (node->value) {
+        node->value = elaborateExpr(std::move(node->value));
+    }
+    return node;
+}
+
+std::unique_ptr<Stmt> MIRElaboration::elaborateIfStmt(std::unique_ptr<HIR::HIRIfStmt> node) {
+    node->condition = elaborateExpr(std::move(node->condition));
+
+    std::vector<std::unique_ptr<Stmt>> elaboratedThen;
+    for (auto& stmt : node->thenBody) {
+        elaboratedThen.push_back(elaborateStmt(std::move(stmt)));
+    }
+    node->thenBody = std::move(elaboratedThen);
+
+    if (!node->elseBody.empty()) {
+        std::vector<std::unique_ptr<Stmt>> elaboratedElse;
+        for (auto& stmt : node->elseBody) {
+            elaboratedElse.push_back(elaborateStmt(std::move(stmt)));
+        }
+        node->elseBody = std::move(elaboratedElse);
+    }
+
+    return node;
+}
+
+std::unique_ptr<Stmt> MIRElaboration::elaborateWhileStmt(std::unique_ptr<HIR::HIRWhileStmt> node) {
+    node->condition = elaborateExpr(std::move(node->condition));
+
+    std::vector<std::unique_ptr<Stmt>> elaboratedBody;
+    for (auto& stmt : node->thenBody) {
+        elaboratedBody.push_back(elaborateStmt(std::move(stmt)));
+    }
+    node->thenBody = std::move(elaboratedBody);
+
+    if (node->increment) {
+        node->increment = elaborateExpr(std::move(node->increment));
+    }
+
+    return node;
+}
+
+std::unique_ptr<Stmt> MIRElaboration::elaborateBlockStmt(std::unique_ptr<HIR::HIRBlockStmt> node) {
+    std::vector<std::unique_ptr<Stmt>> elaboratedStmts;
+    for (auto& stmt : node->statements) {
+        elaboratedStmts.push_back(elaborateStmt(std::move(stmt)));
+    }
+    node->statements = std::move(elaboratedStmts);
+    return node;
+}
+
+std::unique_ptr<Stmt> MIRElaboration::elaborateExprStmt(std::unique_ptr<HIR::HIRExprStmt> node) {
+    node->expr = elaborateExpr(std::move(node->expr));
+    return node;
+}
+
+std::unique_ptr<Stmt> MIRElaboration::elaborateBreakStmt(std::unique_ptr<HIR::HIRBreakStmt> node) {
+    return node;
+}
+
+std::unique_ptr<Stmt> MIRElaboration::elaborateContinueStmt(std::unique_ptr<HIR::HIRContinueStmt> node) {
+    return node;
 }
