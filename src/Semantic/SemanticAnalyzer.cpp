@@ -99,7 +99,6 @@ void SemanticAnalyzer::analyzeFnDecl(const FnDecl* fn) {
             is_mutable = true;
         }
 
-        std::cerr << "[DEBUG] Defining parameter: " << param.name << " as " << (is_mutable ? "mutable" : "immutable") << std::endl;
         if (!symbol_table.define(param.name, interned_type, is_mutable)) {
             std::ostringstream oss;
             oss << "Parameter '" << param.name << "' is already defined";
@@ -134,18 +133,12 @@ void SemanticAnalyzer::analyzeVarDecl(const VarDecl* varDecl) {
         }
     } else {
         declared_type = analyzeExpr(varDecl->init_value.get());
-        std::cerr << "[DEBUG] Inferred type for '" << name << "': " << (declared_type ? declared_type->toString() : "NULL") << std::endl;
     }
 
     if (!symbol_table.define(name, declared_type, varDecl->mutable_)) {
         std::ostringstream oss;
-        oss << "Variable '" << name << "' is already defined in current scope";
-        // DEBUG
-        std::cerr << "[DEBUG] Failed to define variable: " << name << " (already exists)" << std::endl;
         diag.error(oss.str(), varDecl->name.line, varDecl->name.column);
     } else {
-        // DEBUG
-        std::cerr << "[DEBUG] Successfully defined variable: " << name << std::endl;
     }
 }
 

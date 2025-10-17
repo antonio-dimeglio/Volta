@@ -2,22 +2,16 @@
 #include <llvm/IR/DerivedTypes.h>
 
 llvm::Module* Codegen::generate() {
-    // Initialize LLVM components
     context = std::make_unique<llvm::LLVMContext>();
     module_ = std::make_unique<llvm::Module>("volta_module", *context);
     builder = std::make_unique<llvm::IRBuilder<>>(*context);
 
-    // Generate code for all top-level statements
     for (const auto& stmt : hirProgram.statements) {
         generateStmt(stmt.get());
     }
 
     return module_.get();
 }
-
-// ============================================================================
-// Statement Generators
-// ============================================================================
 
 void Codegen::generateStmt(const Stmt* stmt) {
     if (auto* fnDecl = dynamic_cast<const FnDecl*>(stmt)) {
@@ -139,11 +133,10 @@ void Codegen::generateIfStmt(const IfStmt* stmt) {
         }
     }
 
-    if (thenTerminated && (!hasElse || elseTerminated)) {
+    if (thenTerminated && (hasElse && elseTerminated)) {
         mergeBB->eraseFromParent();
-        llvm::BasicBlock* unreachableBB = llvm::BasicBlock::Create(*context, "unreachable", func);
-        builder->SetInsertPoint(unreachableBB);
-    } else {
+    }
+    else {
         builder->SetInsertPoint(mergeBB);
     }
 }
@@ -185,7 +178,6 @@ void Codegen::generateWhileStmt(const WhileStmt* stmt) {
 }
 
 void Codegen::generateBlockStmt(const BlockStmt* stmt) {
-    // Generate code for each statement in the block
     for (const auto& blockStmt : stmt->statements) {
         generateStmt(blockStmt.get());
     }
