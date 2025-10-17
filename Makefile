@@ -15,7 +15,7 @@ endif
 # Compiler settings
 CXX := g++
 CC := gcc
-CXXFLAGS := -std=c++17 -Wall -Wextra -pedantic -fexceptions -Wno-unused-parameter -Wno-unused-variable -I./include -I./include/Lexer -I./include/Parser -I./include/HIR -I./include/MIR -I./include/Semantic -I./include/Error -I./include/runtime
+CXXFLAGS := -std=c++20 -Wall -Wextra -pedantic -fexceptions -Wno-unused-parameter -Wno-unused-variable -I./include -I./include/Lexer -I./include/Parser -I./include/HIR -I./include/MIR -I./include/Semantic -I./include/Error -I./include/runtime
 CFLAGS := -std=c11 -Wall -Wextra -pedantic -I./include/runtime
 LDFLAGS :=
 LIBS :=

@@ -14,24 +14,25 @@ llvm::Module* Codegen::generate() {
 }
 
 void Codegen::generateStmt(const Stmt* stmt) {
+
     if (auto* fnDecl = dynamic_cast<const FnDecl*>(stmt)) {
         generateFnDecl(fnDecl);
-    } else if (auto* returnStmt = dynamic_cast<const ReturnStmt*>(stmt)) {
-        generateReturn(returnStmt);
-    } else if (auto* ifStmt = dynamic_cast<const IfStmt*>(stmt)) {
-        generateIfStmt(ifStmt);
-    } else if (auto* whileStmt = dynamic_cast<const WhileStmt*>(stmt)) {
-        generateWhileStmt(whileStmt);
-    } else if (auto* blockStmt = dynamic_cast<const BlockStmt*>(stmt)) {
-        generateBlockStmt(blockStmt);
-    } else if (auto* breakStmt = dynamic_cast<const BreakStmt*>(stmt)) {
-        generateBreak(breakStmt);
-    } else if (auto* continueStmt = dynamic_cast<const ContinueStmt*>(stmt)) {
-        generateContinue(continueStmt);
     } else if (auto* varDecl = dynamic_cast<const VarDecl*>(stmt)) {
         generateVarDecl(varDecl);
-    } else if (auto* exprStmt = dynamic_cast<const ExprStmt*>(stmt)) {
-        generateExprStmt(exprStmt);
+    } else if (auto* hirReturnStmt = dynamic_cast<const HIR::HIRReturnStmt*>(stmt)) {
+        generateHIRReturn(hirReturnStmt);
+    } else if (auto* hirIfStmt = dynamic_cast<const HIR::HIRIfStmt*>(stmt)) {
+        generateHIRIfStmt(hirIfStmt);
+    } else if (auto* hirWhileStmt = dynamic_cast<const HIR::HIRWhileStmt*>(stmt)) {
+        generateHIRWhileStmt(hirWhileStmt);
+    } else if (auto* hirBlockStmt = dynamic_cast<const HIR::HIRBlockStmt*>(stmt)) {
+        generateHIRBlockStmt(hirBlockStmt);
+    } else if (auto* hirBreakStmt = dynamic_cast<const HIR::HIRBreakStmt*>(stmt)) {
+        generateHIRBreak(hirBreakStmt);
+    } else if (auto* hirContinueStmt = dynamic_cast<const HIR::HIRContinueStmt*>(stmt)) {
+        generateHIRContinue(hirContinueStmt);
+    } else if (auto* hirExprStmt = dynamic_cast<const HIR::HIRExprStmt*>(stmt)) {
+        generateHIRExprStmt(hirExprStmt);
     } else {
         diag.error("Unknown statement type in codegen", 0, 0);
     }
@@ -88,65 +89,18 @@ void Codegen::generateFnDecl(const FnDecl* stmt) {
     currentFunctionReturnType = nullptr;
 }
 
-void Codegen::generateReturn(const ReturnStmt* stmt) {
-    if (stmt->value) {
-        auto val = generateExpr(stmt->value.get(), currentFunctionReturnType);
-        builder->CreateRet(val);
-    } else {
-        builder->CreateRetVoid();
-    }
-}
 
-void Codegen::generateIfStmt(const IfStmt* stmt) {
-    llvm::Function* func = builder->GetInsertBlock()->getParent();
-
-    bool hasElse = !stmt->elseBody.empty();
-
-    llvm::BasicBlock* thenBB = llvm::BasicBlock::Create(*context, "then", func);
-    llvm::BasicBlock* elseBB = hasElse ? llvm::BasicBlock::Create(*context, "else", func) : nullptr;
-    llvm::BasicBlock* mergeBB = llvm::BasicBlock::Create(*context, "merge", func);
-
-    llvm::Value* cond = generateExpr(stmt->condition.get());
-    if (!cond) {
-        return;
-    }
-    builder->CreateCondBr(cond, thenBB, hasElse ? elseBB : mergeBB);
-
-    builder->SetInsertPoint(thenBB);
-    for (const auto& thenStmt : stmt->thenBody) {
-        generateStmt(thenStmt.get());
-    }
-    bool thenTerminated = builder->GetInsertBlock()->getTerminator() != nullptr;
-    if (!thenTerminated) {
-        builder->CreateBr(mergeBB);
-    }
-
-    bool elseTerminated = false;
-    if (hasElse) {
-        builder->SetInsertPoint(elseBB);
-        for (const auto& elseStmt : stmt->elseBody) {
-            generateStmt(elseStmt.get());
-        }
-        elseTerminated = builder->GetInsertBlock()->getTerminator() != nullptr;
-        if (!elseTerminated) {
-            builder->CreateBr(mergeBB);
-        }
-    }
-
-    if (thenTerminated && (hasElse && elseTerminated)) {
-        mergeBB->eraseFromParent();
-    }
-    else {
-        builder->SetInsertPoint(mergeBB);
-    }
-}
-
-void Codegen::generateWhileStmt(const WhileStmt* stmt) {
+void Codegen::generateHIRWhileStmt(const HIR::HIRWhileStmt* stmt) {
     llvm::Function* func = builder->GetInsertBlock()->getParent();
 
     llvm::BasicBlock* condBB = llvm::BasicBlock::Create(*context, "while.cond", func);
     llvm::BasicBlock* bodyBB = llvm::BasicBlock::Create(*context, "while.body", func);
+    llvm::BasicBlock* incBB = nullptr;  
     llvm::BasicBlock* endBB = llvm::BasicBlock::Create(*context, "while.end", func);
+
+    if (stmt->increment) {
+        incBB = llvm::BasicBlock::Create(*context, "while.inc", func);
+    }
 
     builder->CreateBr(condBB);
 
@@ -157,10 +111,10 @@ void Codegen::generateWhileStmt(const WhileStmt* stmt) {
     }
     builder->CreateCondBr(cond, bodyBB, endBB);
 
-    llvm::BasicBlock* prevLoopContinue = currentLoopContinue;
-    llvm::BasicBlock* prevLoopBreak = currentLoopBreak;
-    currentLoopContinue = condBB;
-    currentLoopBreak = endBB;
+    loopStack.push_back({
+        .continueTarget = incBB ? incBB : condBB,
+        .breakTarget = endBB
+    });
 
     builder->SetInsertPoint(bodyBB);
     for (const auto& bodyStmt : stmt->thenBody) {
@@ -168,35 +122,103 @@ void Codegen::generateWhileStmt(const WhileStmt* stmt) {
     }
 
     if (!builder->GetInsertBlock()->getTerminator()) {
-        builder->CreateBr(condBB);
+        if (incBB) {
+            builder->CreateBr(incBB);
+        } else {
+            builder->CreateBr(condBB);
+        }
     }
 
-    currentLoopContinue = prevLoopContinue;
-    currentLoopBreak = prevLoopBreak;
+    if (incBB) {
+        builder->SetInsertPoint(incBB);
+        generateExpr(stmt->increment.get());
+        builder->CreateBr(condBB);  
+    }
+
+    loopStack.pop_back();
 
     builder->SetInsertPoint(endBB);
 }
 
-void Codegen::generateBlockStmt(const BlockStmt* stmt) {
+
+void Codegen::generateHIRReturn(const HIR::HIRReturnStmt* stmt) {
+    if (stmt->value) {
+        auto val = generateExpr(stmt->value.get(), currentFunctionReturnType);
+        builder->CreateRet(val);
+    } else {
+        builder->CreateRetVoid();
+    }
+}
+
+void Codegen::generateHIRIfStmt(const HIR::HIRIfStmt* stmt) {
+    llvm::Function* func = builder->GetInsertBlock()->getParent();
+
+    llvm::BasicBlock* thenBB = llvm::BasicBlock::Create(*context, "if.then", func);
+    llvm::BasicBlock* elseBB = stmt->elseBody.empty() ? nullptr : llvm::BasicBlock::Create(*context, "if.else", func);
+    llvm::BasicBlock* mergeBB = llvm::BasicBlock::Create(*context, "if.end", func);
+
+    llvm::Value* cond = generateExpr(stmt->condition.get());
+    if (!cond) {
+        return;
+    }
+
+    if (elseBB) {
+        builder->CreateCondBr(cond, thenBB, elseBB);
+    } else {
+        builder->CreateCondBr(cond, thenBB, mergeBB);
+    }
+
+    builder->SetInsertPoint(thenBB);
+    for (const auto& thenStmt : stmt->thenBody) {
+        generateStmt(thenStmt.get());
+    }
+    if (!builder->GetInsertBlock()->getTerminator()) {
+        builder->CreateBr(mergeBB);
+    }
+
+    if (elseBB) {
+        builder->SetInsertPoint(elseBB);
+        for (const auto& elseStmt : stmt->elseBody) {
+            generateStmt(elseStmt.get());
+        }
+        if (!builder->GetInsertBlock()->getTerminator()) {
+            builder->CreateBr(mergeBB);
+        }
+    }
+
+    if (mergeBB->hasNPredecessors(0)) {
+        mergeBB->eraseFromParent();
+    } else {
+        builder->SetInsertPoint(mergeBB);
+    }
+}
+
+void Codegen::generateHIRBlockStmt(const HIR::HIRBlockStmt* stmt) {
     for (const auto& blockStmt : stmt->statements) {
         generateStmt(blockStmt.get());
     }
 }
 
-void Codegen::generateBreak(const BreakStmt* stmt) {
-    if (!currentLoopBreak) {
+void Codegen::generateHIRBreak(const HIR::HIRBreakStmt* stmt) {
+    (void)stmt;  
+    if (loopStack.empty()) {
         diag.error("'break' statement outside of loop", 0, 0);
         return;
     }
-    builder->CreateBr(currentLoopBreak);
+    builder->CreateBr(loopStack.back().breakTarget);
 }
 
-void Codegen::generateContinue(const ContinueStmt* stmt) {
-    if (!currentLoopContinue) {
+void Codegen::generateHIRContinue(const HIR::HIRContinueStmt* stmt) {
+    (void)stmt;  
+    if (loopStack.empty()) {
         diag.error("'continue' statement outside of loop", 0, 0);
         return;
     }
-    builder->CreateBr(currentLoopContinue);
+    builder->CreateBr(loopStack.back().continueTarget);
+}
+
+void Codegen::generateHIRExprStmt(const HIR::HIRExprStmt* stmt) {
+    generateExpr(stmt->expr.get());
 }
 
 void Codegen::generateVarDecl(const VarDecl* stmt) {
@@ -231,13 +253,6 @@ void Codegen::generateVarDecl(const VarDecl* stmt) {
     }
 }
 
-void Codegen::generateExprStmt(const ExprStmt* stmt) {
-    generateExpr(stmt->expr.get());
-}
-
-// ============================================================================
-// Expression Generators
-// ============================================================================
 
 llvm::Value* Codegen::generateExpr(const Expr* expr, const Type* expectedType) {
     if (auto* literal = dynamic_cast<const Literal*>(expr)) {
@@ -475,13 +490,11 @@ llvm::Value* Codegen::generateAssignment(const Assignment* expr) {
         return value; 
         
     } else if (auto* indexExpr = dynamic_cast<const IndexExpr*>(expr->lhs.get())) {
-        // Get the index value
         llvm::Value* idx = generateExpr(indexExpr->index.get());
         if (!idx) {
             return nullptr;
         }
 
-        // For now, only support assignment to array variables
         if (auto* variable = dynamic_cast<const Variable*>(indexExpr->array.get())) {
             auto arrRef = variables[variable->token.lexeme].first;
             auto type = variables[variable->token.lexeme].second;
@@ -492,7 +505,6 @@ llvm::Value* Codegen::generateAssignment(const Assignment* expr) {
                 return nullptr;
             }
 
-            // Get pointer to the element
             llvm::Value* elementPtr = builder->CreateGEP(
                 type,
                 arrRef,
@@ -500,7 +512,6 @@ llvm::Value* Codegen::generateAssignment(const Assignment* expr) {
                 "element_ptr"
             );
 
-            // Store the value
             builder->CreateStore(value, elementPtr);
             return value;
         } else {

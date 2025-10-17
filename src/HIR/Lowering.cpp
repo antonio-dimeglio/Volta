@@ -11,8 +11,6 @@ Program HIRLowering::lower(Program ast) {
     return hir;
 }
 
-// ==================== STATEMENT LOWERING ====================
-
 std::unique_ptr<Stmt> HIRLowering::lowerStmt(std::unique_ptr<Stmt> stmt) {
     if (auto* varDecl = dynamic_cast<VarDecl*>(stmt.get())) {
         return lowerVarDecl(std::unique_ptr<VarDecl>(static_cast<VarDecl*>(stmt.release())));
@@ -30,6 +28,12 @@ std::unique_ptr<Stmt> HIRLowering::lowerStmt(std::unique_ptr<Stmt> stmt) {
         return desugarForLoop(std::unique_ptr<ForStmt>(static_cast<ForStmt*>(stmt.release())));
     } else if (auto* blockStmt = dynamic_cast<BlockStmt*>(stmt.get())) {
         return lowerBlockStmt(std::unique_ptr<BlockStmt>(static_cast<BlockStmt*>(stmt.release())));
+    } else if (auto* breakStmt = dynamic_cast<BreakStmt*>(stmt.get())) {
+        auto* rawBreak = static_cast<BreakStmt*>(stmt.release());
+        return std::make_unique<HIR::HIRBreakStmt>(rawBreak->line, rawBreak->column);
+    } else if (auto* continueStmt = dynamic_cast<ContinueStmt*>(stmt.get())) {
+        auto* rawContinue = static_cast<ContinueStmt*>(stmt.release());
+        return std::make_unique<HIR::HIRContinueStmt>(rawContinue->line, rawContinue->column);
     }
 
     return stmt;
@@ -57,7 +61,6 @@ std::unique_ptr<Stmt> HIRLowering::lowerVarDecl(std::unique_ptr<VarDecl> node) {
 }
 
 std::unique_ptr<Stmt> HIRLowering::lowerFnDecl(std::unique_ptr<FnDecl> node) {
-    // Lower function body
     std::vector<std::unique_ptr<Stmt>> loweredBody;
     for (auto& stmt : node->body) {
         loweredBody.push_back(lowerStmt(std::move(stmt)));
@@ -67,45 +70,60 @@ std::unique_ptr<Stmt> HIRLowering::lowerFnDecl(std::unique_ptr<FnDecl> node) {
 }
 
 std::unique_ptr<Stmt> HIRLowering::lowerReturnStmt(std::unique_ptr<ReturnStmt> node) {
-    if (node->value) {
-        node->value = lowerExpr(std::move(node->value));
-    }
-    return node;
+    auto loweredValue = node->value ? lowerExpr(std::move(node->value)) : nullptr;
+    return std::make_unique<HIR::HIRReturnStmt>(
+        std::move(loweredValue),
+        node->line,
+        node->column
+    );
 }
 
 std::unique_ptr<Stmt> HIRLowering::lowerIfStmt(std::unique_ptr<IfStmt> node) {
-    node->condition = lowerExpr(std::move(node->condition));
+    auto loweredCondition = lowerExpr(std::move(node->condition));
 
     std::vector<std::unique_ptr<Stmt>> loweredThen;
     for (auto& stmt : node->thenBody) {
         loweredThen.push_back(lowerStmt(std::move(stmt)));
     }
-    node->thenBody = std::move(loweredThen);
 
     std::vector<std::unique_ptr<Stmt>> loweredElse;
     for (auto& stmt : node->elseBody) {
         loweredElse.push_back(lowerStmt(std::move(stmt)));
     }
-    node->elseBody = std::move(loweredElse);
 
-    return node;
+    return std::make_unique<HIR::HIRIfStmt>(
+        std::move(loweredCondition),
+        std::move(loweredThen),
+        std::move(loweredElse),
+        node->line,
+        node->column
+    );
 }
 
 std::unique_ptr<Stmt> HIRLowering::lowerWhileStmt(std::unique_ptr<WhileStmt> node) {
-    node->condition = lowerExpr(std::move(node->condition));
+    auto loweredCondition = lowerExpr(std::move(node->condition));
 
     std::vector<std::unique_ptr<Stmt>> loweredBody;
     for (auto& stmt : node->thenBody) {
         loweredBody.push_back(lowerStmt(std::move(stmt)));
     }
-    node->thenBody = std::move(loweredBody);
 
-    return node;
+    return std::make_unique<HIR::HIRWhileStmt>(
+        std::move(loweredCondition),
+        std::move(loweredBody),
+        nullptr, 
+        node->line,
+        node->column
+    );
 }
 
 std::unique_ptr<Stmt> HIRLowering::lowerExprStmt(std::unique_ptr<ExprStmt> node) {
-    node->expr = lowerExpr(std::move(node->expr));
-    return node;
+    auto loweredExpr = lowerExpr(std::move(node->expr));
+    return std::make_unique<HIR::HIRExprStmt>(
+        std::move(loweredExpr),
+        node->line,
+        node->column
+    );
 }
 
 std::unique_ptr<Stmt> HIRLowering::lowerBlockStmt(std::unique_ptr<BlockStmt> node) {
@@ -113,8 +131,11 @@ std::unique_ptr<Stmt> HIRLowering::lowerBlockStmt(std::unique_ptr<BlockStmt> nod
     for (auto& stmt : node->statements) {
         loweredStmts.push_back(lowerStmt(std::move(stmt)));
     }
-    node->statements = std::move(loweredStmts);
-    return node;
+    return std::make_unique<HIR::HIRBlockStmt>(
+        std::move(loweredStmts),
+        node->line,
+        node->column
+    );
 }
 
 
@@ -237,7 +258,6 @@ std::unique_ptr<Expr> HIRLowering::desugarCompoundAssign(std::unique_ptr<Compoun
         default: binOp = TokenType::Plus; break; // Should never happen
     }
 
-    // Create x + y
     auto lhs = cloneVariable(node->var.get());
     auto binaryExpr = std::make_unique<BinaryExpr>(
         std::move(lhs),
@@ -245,7 +265,6 @@ std::unique_ptr<Expr> HIRLowering::desugarCompoundAssign(std::unique_ptr<Compoun
         binOp
     );
 
-    // Create x = (x + y)
     return std::make_unique<Assignment>(
         std::move(node->var),
         std::move(binaryExpr)
@@ -295,7 +314,6 @@ std::unique_ptr<Stmt> HIRLowering::desugarForLoop(std::unique_ptr<ForStmt> node)
     int column = node->column;
     Token loopVar = node->var->token;
 
-    // 1. Create variable declaration: let mut i = rangeLhs;
     auto varDecl = std::make_unique<VarDecl>(
         true,  // mutable
         loopVar,
@@ -303,7 +321,6 @@ std::unique_ptr<Stmt> HIRLowering::desugarForLoop(std::unique_ptr<ForStmt> node)
         std::move(rangeLhs)
     );
 
-    // 2. Create while condition: i < rangeRhs (or i <= rangeRhs for inclusive)
     auto conditionVar = std::make_unique<Variable>(loopVar);
     TokenType comparisonOp = inclusive ? TokenType::LessEqual : TokenType::LessThan;
     auto condition = std::make_unique<BinaryExpr>(
@@ -314,7 +331,6 @@ std::unique_ptr<Stmt> HIRLowering::desugarForLoop(std::unique_ptr<ForStmt> node)
         column
     );
 
-    // 3. Create increment: i = i + 1
     Token oneToken(TokenType::Integer, loopVar.line, loopVar.column, "1");
     auto one = std::make_unique<Literal>(oneToken);
     auto incrementLhs = std::make_unique<Variable>(loopVar);
@@ -326,29 +342,22 @@ std::unique_ptr<Stmt> HIRLowering::desugarForLoop(std::unique_ptr<ForStmt> node)
         loopVar.column
     );
     auto incrementVar = std::make_unique<Variable>(loopVar);
-    auto incrementAssign = std::make_unique<Assignment>(
+    auto incrementExpr = std::make_unique<Assignment>(
         std::move(incrementVar),
         std::move(incrementValue),
         loopVar.line,
         loopVar.column
     );
-    auto incrementStmt = std::make_unique<ExprStmt>(
-        std::move(incrementAssign),
-        loopVar.line,
-        loopVar.column
-    );
 
     std::vector<std::unique_ptr<Stmt>> whileBody;
-
     for (auto& stmt : node->body) {
         whileBody.push_back(lowerStmt(std::move(stmt)));
     }
 
-    whileBody.push_back(std::move(incrementStmt));
-
-    auto whileStmt = std::make_unique<WhileStmt>(
+    auto whileStmt = std::make_unique<HIR::HIRWhileStmt>(
         std::move(condition),
         std::move(whileBody),
+        std::move(incrementExpr),  
         line,
         column
     );
@@ -357,7 +366,7 @@ std::unique_ptr<Stmt> HIRLowering::desugarForLoop(std::unique_ptr<ForStmt> node)
     blockStmts.push_back(std::move(varDecl));
     blockStmts.push_back(std::move(whileStmt));
 
-    return std::make_unique<BlockStmt>(
+    return std::make_unique<HIR::HIRBlockStmt>(
         std::move(blockStmts),
         line,
         column
@@ -391,7 +400,6 @@ std::unique_ptr<Type> HIRLowering::flattenArrayType(const Type* type) {
 
     if (info.dimensions.size() <= 1) {
         if (auto* arrType = dynamic_cast<const ArrayType*>(type)) {
-            // Clone the 1D array type
             if (auto* primType = dynamic_cast<const PrimitiveType*>(info.element_type)) {
                 return std::make_unique<ArrayType>(
                     std::make_unique<PrimitiveType>(primType->kind),

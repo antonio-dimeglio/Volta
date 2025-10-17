@@ -57,22 +57,23 @@ void SemanticAnalyzer::analyzeStmt(const Stmt* stmt) {
         analyzeFnDecl(fnDecl);
     } else if (auto* varDecl = dynamic_cast<const VarDecl*>(stmt)) {
         analyzeVarDecl(varDecl);
-    } else if (auto* returnStmt = dynamic_cast<const ReturnStmt*>(stmt)) {
-        analyzeReturn(returnStmt);
-    } else if (auto* ifStmt = dynamic_cast<const IfStmt*>(stmt)) {
-        analyzeIf(ifStmt);
-    } else if (auto* whileStmt = dynamic_cast<const WhileStmt*>(stmt)) {
-        analyzeWhile(whileStmt);
+    } else if (auto* hirReturnStmt = dynamic_cast<const HIR::HIRReturnStmt*>(stmt)) {
+        analyzeHIRReturn(hirReturnStmt);
+    } else if (auto* hirIfStmt = dynamic_cast<const HIR::HIRIfStmt*>(stmt)) {
+        analyzeHIRIf(hirIfStmt);
+    } else if (auto* hirWhileStmt = dynamic_cast<const HIR::HIRWhileStmt*>(stmt)) {
+        analyzeHIRWhile(hirWhileStmt);
+    } else if (auto* hirBlockStmt = dynamic_cast<const HIR::HIRBlockStmt*>(stmt)) {
+        analyzeHIRBlock(hirBlockStmt);
+    } else if (auto* hirBreakStmt = dynamic_cast<const HIR::HIRBreakStmt*>(stmt)) {
+        analyzeHIRBreak(hirBreakStmt);
+    } else if (auto* hirContinueStmt = dynamic_cast<const HIR::HIRContinueStmt*>(stmt)) {
+        analyzeHIRContinue(hirContinueStmt);
+    } else if (auto* hirExprStmt = dynamic_cast<const HIR::HIRExprStmt*>(stmt)) {
+        analyzeExpr(hirExprStmt->expr.get());
     } else if (auto* forStmt = dynamic_cast<const ForStmt*>(stmt)) {
+        // For loops should be desugared before reaching semantic analysis
         analyzeFor(forStmt);
-    } else if (auto* blockStmt = dynamic_cast<const BlockStmt*>(stmt)) {
-        analyzeBlock(blockStmt);
-    } else if (auto* breakStmt = dynamic_cast<const BreakStmt*>(stmt)) {
-        analyzeBreak(breakStmt);
-    } else if (auto* continueStmt = dynamic_cast<const ContinueStmt*>(stmt)) {
-        analyzeContinue(continueStmt);
-    } else if (auto* exprStmt = dynamic_cast<const ExprStmt*>(stmt)) {
-        analyzeExpr(exprStmt->expr.get());
     } else {
         diag.error("Unknown statement type in semantic analysis", 0, 0);
     }
@@ -200,6 +201,34 @@ void SemanticAnalyzer::analyzeIf(const IfStmt* ifStmt) {
     }
 }
 
+void SemanticAnalyzer::analyzeHIRWhile(const HIR::HIRWhileStmt* whileStmt) {
+    const Type* condType = inferExprType(whileStmt->condition.get());
+
+    const Type* bool_type = type_registry.getPrimitive(PrimitiveTypeKind::Bool);
+    if (condType != bool_type) {
+        std::ostringstream oss;
+        oss << "Non-boolean condition for while statement. Got " << condType->toString();
+        diag.error(oss.str(), 0, 0);
+    }
+
+    // If there's an increment expression (from desugared for loop), type-check it
+    if (whileStmt->increment) {
+        inferExprType(whileStmt->increment.get());
+    }
+
+    bool was_in_loop = in_loop;
+    in_loop = true;
+
+    // Create new scope for while-body
+    symbol_table.enterScope();
+    for (const auto& stmt : whileStmt->thenBody) {
+        analyzeStmt(stmt.get());
+    }
+    symbol_table.exitScope();
+
+    in_loop = was_in_loop;
+}
+
 void SemanticAnalyzer::analyzeWhile(const WhileStmt* whileStmt) {
     const Type* condType = inferExprType(whileStmt->condition.get());
 
@@ -244,6 +273,78 @@ void SemanticAnalyzer::analyzeContinue(const ContinueStmt* continueStmt) {
         diag.error("'continue' statement outside of loop", 0, 0);
     }
 }
+
+// ==================== HIR-SPECIFIC ANALYSIS FUNCTIONS ====================
+
+void SemanticAnalyzer::analyzeHIRReturn(const HIR::HIRReturnStmt* returnStmt) {
+    if (returnStmt->value) {
+        const Type* retType = inferExprType(returnStmt->value.get());
+        validateTypeCompatibility(current_return_type, retType,
+                                  "Return statement type mismatch");
+    } else {
+        // No return value - must be void function
+        const Type* void_type = type_registry.getPrimitive(PrimitiveTypeKind::Void);
+        if (current_return_type != void_type) {
+            diag.error("Non-void function must return a value", 0, 0);
+        }
+    }
+}
+
+void SemanticAnalyzer::analyzeHIRIf(const HIR::HIRIfStmt* ifStmt) {
+    const Type* condType = inferExprType(ifStmt->condition.get());
+
+    const Type* bool_type = type_registry.getPrimitive(PrimitiveTypeKind::Bool);
+    if (condType != bool_type) {
+        std::ostringstream oss;
+        oss << "Non-boolean condition for if statement. Got " << condType->toString();
+        diag.error(oss.str(), 0, 0);
+    }
+
+    // Create new scope for then-block
+    symbol_table.enterScope();
+    for (const auto& stmt : ifStmt->thenBody) {
+        analyzeStmt(stmt.get());
+    }
+    symbol_table.exitScope();
+
+    // Create new scope for else-block (if it exists)
+    if (!ifStmt->elseBody.empty()) {
+        symbol_table.enterScope();
+        for (const auto& stmt : ifStmt->elseBody) {
+            analyzeStmt(stmt.get());
+        }
+        symbol_table.exitScope();
+    }
+}
+
+void SemanticAnalyzer::analyzeHIRBlock(const HIR::HIRBlockStmt* blockStmt) {
+    // Create new scope for the block
+    symbol_table.enterScope();
+
+    // Analyze all statements in the block
+    for (const auto& stmt : blockStmt->statements) {
+        analyzeStmt(stmt.get());
+    }
+
+    // Exit scope
+    symbol_table.exitScope();
+}
+
+void SemanticAnalyzer::analyzeHIRBreak(const HIR::HIRBreakStmt* breakStmt) {
+    (void)breakStmt;  // Unused
+    if (!in_loop) {
+        diag.error("'break' statement outside of loop", 0, 0);
+    }
+}
+
+void SemanticAnalyzer::analyzeHIRContinue(const HIR::HIRContinueStmt* continueStmt) {
+    (void)continueStmt;  // Unused
+    if (!in_loop) {
+        diag.error("'continue' statement outside of loop", 0, 0);
+    }
+}
+
+// ==================== AST ANALYSIS FUNCTIONS (kept for compatibility) ====================
 
 void SemanticAnalyzer::analyzeBlock(const BlockStmt* blockStmt) {
     // Create new scope for the block

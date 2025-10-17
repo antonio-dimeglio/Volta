@@ -22,9 +22,6 @@ namespace Semantic {
  *    - Variable declaration and usage validation
  *    - Control flow validation (break/continue in loops)
  *    - Return type checking
- *    - Mutability checking
- *
- * Operates on HIR (desugared code), not raw AST
  */
 class SemanticAnalyzer {
 private:
@@ -56,8 +53,6 @@ private:
      */
     void collectFnDecl(const FnDecl* fn);
 
-    // ========== Second Pass: Statement Analysis ==========
-
     /**
      * Analyze a statement
      */
@@ -82,6 +77,38 @@ private:
      * Analyze if statement
      */
     void analyzeIf(const IfStmt* ifStmt);
+
+
+    /**
+     * Analyze HIR return statement
+     */
+    void analyzeHIRReturn(const HIR::HIRReturnStmt* returnStmt);
+
+    /**
+     * Analyze HIR if statement
+     */
+    void analyzeHIRIf(const HIR::HIRIfStmt* ifStmt);
+
+    /**
+     * Analyze HIR while statement (including desugared for loops)
+     */
+    void analyzeHIRWhile(const HIR::HIRWhileStmt* whileStmt);
+
+    /**
+     * Analyze HIR block statement
+     */
+    void analyzeHIRBlock(const HIR::HIRBlockStmt* blockStmt);
+
+    /**
+     * Analyze HIR break statement
+     */
+    void analyzeHIRBreak(const HIR::HIRBreakStmt* breakStmt);
+
+    /**
+     * Analyze HIR continue statement
+     */
+    void analyzeHIRContinue(const HIR::HIRContinueStmt* continueStmt);
+
 
     /**
      * Analyze while statement
@@ -108,7 +135,6 @@ private:
      */
     void analyzeBlock(const BlockStmt* blockStmt);
 
-    // ========== Expression Analysis ==========
 
     /**
      * Analyze expression (recursively validates sub-expressions)
@@ -122,7 +148,6 @@ private:
      */
     const Type* inferExprType(const Expr* expr);
 
-    // ========== Expression Validators ==========
 
     /**
      * Validate binary expression operands
@@ -169,15 +194,12 @@ private:
      */
     void validateCompoundAssign(const CompoundAssign* expr);
 
-    // ========== Type Inference Helpers ==========
 
     /**
      * Infer type of array literal
      * Validates all elements have same type
      */
     const Type* inferArrayLiteralType(const ArrayLiteral* arr);
-
-    // ========== Validation Helpers ==========
 
     /**
      * Check that actual type is compatible with expected type
