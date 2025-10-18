@@ -11,7 +11,6 @@ extern "C" {
 
 /**
  * Allocate memory
- * Implementation delegates to volta_gc_malloc() or other allocator.
  *
  * @param size Number of bytes to allocate
  * @return Pointer to allocated memory, or NULL on failure
@@ -20,7 +19,6 @@ static inline void* volta_alloc(size_t size);
 
 /**
  * Allocate zeroed memory
- * Implementation delegates to volta_gc_calloc() or other allocator.
  *
  * @param count Number of elements
  * @param size Size of each element
@@ -30,7 +28,6 @@ static inline void* volta_alloc_zeroed(size_t count, size_t size);
 
 /**
  * Reallocate memory (resize allocation)
- * Implementation delegates to volta_gc_realloc() or other allocator.
  *
  * @param ptr Existing allocation (can be NULL)
  * @param new_size New size in bytes

@@ -19,14 +19,12 @@ extern "C" {
 /**
  * Initialize the garbage collector
  * Must be called before any allocations.
- * For Boehm GC, this calls GC_INIT().
  */
 void volta_gc_init(void);
 
 /**
  * Shutdown the garbage collector
  * Optional for GC (automatic cleanup), required for manual mode.
- * For Boehm GC, this is a no-op.
  */
 void volta_gc_shutdown(void);
 
@@ -38,9 +36,6 @@ bool volta_gc_is_enabled(void);
 
 /**
  * Allocate memory from the GC heap
- * For Boehm GC: Uses GC_malloc() - memory is automatically reclaimed
- * For manual: Uses malloc() - must call volta_gc_free()
- *
  * @param size Number of bytes to allocate
  * @return Pointer to allocated memory, or NULL on failure
  */
@@ -58,8 +53,6 @@ void* volta_gc_calloc(size_t count, size_t size);
 
 /**
  * Reallocate memory (resize existing allocation)
- * For Boehm GC: Uses GC_realloc()
- * For manual: Uses realloc()
  *
  * @param ptr Existing allocation (can be NULL)
  * @param new_size New size in bytes
@@ -69,8 +62,6 @@ void* volta_gc_realloc(void* ptr, size_t new_size);
 
 /**
  * Free memory explicitly (only for manual mode)
- * For Boehm GC: This is a no-op (memory is reclaimed automatically)
- * For manual: Calls free()
  *
  * NOTE: In GC mode, you DON'T need to call this. The GC handles it.
  * This exists for compatibility with manual memory management.
@@ -90,8 +81,6 @@ void volta_gc_collect(void);
 
 /**
  * Register a finalizer for an object (called before object is freed)
- * For Boehm GC: Uses GC_register_finalizer()
- * For manual: Not supported (no-op)
  *
  * @param obj Pointer to object
  * @param finalizer Function to call before freeing (void (*)(void*, void*))
@@ -101,8 +90,6 @@ void volta_gc_register_finalizer(void* obj, void (*finalizer)(void*, void*), voi
 
 /**
  * Get total heap size in bytes
- * For Boehm GC: Returns GC_get_heap_size()
- * For manual: Returns 0 (not tracked)
  *
  * @return Heap size in bytes
  */
@@ -110,8 +97,6 @@ size_t volta_gc_get_heap_size(void);
 
 /**
  * Get amount of free space in heap
- * For Boehm GC: Returns GC_get_free_bytes()
- * For manual: Returns 0 (not tracked)
  *
  * @return Free bytes in heap
  */
@@ -121,11 +106,11 @@ size_t volta_gc_get_free_bytes(void);
  * GC statistics structure
  */
 typedef struct VoltaGCStats {
-    size_t total_allocations;   // Total number of allocations
-    size_t total_bytes;          // Total bytes allocated
-    size_t heap_size;            // Current heap size
-    size_t free_bytes;           // Current free bytes
-    size_t num_collections;      // Number of GC cycles run
+    size_t total_allocations;
+    size_t total_bytes;
+    size_t heap_size;
+    size_t free_bytes;
+    size_t num_collections;
 } VoltaGCStats;
 
 /**
