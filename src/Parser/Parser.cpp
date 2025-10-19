@@ -75,15 +75,13 @@ bool Parser::isLiteralExpr() const {
 }
 
 std::unique_ptr<Type> Parser::parseType() {
-    // Array type: [T; size]
     if (check(TokenType::LSquare)) {
-        advance(); // consume '['
+        advance(); 
 
-        auto elementType = parseType(); // Parse element type recursively
+        auto elementType = parseType();
 
         expect(TokenType::Semicolon);
 
-        // Handle negative array sizes (should be an error)
         bool isNegative = false;
         if (match({TokenType::Minus})) {
             isNegative = true;
@@ -95,12 +93,12 @@ std::unique_ptr<Type> Parser::parseType() {
         if (isNegative) {
             size = -size;
             diag.error("Array size cannot be negative", sizeToken.line, sizeToken.column);
-            size = 1; // Use fallback positive size
+            size = 1;
         }
 
         if (size <= 0) {
             diag.error("Array size must be positive", sizeToken.line, sizeToken.column);
-            size = 1; // Use fallback
+            size = 1;
         }
 
         expect(TokenType::RSquare);
@@ -108,17 +106,35 @@ std::unique_ptr<Type> Parser::parseType() {
         return std::make_unique<ArrayType>(std::move(elementType), size);
     }
 
-    // Primitive type
+    // Handle 'opaque' keyword
+    if (check(TokenType::Opaque)) {
+        advance();
+        return std::make_unique<OpaqueType>();
+    }
+
     if (check(TokenType::Identifier)) {
         std::string typeStr = advance().lexeme;
-        auto maybeType = stringToPrimitiveTypeKind(typeStr);
 
-        if (!maybeType.has_value()) {
-            diag.error("Non primitive type used", peek().line, peek().column);
-            return std::make_unique<PrimitiveType>(PrimitiveTypeKind::I32); // Default fallback
+        if (check(TokenType::LessThan)) {
+            advance();
+
+            std::vector<std::unique_ptr<Type>> typeParams;
+            typeParams.push_back(parseType());
+
+            while (match({TokenType::Comma})) {
+                typeParams.push_back(parseType());
+            }
+
+            expect(TokenType::GreaterThan);
+            return std::make_unique<GenericType>(typeStr, std::move(typeParams));
         }
 
-        return std::make_unique<PrimitiveType>(maybeType.value());
+        auto maybeType = stringToPrimitiveTypeKind(typeStr);
+        if (maybeType.has_value()) {
+            return std::make_unique<PrimitiveType>(maybeType.value());
+        }
+        diag.error("Unknown type: " + typeStr, peek().line, peek().column);
+        return std::make_unique<PrimitiveType>(PrimitiveTypeKind::I32);
     }
 
     diag.error("Expected type", peek().line, peek().column);

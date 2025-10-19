@@ -25,6 +25,7 @@ static const std::unordered_map<std::string, TokenType> keywords = {
     {"opaque", TokenType::Opaque},
     {"self", TokenType::Self_},
     {"impl", TokenType::Impl},
+    {"varargs", TokenType::Varargs},
     {"true", TokenType::True_},
     {"false", TokenType::False_},
     {"and", TokenType::And},

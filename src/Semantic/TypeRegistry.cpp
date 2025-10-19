@@ -96,11 +96,13 @@ const GenericType* TypeRegistry::internGeneric(const std::string& name,
 
     std::vector<std::unique_ptr<Type>> cloned_params;
     for (const Type* param : type_params) {
-    
+
         if (auto* prim = dynamic_cast<const PrimitiveType*>(param)) {
             cloned_params.push_back(std::make_unique<PrimitiveType>(prim->kind));
+        } else if (dynamic_cast<const OpaqueType*>(param)) {
+            cloned_params.push_back(std::make_unique<OpaqueType>());
         } else {
-            throw std::runtime_error("Generic type parameters other than primitives not yet supported");
+            throw std::runtime_error("Generic type parameters other than primitives and opaque not yet supported");
         }
     }
 
@@ -145,6 +147,15 @@ const Type* TypeRegistry::internFromAST(const Type* ast_type) {
         return internGeneric(gen->name, interned_params);
     }
 
+    // Opaque type - we don't intern it, just use a singleton-like behavior
+    // Since all opaque types are identical, we can return a static instance
+    if (dynamic_cast<const OpaqueType*>(ast_type)) {
+        // For now, treat opaque as void* - return the primitive i8 pointer equivalent
+        // This is a placeholder - ideally we'd have a dedicated opaque type instance
+        static std::unique_ptr<OpaqueType> opaque_singleton = std::make_unique<OpaqueType>();
+        return opaque_singleton.get();
+    }
+
     return nullptr;
 }
 
@@ -175,7 +186,12 @@ bool TypeRegistry::isValidType(const Type* type) const {
             return true;
         }
     }
-    
+
+    // Check if it's the opaque type singleton
+    if (dynamic_cast<const OpaqueType*>(type)) {
+        return true;
+    }
+
     return false;
 }
 
@@ -187,23 +203,30 @@ bool TypeRegistry::areTypesCompatible(const Type* target, const Type* source) co
     if (target == source) return true;
 
 
-    auto* target_prim = dynamic_cast<const PrimitiveType*>(target);
-    auto* source_prim = dynamic_cast<const PrimitiveType*>(source);
+    auto* targetPrimitive = dynamic_cast<const PrimitiveType*>(target);
+    auto* sourcePrimitive = dynamic_cast<const PrimitiveType*>(source);
+    auto* targetGeneric = dynamic_cast<const GenericType*>(target);
+    auto* sourceGeneric = dynamic_cast<const GenericType*>(source);
+    
+    if (targetGeneric && sourceGeneric) {
+        return target->equals(source);
+    }
 
-    if (!target_prim || !source_prim) return false;
-
+    if ((targetGeneric || sourceGeneric) || (!targetPrimitive || !sourcePrimitive)) {
+        return false;
+    } 
 
     if (isInteger(source) && isInteger(target)) {
     
         if ((isUnsigned(source) && isUnsigned(target)) ||
             (isSigned(source) && isSigned(target))) {
-            return getTypeWidth(target_prim->kind) >= getTypeWidth(source_prim->kind);
+            return getTypeWidth(targetPrimitive->kind) >= getTypeWidth(sourcePrimitive->kind);
         }
     }
 
 
     if (isFloat(source) && isFloat(target)) {
-        return getTypeWidth(target_prim->kind) >= getTypeWidth(source_prim->kind);
+        return getTypeWidth(targetPrimitive->kind) >= getTypeWidth(sourcePrimitive->kind);
     }
 
     return false;
@@ -500,16 +523,23 @@ llvm::Type* TypeRegistry::toLLVMType(const Type* type, llvm::LLVMContext& ctx) c
 
 
     if (auto* gen = dynamic_cast<const GenericType*>(type)) {
-        (void)gen;
+        if (gen->name == "Ptr") {
+            return llvm::PointerType::get(ctx, 0); // Opaque LLVM ptr.
+        }
+
+        // TODO: Add support for actual generics.
         return nullptr;
+    }
+
+    // Handle opaque type (should only appear inside Ptr<opaque>)
+    if (dynamic_cast<const OpaqueType*>(type)) {
+        // If we get here, opaque was used standalone (which is an error)
+        // But for error recovery, treat it as a pointer
+        return llvm::PointerType::get(ctx, 0);
     }
 
     return nullptr;
 }
-
-// ============================================================================
-// Helper Methods
-// ============================================================================
 
 std::unique_ptr<Type> TypeRegistry::cloneType(const Type* type) const {
     // Clone a type recursively (needed for nested array interning)
@@ -531,6 +561,10 @@ std::unique_ptr<Type> TypeRegistry::cloneType(const Type* type) const {
             cloned_params.push_back(cloneType(param.get()));
         }
         return std::make_unique<GenericType>(gen->name, std::move(cloned_params));
+    }
+
+    if (dynamic_cast<const OpaqueType*>(type)) {
+        return std::make_unique<OpaqueType>();
     }
 
     throw std::runtime_error("Unsupported type for cloning: " + type->toString());

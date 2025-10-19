@@ -64,6 +64,7 @@
     X(Opaque) \
     X(Self_) \
     X(Impl) \
+    X(Varargs) \
     /* Delimiters */ \
     X(LParen) \
     X(RParen) \

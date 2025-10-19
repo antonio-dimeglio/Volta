@@ -121,6 +121,17 @@ struct GenericType : Type {
     }
 };
 
+// Only for ptrs.
+struct OpaqueType : Type {
+    std::string toString() const override {
+        return "opaque";
+    }
+
+    bool equals(const Type* other) const override {
+        return dynamic_cast<const OpaqueType*>(other) != nullptr;
+    }
+};
+
 // Helper function to convert string to PrimitiveTypeKind (useful for parsing)
 // Returns std::nullopt if the string doesn't match any primitive type
 inline std::optional<PrimitiveTypeKind> stringToPrimitiveTypeKind(const std::string& str) {
