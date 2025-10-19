@@ -40,6 +40,8 @@ void ASTPrinter::printStmt(const Stmt* stmt, std::ostream& os, int indent) {
         printForStmt(forStmt, os, indent);
     } else if (auto* blockStmt = dynamic_cast<const BlockStmt*>(stmt)) {
         printBlockStmt(blockStmt, os, indent);
+    } else if (auto* externBlock = dynamic_cast<const ExternBlock*>(stmt)) {
+        printExternBlock(externBlock, os, indent);
     } else {
         os << getIndent() << "Unknown statement\n";
     }
@@ -167,6 +169,28 @@ void ASTPrinter::printBlockStmt(const BlockStmt* node, std::ostream& os, int ind
     os << getIndent() << "}";
 }
 
+void ASTPrinter::printExternBlock(const ExternBlock* node, std::ostream& os, int indent) {
+    os << getIndent() << "ExternBlock(\"" << node->abi << "\"):\n";
+    os << getIndent() << "{\n";
+
+    for (const auto& fn : node->declarations) {
+        indentLevel = indent + 1;
+        os << getIndent() << "ExternFnDecl: " << fn->name << "(";
+
+        for (size_t i = 0; i < fn->params.size(); ++i) {
+            if (i > 0) os << ", ";
+            os << fn->params[i].toString();
+        }
+
+        os << ") -> ";
+        printType(fn->returnType.get(), os);
+        os << "\n";
+    }
+
+    indentLevel = indent;
+    os << getIndent() << "}";
+}
+
 // ==================== EXPRESSION PRINTERS ====================
 
 std::string ASTPrinter::exprToString(const Expr* expr) const {
@@ -196,6 +220,8 @@ std::string ASTPrinter::exprToString(const Expr* expr) const {
         return decrementToString(dec);
     } else if (auto* range = dynamic_cast<const Range*>(expr)) {
         return rangeToString(range);
+    } else if (auto* addrOf = dynamic_cast<const AddrOf*>(expr)) {
+        return addrOfToString(addrOf);
     }
 
     return "<unknown expr>";
@@ -255,6 +281,10 @@ std::string ASTPrinter::arrayLiteralToString(const ArrayLiteral* node) const {
         oss << "]";
     }
     return oss.str();
+}
+
+std::string ASTPrinter::addrOfToString(const AddrOf* node) const {
+    return "ptr " + exprToString(node->operand.get());
 }
 
 std::string ASTPrinter::indexExprToString(const IndexExpr* node) const {

@@ -53,7 +53,7 @@ struct PrimitiveType : Type {
             case PrimitiveTypeKind::F64:    return "f64";
             case PrimitiveTypeKind::Bool:   return "bool";
             case PrimitiveTypeKind::Char:   return "char";
-            case PrimitiveTypeKind::String: return "string";
+            case PrimitiveTypeKind::String: return "str";
             case PrimitiveTypeKind::Void:   return "void";
         }
         return "unknown";
@@ -147,7 +147,7 @@ inline std::optional<PrimitiveTypeKind> stringToPrimitiveTypeKind(const std::str
     if (str == "f64")    return PrimitiveTypeKind::F64;
     if (str == "bool")   return PrimitiveTypeKind::Bool;
     if (str == "char")   return PrimitiveTypeKind::Char;
-    if (str == "string") return PrimitiveTypeKind::String;
+    if (str == "str") return PrimitiveTypeKind::String;
     if (str == "void")   return PrimitiveTypeKind::Void;
 
     return std::nullopt;

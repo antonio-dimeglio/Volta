@@ -138,8 +138,10 @@ std::unique_ptr<Expr> MIRElaboration::elaborateExpr(std::unique_ptr<Expr> expr) 
         return elaborateArrayLiteral(std::unique_ptr<ArrayLiteral>(static_cast<ArrayLiteral*>(expr.release())));
     } else if (auto* idx = dynamic_cast<IndexExpr*>(expr.get())) {
         return elaborateIndexExpr(std::unique_ptr<IndexExpr>(static_cast<IndexExpr*>(expr.release())));
+    } else if (auto* addrOf = dynamic_cast<AddrOf*>(expr.get())) {
+        return elaborateAddrOf(std::unique_ptr<AddrOf>(static_cast<AddrOf*>(expr.release())));
     }
-\
+
     return expr;
 }
 
@@ -169,6 +171,11 @@ std::unique_ptr<Expr> MIRElaboration::elaborateAssignment(std::unique_ptr<Assign
 
 std::unique_ptr<Expr> MIRElaboration::elaborateGroupingExpr(std::unique_ptr<GroupingExpr> node) {
     node->expr = elaborateExpr(std::move(node->expr));
+    return node;
+}
+
+std::unique_ptr<Expr> MIRElaboration::elaborateAddrOf(std::unique_ptr<AddrOf> node) {
+    node->operand = elaborateExpr(std::move(node->operand));
     return node;
 }
 

@@ -62,6 +62,7 @@
     X(Enum) \
     X(Extern) \
     X(Opaque) \
+    X(PtrKeyword) \
     X(Self_) \
     X(Impl) \
     X(Varargs) \

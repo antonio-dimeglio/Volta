@@ -126,6 +126,14 @@ struct IndexExpr : Expr {
     std::string toString() const override;
 };
 
+struct AddrOf : Expr {
+    std::unique_ptr<Expr> operand;
+    AddrOf(std::unique_ptr<Expr> operand, size_t line = 0, size_t column = 0) 
+        : Expr(line, column), operand(std::move(operand)) {}
+
+    std::string toString() const override;
+};
+
 struct CompoundAssign : Expr {
     std::unique_ptr<Variable> var;
     std::unique_ptr<Expr> value;
@@ -198,11 +206,13 @@ struct FnDecl : Stmt {
     std::vector<Param> params;
     std::unique_ptr<Type> returnType;
     std::vector<std::unique_ptr<Stmt>> body;
+    bool isExtern;
 
     FnDecl(const std::string& name, std::vector<Param> params,
-           std::unique_ptr<Type> returnType, std::vector<std::unique_ptr<Stmt>> body, int line = 0, int column = 0)
+           std::unique_ptr<Type> returnType, std::vector<std::unique_ptr<Stmt>> body, 
+           bool isExtern = false, int line = 0, int column = 0)
         : Stmt(line, column), name(name), params(std::move(params)), returnType(std::move(returnType)),
-          body(std::move(body)) {}
+          body(std::move(body)), isExtern(isExtern) {}
 
     std::string toString() const override;
 };
@@ -278,7 +288,16 @@ struct ContinueStmt : Stmt {
     std::string toString() const override;
 };
 
-// ==================== PROGRAM ====================
+struct ExternBlock : Stmt {
+    std::string abi;  // e.g., "C"
+    std::vector<std::unique_ptr<FnDecl>> declarations;
+
+    ExternBlock(const std::string& abi, std::vector<std::unique_ptr<FnDecl>> declarations, int line = 0, int column = 0)
+        : Stmt(line, column), abi(abi), declarations(std::move(declarations)) {}
+
+    std::string toString() const override;
+};
+
 
 struct Program : ASTNode {
     std::vector<std::unique_ptr<Stmt>> statements;

@@ -19,9 +19,14 @@ void SemanticAnalyzer::analyzeProgram(const HIR::Program& program) {
     for (const auto& stmt : program.statements) {
         if (auto* fnDecl = dynamic_cast<const FnDecl*>(stmt.get())) {
             collectFnDecl(fnDecl);
+        } else if (auto* externBlock = dynamic_cast<const ExternBlock*>(stmt.get())) {
+            for (const auto& fn : externBlock->declarations) {
+                collectFnDecl(fn.get());
+            }
         }
     }
 
+    // Second pass
     for (const auto& stmt : program.statements) {
         analyzeStmt(stmt.get());
     }
@@ -55,6 +60,8 @@ void SemanticAnalyzer::collectFnDecl(const FnDecl* fn) {
 void SemanticAnalyzer::analyzeStmt(const Stmt* stmt) {
     if (auto* fnDecl = dynamic_cast<const FnDecl*>(stmt)) {
         analyzeFnDecl(fnDecl);
+    } else if (auto* externBlock = dynamic_cast<const ExternBlock*>(stmt)) {
+        return;
     } else if (auto* varDecl = dynamic_cast<const VarDecl*>(stmt)) {
         analyzeVarDecl(varDecl);
     } else if (auto* hirReturnStmt = dynamic_cast<const HIR::HIRReturnStmt*>(stmt)) {
@@ -80,6 +87,14 @@ void SemanticAnalyzer::analyzeStmt(const Stmt* stmt) {
 }
 
 void SemanticAnalyzer::analyzeFnDecl(const FnDecl* fn) {
+    // Skip body analysis for extern functions - they have no implementation
+    if (fn->isExtern || fn->body.empty()) {
+        // Extern function - signature was already validated in collectFnDecl
+        // No body to analyze, no local variables to track
+        return;
+    }
+
+    // Regular function - analyze body
     symbol_table.enterFunction();
     current_function = fn->name;
 
@@ -379,6 +394,8 @@ const Type* SemanticAnalyzer::analyzeExpr(const Expr* expr) {
         validateDecrement(decrement);
     } else if (auto* compoundAssign = dynamic_cast<const CompoundAssign*>(expr)) {
         validateCompoundAssign(compoundAssign);
+    } else if (auto* addrOf = dynamic_cast<const AddrOf*>(expr)) {
+        validateAddrOf(addrOf);
     }
 
     return inferExprType(expr);
@@ -480,8 +497,12 @@ const Type* SemanticAnalyzer::inferExprType(const Expr* expr) {
     }
 
     if (auto* range = dynamic_cast<const Range*>(expr)) {
-        // Range expressions themselves don't have a type, they're only used in for loops
         return type_registry.getPrimitive(PrimitiveTypeKind::Void);
+    }
+
+    if (auto* addrOf = dynamic_cast<const AddrOf*>(expr)) {
+        const Type* operandType = inferExprType(addrOf->operand.get());
+        return type_registry.internGeneric("Ptr", {operandType});
     }
 
     diag.error("Unknown expression type in type inference", expr->line, expr->column);
@@ -712,6 +733,29 @@ void SemanticAnalyzer::validateCompoundAssign(const CompoundAssign* expr) {
         value_type,
         "Compound assignment to variable '" + expr->var->token.lexeme + "'"
     );
+}
+
+void SemanticAnalyzer::validateAddrOf(const AddrOf* expr) {
+    const Expr* operand = expr->operand.get();
+
+    if (dynamic_cast<const Variable*>(operand)) {
+        analyzeExpr(operand);
+        return;
+    }
+
+    if (dynamic_cast<const IndexExpr*>(operand)) {
+        analyzeExpr(operand);
+        return;
+    }
+
+    if (auto* lit = dynamic_cast<const Literal*>(operand)) {
+        if (lit->token.tt == TokenType::String) {
+            analyzeExpr(operand);
+            return;
+        }
+    }
+
+    diag.error("Cannot take address of non-lvalue expression", expr->line, expr->column);
 }
 
 const Type* SemanticAnalyzer::inferArrayLiteralType(const ArrayLiteral* arr) {

@@ -55,6 +55,10 @@ std::string ArrayLiteral::toString() const {
     return oss.str();
 }
 
+std::string AddrOf::toString() const {
+    return "addrof " + operand->toString();
+}
+
 std::string IndexExpr::toString() const {
     return "Index(" + array->toString() + "[" + index->toString() + "])";
 }
@@ -146,6 +150,12 @@ std::string BreakStmt::toString() const {
 
 std::string ContinueStmt::toString() const {
     return "Continue";
+}
+
+std::string ExternBlock::toString() const {
+    std::ostringstream oss;
+    oss << "ExternBlock(\"" << abi << "\", " << declarations.size() << " declarations)";
+    return oss.str();
 }
 
 // ==================== PROGRAM ====================

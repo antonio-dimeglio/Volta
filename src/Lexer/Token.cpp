@@ -23,6 +23,7 @@ static const std::unordered_map<std::string, TokenType> keywords = {
     {"enum", TokenType::Enum},
     {"extern", TokenType::Extern},
     {"opaque", TokenType::Opaque},
+    {"addrof", TokenType::PtrKeyword},
     {"self", TokenType::Self_},
     {"impl", TokenType::Impl},
     {"varargs", TokenType::Varargs},

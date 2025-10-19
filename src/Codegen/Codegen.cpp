@@ -17,6 +17,10 @@ void Codegen::generateStmt(const Stmt* stmt) {
 
     if (auto* fnDecl = dynamic_cast<const FnDecl*>(stmt)) {
         generateFnDecl(fnDecl);
+    } else if (auto* externBlock = dynamic_cast<const ExternBlock*>(stmt)) {
+        for (const auto& decl : externBlock->declarations) {
+            generateExternFnDecl(decl.get());
+        }
     } else if (auto* varDecl = dynamic_cast<const VarDecl*>(stmt)) {
         generateVarDecl(varDecl);
     } else if (auto* hirReturnStmt = dynamic_cast<const HIR::HIRReturnStmt*>(stmt)) {
@@ -87,6 +91,34 @@ void Codegen::generateFnDecl(const FnDecl* stmt) {
 
     variables.clear();
     currentFunctionReturnType = nullptr;
+}
+
+void Codegen::generateExternFnDecl(const FnDecl* stmt) {
+    functionDecls[stmt->name] = stmt;
+
+    llvm::Type* retType = typeRegistry.toLLVMType(stmt->returnType.get(), *context);
+
+    std::vector<llvm::Type*> paramTypes;
+    for (const auto& param : stmt->params) {
+        if (param.isRef || param.isMutRef) {
+            paramTypes.push_back(llvm::PointerType::get(*context, 0));
+        } else {
+            llvm::Type* baseType = typeRegistry.toLLVMType(param.type.get(), *context);
+            paramTypes.push_back(baseType);
+        }
+    }
+
+    llvm::FunctionType* fnType = llvm::FunctionType::get(retType, paramTypes, false);
+    llvm::Function* func = llvm::Function::Create(
+        fnType,
+        llvm::Function::ExternalLinkage,
+        stmt->name,
+        *module_
+    );
+
+    for (size_t i = 0; i < stmt->params.size(); ++i) {
+        func->getArg(i)->setName(stmt->params[i].name);
+    }
 }
 
 
@@ -271,6 +303,8 @@ llvm::Value* Codegen::generateExpr(const Expr* expr, const Type* expectedType) {
         return generateArrayLiteral(arrayLit);
     } else if (auto* indexExpr = dynamic_cast<const IndexExpr*>(expr)) {
         return generateIndexExpr(indexExpr);
+    } else if (auto* addrOf = dynamic_cast<const AddrOf*>(expr)) {
+        return generateAddrOf(addrOf);
     } else if (auto* grouping = dynamic_cast<const GroupingExpr*>(expr)) {
         return generateExpr(grouping->expr.get(), expectedType);
     } else {
@@ -310,6 +344,24 @@ llvm::Value* Codegen::generateLiteral(const Literal* expr, const Type* expectedT
     } else if (tt == TokenType::False_) {
         llvm::Type* llvmType =  llvm::Type::getInt1Ty(*context);
         return llvm::ConstantInt::get(llvmType, 0);
+    } else if (tt == TokenType::String) {
+        llvm::Constant* strConstant = llvm::ConstantDataArray::getString(*context, lexeme, true); // converted to c_string
+        llvm::GlobalVariable* globalStr = new llvm::GlobalVariable(
+            *module_,
+            strConstant->getType(),
+            true, 
+            llvm::GlobalValue::PrivateLinkage,
+            strConstant,
+            ".str"
+        );
+        llvm::Value* zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*context), 0);
+        
+        return builder->CreateInBoundsGEP(
+            strConstant->getType(),
+            globalStr,
+            {zero, zero},
+            "str_ptr"
+        );
     } else {
         diag.error("Unsupported type for code gen.", -1, -1);
         return nullptr;
@@ -550,7 +602,7 @@ llvm::Value* Codegen::generateArrayLiteral(const ArrayLiteral* expr) {
     return arrayPtr;
 }
 
-llvm::Value* Codegen::generateIndexExpr(const IndexExpr* expr, llvm::Type** outType) {
+llvm::Value* Codegen::generateIndexExpr(const IndexExpr* expr, llvm::Type** outType, bool returnPtr) {
     llvm::Value* idx = generateExpr(expr->index.get());
     if (!idx) {
         return nullptr;
@@ -580,12 +632,46 @@ llvm::Value* Codegen::generateIndexExpr(const IndexExpr* expr, llvm::Type** outT
             "element_ptr"
         );
 
+        if (outType) {
+            *outType = elementType;
+        }
+
+        if (returnPtr) {
+            return elementPtr;
+        }
+
         return builder->CreateLoad(elementType, elementPtr, "element");
     }
     else {
         diag.error("Array indexing only supported for variables after MIR elaboration", 0, 0);
         return nullptr;
     }
+}
+
+llvm::Value* Codegen::generateAddrOf(const AddrOf* addrOf) {
+    if (auto* var = dynamic_cast<const Variable*>(addrOf->operand.get())) {
+        auto it = variables.find(var->token.lexeme);
+        if (it == variables.end()) {
+            diag.error("Variable not found: " + var->token.lexeme, 0, 0);
+            return nullptr;
+        }
+        return it->second.first;
+    }
+
+    if (auto* index = dynamic_cast<const IndexExpr*>(addrOf->operand.get())) {
+        llvm::Type* elemType;
+        return generateIndexExpr(index, &elemType, true);
+    }
+
+    if (auto* lit = dynamic_cast<const Literal*>(addrOf->operand.get())) {
+        if (lit->token.tt == TokenType::String) {
+            return generateLiteral(lit, nullptr);
+        }
+        diag.error("Cannot use ptr on literal value", lit->line, lit->column);
+    }
+
+    diag.error("Cannot take address of non-lvalue", 0, 0);
+    return nullptr;
 }
 
 void Codegen::fillArrayLiteral(llvm::Value* arrayPtr, llvm::Type* arrayType, const ArrayLiteral* expr) {

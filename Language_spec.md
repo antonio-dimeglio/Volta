@@ -134,4 +134,64 @@ extern "C" {
 }
 ```
 Note the usage of the opaque keyword, which is just a fancy way of declaring a void pointer, for which the size is system specific.
-char* is a Ptr<u8>, while numeric types can be directly translated with the supported Volta types. Conversion from utf8 string to C strings can be done by performing `my_string.to_c_str()` calls.
+char* is a Ptr<u8>, while numeric types can be directly translated with the supported Volta types. Conversion from utf8 string to C strings can be done by performing `my_string.to_c_str()` calls. The language also supports the use of the `addrof` keyword to obtain the address of a variable, in order to pass it to C definitiions.
+
+### Modules and Imports
+
+Volta uses a file-based module system. Each `.vlt` file is a module, and the module path corresponds to the file path.
+
+#### Visibility
+
+By default, all definitions are private to the file. Use the `pub` keyword to export symbols:
+
+```rust
+pub fn add(a: i32, b: i32) -> i32 {
+    return a + b;
+}
+
+fn helper() -> i32 {  // Private
+    return 42;
+}
+
+Import Syntax
+
+Import specific items from other modules using dot notation:
+
+```rust
+import std.io.{print, println};
+import std.math.{abs, sqrt};
+import std.collections.{Vec, HashMap};
+
+fn main() -> i32 {
+    print("Hello!");
+    let x: i32 = abs(-42);
+    return 0;
+}
+```
+
+Module paths map to file paths:
+- import std.io.{print} looks for std/io.vlt
+- import utils.math.{add} looks for utils/math.vlt
+
+Extern Blocks
+
+extern blocks are file-scoped and cannot be imported. To expose C functions, wrap them in public Volta functions:
+
+```rust
+// In std/io.vlt
+extern "C" {
+    fn puts(s: Ptr<u8>) -> i32;  // File-scoped only
+}
+
+pub fn print(s: str) -> i32 {    // Public wrapper
+    return puts(s);
+}
+```
+
+Compilation
+
+Compile multiple files together:
+```bash
+volta main.vlt lib.vlt -o program
+```
+When compiling, a main function definition is required. Multiple function definitions are not allowed. 

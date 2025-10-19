@@ -45,8 +45,14 @@ private:
     // Parse type annotation (i32, f64, bool, etc.)
     std::unique_ptr<Type> parseType();
 
-    // Parse function declaration
-    std::unique_ptr<Stmt> parseFnDecl();
+    // Parse function definition (with body)
+    std::unique_ptr<Stmt> parseFnDef();
+
+    // Parse function signature (without body) - used for extern blocks
+    std::unique_ptr<FnDecl> parseFnSignature();
+
+    // Parse extern block
+    std::unique_ptr<Stmt> parseExternBlock();
 
     // Parse block body between braces
     std::vector<std::unique_ptr<Stmt>> parseBody();

@@ -207,7 +207,19 @@ bool TypeRegistry::areTypesCompatible(const Type* target, const Type* source) co
     auto* sourcePrimitive = dynamic_cast<const PrimitiveType*>(source);
     auto* targetGeneric = dynamic_cast<const GenericType*>(target);
     auto* sourceGeneric = dynamic_cast<const GenericType*>(source);
-    
+
+    // Special case: str is compatible with Ptr<u8> for FFI
+    if (targetGeneric && sourcePrimitive) {
+        if (targetGeneric->name == "Ptr" &&
+            targetGeneric->type_params.size() == 1 &&
+            sourcePrimitive->kind == PrimitiveTypeKind::String) {
+            auto* innerType = dynamic_cast<const PrimitiveType*>(targetGeneric->type_params[0].get());
+            if (innerType && innerType->kind == PrimitiveTypeKind::U8) {
+                return true;
+            }
+        }
+    }
+
     if (targetGeneric && sourceGeneric) {
         return target->equals(source);
     }

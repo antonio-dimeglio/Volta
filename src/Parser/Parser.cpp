@@ -9,7 +9,12 @@ std::unique_ptr<Program> Parser::parseProgram() {
     while (!isAtEnd()) {
         Token t = peek();
         if (t.tt == TokenType::Function) {
-            auto stmt = parseFnDecl();
+            auto stmt = parseFnDef();
+            if (stmt) {
+                program->add_statement(std::move(stmt));
+            }
+        } else if (t.tt == TokenType::Extern) {
+            auto stmt = parseExternBlock();
             if (stmt) {
                 program->add_statement(std::move(stmt));
             }
@@ -142,7 +147,7 @@ std::unique_ptr<Type> Parser::parseType() {
 }
 
 
-std::unique_ptr<Stmt> Parser::parseFnDecl() {
+std::unique_ptr<FnDecl> Parser::parseFnSignature() {
     Token fnToken = expect(TokenType::Function);
     Token name = expect(TokenType::Identifier);
 
@@ -173,7 +178,7 @@ std::unique_ptr<Stmt> Parser::parseFnDecl() {
                 advance();
                 isMutRef = true;
             } else {
-                isMutRef = true; 
+                isMutRef = true;
             }
         } else if (check(TokenType::Ref)) {
             advance();
@@ -196,9 +201,47 @@ std::unique_ptr<Stmt> Parser::parseFnDecl() {
         returnType = parseType();
     }
 
-    auto body = parseBody();
+    // Create FnDecl without body (empty vector indicates no body)
+    return std::make_unique<FnDecl>(name.lexeme, std::move(params), std::move(returnType),
+                                    std::vector<std::unique_ptr<Stmt>>(), false, fnToken.line, fnToken.column);
+}
 
-    return std::make_unique<FnDecl>(name.lexeme, std::move(params), std::move(returnType), std::move(body), fnToken.line, fnToken.column);
+std::unique_ptr<Stmt> Parser::parseFnDef() {
+    auto fn = parseFnSignature();
+
+    // Parse body and set it
+    auto body = parseBody();
+    fn->body = std::move(body);
+
+    return fn;
+}
+
+std::unique_ptr<Stmt> Parser::parseExternBlock() {
+    Token externToken = expect(TokenType::Extern);
+
+    // Expect ABI string (e.g., "C")
+    Token abiToken = expect(TokenType::String);
+    std::string abi = abiToken.lexeme;
+
+    // Remove quotes from string literal
+    if (abi.length() >= 2 && abi.front() == '"' && abi.back() == '"') {
+        abi = abi.substr(1, abi.length() - 2);
+    }
+
+    expect(TokenType::LBrace);
+
+    std::vector<std::unique_ptr<FnDecl>> declarations;
+
+    while (!check(TokenType::RBrace) && !isAtEnd()) {
+        auto fn = parseFnSignature();
+        fn->isExtern = true;  // Mark as external declaration
+        expect(TokenType::Semicolon);  // Extern functions end with semicolon
+        declarations.push_back(std::move(fn));
+    }
+
+    expect(TokenType::RBrace);
+
+    return std::make_unique<ExternBlock>(abi, std::move(declarations), externToken.line, externToken.column);
 }
 
 std::vector<std::unique_ptr<Stmt>> Parser::parseBody() {
@@ -442,6 +485,12 @@ std::unique_ptr<Expr> Parser::parseUnary() {
         Token opToken = tokens[idx - 1];
         auto operand = parseUnary();
         return std::make_unique<UnaryExpr>(std::move(operand), opToken.tt, opToken.line, opToken.column);
+    }
+
+    if (check(TokenType::PtrKeyword)) {
+        Token t = advance();
+        auto expr = parseUnary();
+        return std::make_unique<AddrOf>(std::move(expr), t.line, t.column);
     }
 
     return parsePostfix();

@@ -48,6 +48,7 @@ private:
     void generateStmt(const Stmt* stmt);
 
     void generateFnDecl(const FnDecl* stmt);
+    void generateExternFnDecl(const FnDecl* stmt);
     void generateVarDecl(const VarDecl* stmt);
 
     void generateHIRReturn(const HIR::HIRReturnStmt* stmt);
@@ -67,7 +68,8 @@ private:
     llvm::Value* generateUnaryExpr(const UnaryExpr* expr, const Type* expectedType = nullptr);
     llvm::Value* generateAssignment(const Assignment* expr);
     llvm::Value* generateArrayLiteral(const ArrayLiteral* expr);
-    llvm::Value* generateIndexExpr(const IndexExpr* expr, llvm::Type** outType = nullptr);
+    llvm::Value* generateIndexExpr(const IndexExpr* expr, llvm::Type** outType = nullptr, bool returnPtr = false);
+    llvm::Value* generateAddrOf(const AddrOf* expr);
 
 
     void fillArrayLiteral(llvm::Value* arrayPtr, llvm::Type* arrayType, const ArrayLiteral* expr);

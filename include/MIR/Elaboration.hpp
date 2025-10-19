@@ -41,6 +41,7 @@ private:
     std::unique_ptr<Expr> elaborateGroupingExpr(std::unique_ptr<GroupingExpr> node);
     std::unique_ptr<Expr> elaborateArrayLiteral(std::unique_ptr<ArrayLiteral> node);
     std::unique_ptr<Expr> elaborateIndexExpr(std::unique_ptr<IndexExpr> node);
+    std::unique_ptr<Expr> elaborateAddrOf(std::unique_ptr<AddrOf> node);
 
     bool isMultiDimensionalIndexing(const IndexExpr* expr);
 

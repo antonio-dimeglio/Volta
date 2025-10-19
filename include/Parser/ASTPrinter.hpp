@@ -34,6 +34,7 @@ public:
     void printContinueStmt(const ContinueStmt* node, std::ostream& os, int indent);
     void printForStmt(const ForStmt* node, std::ostream& os, int indent);
     void printBlockStmt(const BlockStmt* node, std::ostream& os, int indent);
+    void printExternBlock(const ExternBlock* node, std::ostream& os, int indent);
 
     // Expression printers
     std::string exprToString(const Expr* expr) const;
@@ -45,6 +46,7 @@ public:
     std::string assignmentToString(const Assignment* node) const;
     std::string groupingToString(const GroupingExpr* node) const;
     std::string arrayLiteralToString(const ArrayLiteral* node) const;
+    std::string addrOfToString(const AddrOf* node) const;
     std::string indexExprToString(const IndexExpr* node) const;
     std::string compoundAssignToString(const CompoundAssign* node) const;
     std::string incrementToString(const Increment* node) const;

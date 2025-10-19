@@ -14,6 +14,10 @@ Program HIRLowering::lower(Program ast) {
 std::unique_ptr<Stmt> HIRLowering::lowerStmt(std::unique_ptr<Stmt> stmt) {
     if (auto* varDecl = dynamic_cast<VarDecl*>(stmt.get())) {
         return lowerVarDecl(std::unique_ptr<VarDecl>(static_cast<VarDecl*>(stmt.release())));
+    } else if (auto* externBlock = dynamic_cast<ExternBlock*>(stmt.get())) {
+        // Extern blocks pass through to HIR unchanged
+        // They will be handled in codegen
+        return stmt;
     } else if (auto* fnDecl = dynamic_cast<FnDecl*>(stmt.get())) {
         return lowerFnDecl(std::unique_ptr<FnDecl>(static_cast<FnDecl*>(stmt.release())));
     } else if (auto* retStmt = dynamic_cast<ReturnStmt*>(stmt.get())) {
@@ -162,6 +166,10 @@ std::unique_ptr<Expr> HIRLowering::lowerExpr(std::unique_ptr<Expr> expr) {
         return lowerArrayLiteral(std::unique_ptr<ArrayLiteral>(static_cast<ArrayLiteral*>(expr.release())));
     } else if (auto* idx = dynamic_cast<IndexExpr*>(expr.get())) {
         return lowerIndexExpr(std::unique_ptr<IndexExpr>(static_cast<IndexExpr*>(expr.release())));
+    } else if (auto* addrOf = dynamic_cast<AddrOf*>(expr.get())) {
+        auto* raw = static_cast<AddrOf*>(expr.release());
+        raw->operand = lowerExpr(std::move(raw->operand));
+        return std::unique_ptr<AddrOf>(raw);
     }
 
     return expr;

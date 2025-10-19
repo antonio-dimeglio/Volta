@@ -194,6 +194,11 @@ private:
      */
     void validateCompoundAssign(const CompoundAssign* expr);
 
+    /**
+     * Validate address-of expression (lvalue check)
+     */
+    void validateAddrOf(const AddrOf* expr);
+
 
     /**
      * Infer type of array literal
