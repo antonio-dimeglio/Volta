@@ -1,13 +1,13 @@
 The following is a document outlining the language specs of Volta.
 Volta is a Garbage Collected imperative language with scientific computing in mind, which allows user to easily bind to C code by providing ergonomic infrastructure to do so.
-Each .rev executable must have a main function. The smallest Volta language is the following
-```{rev}
+Each .vlt executable must have a main function. The smallest Volta language is the following
+```{vlt}
 fn main() -> i32 {
     return 0;
 }
 ```
 An example of the classic Hello world program is the following:
-```{rev}
+```{vlt}
 fn main() -> i32 {
     println("Hello, world!");
     return 0;

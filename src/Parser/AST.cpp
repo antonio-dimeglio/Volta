@@ -158,7 +158,20 @@ std::string ExternBlock::toString() const {
     return oss.str();
 }
 
-// ==================== PROGRAM ====================
+std::string ImportStmt::toString() const {
+    std::ostringstream oss;
+    oss << "Import(\"" << modulePath << "\"";
+    if (!importedItems.empty()) {
+        oss << ", {";
+        for (size_t i = 0; i < importedItems.size(); ++i) {
+            if (i > 0) oss << ", ";
+            oss << importedItems[i];
+        }
+        oss << "}";
+    }
+    oss << ")";
+    return oss.str();
+}
 
 std::string Program::toString() const {
     return "Program(" + std::to_string(statements.size()) + " statements)";

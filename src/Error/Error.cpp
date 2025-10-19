@@ -33,6 +33,18 @@ void DiagnosticManager::info(const std::string& message, size_t line, size_t col
     report(DiagnosticLevel::Info, message, line, column);
 }
 
+void DiagnosticManager::note(const std::string& message) {
+    std::ostream& os = std::cerr;
+
+    if (useColor) {
+        os << Color::Cyan << Color::Bold << "note" << Color::Reset;
+    } else {
+        os << "note";
+    }
+
+    os << ": " << message << "\n";
+}
+
 void DiagnosticManager::printAll(std::ostream& os, const std::string& filename) const {
     for (const auto& diag : diagnostics) {
         // Print diagnostic level

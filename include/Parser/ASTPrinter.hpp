@@ -35,6 +35,7 @@ public:
     void printForStmt(const ForStmt* node, std::ostream& os, int indent);
     void printBlockStmt(const BlockStmt* node, std::ostream& os, int indent);
     void printExternBlock(const ExternBlock* node, std::ostream& os, int indent);
+    void printImportStmt(const ImportStmt* node, std::ostream& os, int indent);
 
     // Expression printers
     std::string exprToString(const Expr* expr) const;

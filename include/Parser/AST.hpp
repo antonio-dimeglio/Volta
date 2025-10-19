@@ -207,12 +207,13 @@ struct FnDecl : Stmt {
     std::unique_ptr<Type> returnType;
     std::vector<std::unique_ptr<Stmt>> body;
     bool isExtern;
+    bool isPublic;
 
     FnDecl(const std::string& name, std::vector<Param> params,
            std::unique_ptr<Type> returnType, std::vector<std::unique_ptr<Stmt>> body, 
-           bool isExtern = false, int line = 0, int column = 0)
+           bool isExtern = false, bool isPublic = false, int line = 0, int column = 0)
         : Stmt(line, column), name(name), params(std::move(params)), returnType(std::move(returnType)),
-          body(std::move(body)), isExtern(isExtern) {}
+          body(std::move(body)), isExtern(isExtern), isPublic(isPublic) {}
 
     std::string toString() const override;
 };
@@ -289,11 +290,21 @@ struct ContinueStmt : Stmt {
 };
 
 struct ExternBlock : Stmt {
-    std::string abi;  // e.g., "C"
+    std::string abi;
     std::vector<std::unique_ptr<FnDecl>> declarations;
 
     ExternBlock(const std::string& abi, std::vector<std::unique_ptr<FnDecl>> declarations, int line = 0, int column = 0)
         : Stmt(line, column), abi(abi), declarations(std::move(declarations)) {}
+
+    std::string toString() const override;
+};
+
+struct ImportStmt : Stmt {
+    std::string modulePath; 
+    std::vector<std::string> importedItems;
+
+    ImportStmt(const std::string modulePath, std::vector<std::string> importedItems, int line = 0, int column = 0)
+        : Stmt(line, column), modulePath(modulePath), importedItems(importedItems) {}
 
     std::string toString() const override;
 };

@@ -51,6 +51,9 @@ private:
     // Parse function signature (without body) - used for extern blocks
     std::unique_ptr<FnDecl> parseFnSignature();
 
+    // Parse import statement
+    std::unique_ptr<ImportStmt> parseImportStmt();
+
     // Parse extern block
     std::unique_ptr<Stmt> parseExternBlock();
 

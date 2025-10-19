@@ -1,16 +1,47 @@
 #include "Codegen/Codegen.hpp"
 #include <llvm/IR/DerivedTypes.h>
 
-llvm::Module* Codegen::generate() {
-    context = std::make_unique<llvm::LLVMContext>();
+std::unique_ptr<llvm::Module> Codegen::generate() {
     module_ = std::make_unique<llvm::Module>("volta_module", *context);
     builder = std::make_unique<llvm::IRBuilder<>>(*context);
+
+    // Generate declarations for imported functions first
+    generateImportedFunctionDeclarations();
 
     for (const auto& stmt : hirProgram.statements) {
         generateStmt(stmt.get());
     }
 
-    return module_.get();
+    return std::move(module_);
+}
+
+void Codegen::generateImportedFunctionDeclarations() {
+    for (const auto& importedFunc : importedFunctions) {
+        // Build LLVM parameter types
+        std::vector<llvm::Type*> paramTypes;
+        for (const auto& param : importedFunc.params) {
+            if (param.is_ref || param.is_mut_ref) {
+                paramTypes.push_back(llvm::PointerType::get(*context, 0));
+            } else {
+                llvm::Type* baseType = typeRegistry.toLLVMType(param.type, *context);
+                paramTypes.push_back(baseType);
+            }
+        }
+
+        // Build LLVM return type
+        llvm::Type* retType = typeRegistry.toLLVMType(importedFunc.returnType, *context);
+
+        // Create LLVM function type
+        llvm::FunctionType* fnType = llvm::FunctionType::get(retType, paramTypes, false);
+
+        // Create LLVM function declaration (external linkage)
+        llvm::Function::Create(
+            fnType,
+            llvm::Function::ExternalLinkage,
+            importedFunc.name,
+            *module_
+        );
+    }
 }
 
 void Codegen::generateStmt(const Stmt* stmt) {
@@ -21,6 +52,9 @@ void Codegen::generateStmt(const Stmt* stmt) {
         for (const auto& decl : externBlock->declarations) {
             generateExternFnDecl(decl.get());
         }
+    } else if (auto* importStmt = dynamic_cast<const ImportStmt*>(stmt)) {
+        // Import statements are already handled, just skip them
+        return;
     } else if (auto* varDecl = dynamic_cast<const VarDecl*>(stmt)) {
         generateVarDecl(varDecl);
     } else if (auto* hirReturnStmt = dynamic_cast<const HIR::HIRReturnStmt*>(stmt)) {
@@ -65,6 +99,14 @@ void Codegen::generateFnDecl(const FnDecl* stmt) {
         *module_
     );
 
+    // Check if this function is imported from another module
+    // If so, we only create the declaration (above) and skip the body
+    if (importedSymbols.count(stmt->name) > 0) {
+        // This is an imported function - declaration only, no body
+        return;
+    }
+
+    // This is a local function - generate the full definition with body
     llvm::BasicBlock* block = llvm::BasicBlock::Create(*context, "entry", func);
     builder->SetInsertPoint(block);
 
@@ -390,40 +432,78 @@ llvm::Value* Codegen::generateFnCall(const FnCall* expr) {
         return nullptr;
     }
 
+    // Check if this is a local function with a FnDecl
     auto declIt = functionDecls.find(expr->name);
-    if (declIt == functionDecls.end()) {
-        diag.error("Function declaration for '" + expr->name + "' not found", 0, 0);
-        return nullptr;
-    }
-    const FnDecl* fnDecl = declIt->second;
-    
-    std::vector<llvm::Value*> args;
-    for (size_t i = 0; i < expr->args.size(); ++i) {
-        const Param& param = fnDecl->params[i];
-        
-        if (param.isRef || param.isMutRef) {
-            if (auto* varExpr = dynamic_cast<const Variable*>(expr->args[i].get())) {
-                std::string varName = varExpr->token.lexeme;
-                auto varIt = variables.find(varName);
-                if (varIt == variables.end()) {
-                    diag.error("Variable '" + varName + "' not found for reference argument", 0, 0);
+    if (declIt != functionDecls.end()) {
+        // Local function - use FnDecl for parameter info
+        const FnDecl* fnDecl = declIt->second;
+
+        std::vector<llvm::Value*> args;
+        for (size_t i = 0; i < expr->args.size(); ++i) {
+            const Param& param = fnDecl->params[i];
+
+            if (param.isRef || param.isMutRef) {
+                if (auto* varExpr = dynamic_cast<const Variable*>(expr->args[i].get())) {
+                    std::string varName = varExpr->token.lexeme;
+                    auto varIt = variables.find(varName);
+                    if (varIt == variables.end()) {
+                        diag.error("Variable '" + varName + "' not found for reference argument", 0, 0);
+                        return nullptr;
+                    }
+                    args.push_back(varIt->second.first);
+                } else {
+                    diag.error("Non-variable passed to reference parameter", 0, 0);
                     return nullptr;
                 }
-                args.push_back(varIt->second.first);
             } else {
-                diag.error("Non-variable passed to reference parameter", 0, 0);
-                return nullptr;
+                llvm::Value* argVal = generateExpr(expr->args[i].get());
+                if (!argVal) {
+                    return nullptr;
+                }
+                args.push_back(argVal);
             }
-        } else {
-            llvm::Value* argVal = generateExpr(expr->args[i].get());
-            if (!argVal) {
-                return nullptr;
-            }
-            args.push_back(argVal);
         }
+
+        return builder->CreateCall(fn, args, expr->name + "_result");
     }
-    
-    return builder->CreateCall(fn, args, expr->name + "_result");
+
+    // Check if this is an imported function
+    auto importedIt = importedFunctionParams.find(expr->name);
+    if (importedIt != importedFunctionParams.end()) {
+        // Imported function - use cached parameter info
+        const auto& params = importedIt->second;
+
+        std::vector<llvm::Value*> args;
+        for (size_t i = 0; i < expr->args.size(); ++i) {
+            const auto& param = params[i];
+
+            if (param.is_ref || param.is_mut_ref) {
+                if (auto* varExpr = dynamic_cast<const Variable*>(expr->args[i].get())) {
+                    std::string varName = varExpr->token.lexeme;
+                    auto varIt = variables.find(varName);
+                    if (varIt == variables.end()) {
+                        diag.error("Variable '" + varName + "' not found for reference argument", 0, 0);
+                        return nullptr;
+                    }
+                    args.push_back(varIt->second.first);
+                } else {
+                    diag.error("Non-variable passed to reference parameter", 0, 0);
+                    return nullptr;
+                }
+            } else {
+                llvm::Value* argVal = generateExpr(expr->args[i].get());
+                if (!argVal) {
+                    return nullptr;
+                }
+                args.push_back(argVal);
+            }
+        }
+
+        return builder->CreateCall(fn, args, expr->name + "_result");
+    }
+
+    diag.error("Function declaration for '" + expr->name + "' not found", 0, 0);
+    return nullptr;
 }
 
 llvm::Value* Codegen::generateBinaryExpr(const BinaryExpr* expr, const Type* expectedType) {

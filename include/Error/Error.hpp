@@ -42,6 +42,7 @@ public:
     void error(const std::string& message, size_t line, size_t column);
     void warning(const std::string& message, size_t line, size_t column);
     void info(const std::string& message, size_t line, size_t column);
+    void note(const std::string& message);
 
     bool hasErrors() const { return errorCount > 0; }
     size_t getErrorCount() const { return errorCount; }

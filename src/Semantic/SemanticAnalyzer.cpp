@@ -62,6 +62,9 @@ void SemanticAnalyzer::analyzeStmt(const Stmt* stmt) {
         analyzeFnDecl(fnDecl);
     } else if (auto* externBlock = dynamic_cast<const ExternBlock*>(stmt)) {
         return;
+    } else if (auto* importStmt = dynamic_cast<const ImportStmt*>(stmt)) {
+        // Import statements are already validated, just skip them
+        return;
     } else if (auto* varDecl = dynamic_cast<const VarDecl*>(stmt)) {
         analyzeVarDecl(varDecl);
     } else if (auto* hirReturnStmt = dynamic_cast<const HIR::HIRReturnStmt*>(stmt)) {

@@ -1,6 +1,7 @@
 #pragma once
 #include "HIR/HIR.hpp"
 #include "Semantic/TypeRegistry.hpp"
+#include "Semantic/SymbolTable.hpp"
 #include "Error/Error.hpp"
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
@@ -12,6 +13,8 @@
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Verifier.h>
 #include <map>
+#include <unordered_map>
+#include <vector>
 
 using namespace Semantic;
 
@@ -22,7 +25,7 @@ private:
     const TypeRegistry& typeRegistry;
     DiagnosticManager& diag;
     
-    std::unique_ptr<llvm::LLVMContext> context;
+    llvm::LLVMContext* context;  // External context (not owned)
     std::unique_ptr<llvm::Module> module_;
     std::unique_ptr<llvm::IRBuilder<>> builder;
     
@@ -30,23 +33,53 @@ private:
     std::map<std::string, const FnDecl*> functionDecls;
     const Type* currentFunctionReturnType;
 
+    // Maps symbol name → source module for imported symbols
+    // Example: {"add" → "examples.math", "multiply" → "examples.math"}
+    std::unordered_map<std::string, std::string> importedSymbols;
+
+    // Imported function signatures for generating declarations
+    struct ImportedFunctionInfo {
+        std::string name;
+        std::vector<Semantic::FunctionParameter> params;
+        const Type* returnType;
+    };
+    std::vector<ImportedFunctionInfo> importedFunctions;
+
+    // Map from function name to its parameter info (for imported functions)
+    std::unordered_map<std::string, std::vector<Semantic::FunctionParameter>> importedFunctionParams;
+
     struct LoopContext {
-        llvm::BasicBlock* continueTarget; 
-        llvm::BasicBlock* breakTarget;    
+        llvm::BasicBlock* continueTarget;
+        llvm::BasicBlock* breakTarget;
     };
     std::vector<LoopContext> loopStack;
 
 public:
     Codegen(const Program& hirProgram, const TypeRegistry& typeRegistry,
-            DiagnosticManager& diag):
+            DiagnosticManager& diag, llvm::LLVMContext& ctx):
         hirProgram(hirProgram), typeRegistry(typeRegistry),
-        diag(diag) {}
-    
-    llvm::Module*  generate();
+        diag(diag), context(&ctx) {}
+
+    // Set the imported symbols for this module
+    // Pass the inner map from ImportMap for the current module
+    void setImportedSymbols(const std::unordered_map<std::string, std::string>& imports) {
+        importedSymbols = imports;
+    }
+
+    // Add an imported function signature for declaration generation
+    void addImportedFunction(const std::string& name,
+                             const std::vector<Semantic::FunctionParameter>& params,
+                             const Type* returnType) {
+        importedFunctions.push_back({name, params, returnType});
+        importedFunctionParams[name] = params;
+    }
+
+    std::unique_ptr<llvm::Module> generate();
 
 private:
     void generateStmt(const Stmt* stmt);
 
+    void generateImportedFunctionDeclarations();
     void generateFnDecl(const FnDecl* stmt);
     void generateExternFnDecl(const FnDecl* stmt);
     void generateVarDecl(const VarDecl* stmt);

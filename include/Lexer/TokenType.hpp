@@ -66,6 +66,7 @@
     X(Self_) \
     X(Impl) \
     X(Varargs) \
+    X(Pub) \
     /* Delimiters */ \
     X(LParen) \
     X(RParen) \

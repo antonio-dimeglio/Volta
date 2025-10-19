@@ -42,6 +42,8 @@ void ASTPrinter::printStmt(const Stmt* stmt, std::ostream& os, int indent) {
         printBlockStmt(blockStmt, os, indent);
     } else if (auto* externBlock = dynamic_cast<const ExternBlock*>(stmt)) {
         printExternBlock(externBlock, os, indent);
+    } else if (auto* importStmt = dynamic_cast<const ImportStmt*>(stmt)) {
+        printImportStmt(importStmt, os, indent);  
     } else {
         os << getIndent() << "Unknown statement\n";
     }
@@ -191,7 +193,18 @@ void ASTPrinter::printExternBlock(const ExternBlock* node, std::ostream& os, int
     os << getIndent() << "}";
 }
 
-// ==================== EXPRESSION PRINTERS ====================
+void ASTPrinter::printImportStmt(const ImportStmt* node, std::ostream& os, int indent) {
+    os << getIndent() << "Import(\"" << node->modulePath << "\")";
+    if (!node->importedItems.empty()) {
+        os << " {";
+        for (size_t i = 0; i < node->importedItems.size(); ++i) {
+            if (i > 0) os << ", ";
+            os << node->importedItems[i];
+        }
+        os << "}";
+    }
+    os << "\n";
+}
 
 std::string ASTPrinter::exprToString(const Expr* expr) const {
     if (auto* fnCall = dynamic_cast<const FnCall*>(expr)) {

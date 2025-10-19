@@ -8,13 +8,18 @@ std::unique_ptr<Program> Parser::parseProgram() {
 
     while (!isAtEnd()) {
         Token t = peek();
-        if (t.tt == TokenType::Function) {
+        if (t.tt == TokenType::Function || t.tt == TokenType::Pub) {
             auto stmt = parseFnDef();
             if (stmt) {
                 program->add_statement(std::move(stmt));
             }
         } else if (t.tt == TokenType::Extern) {
             auto stmt = parseExternBlock();
+            if (stmt) {
+                program->add_statement(std::move(stmt));
+            }
+        } else if(t.tt == TokenType::Import) {
+            auto stmt = parseImportStmt();
             if (stmt) {
                 program->add_statement(std::move(stmt));
             }
@@ -148,6 +153,12 @@ std::unique_ptr<Type> Parser::parseType() {
 
 
 std::unique_ptr<FnDecl> Parser::parseFnSignature() {
+    bool isPub = false;
+    if (check(TokenType::Pub))  {
+        isPub = true;
+        advance();
+    }
+
     Token fnToken = expect(TokenType::Function);
     Token name = expect(TokenType::Identifier);
 
@@ -201,15 +212,13 @@ std::unique_ptr<FnDecl> Parser::parseFnSignature() {
         returnType = parseType();
     }
 
-    // Create FnDecl without body (empty vector indicates no body)
     return std::make_unique<FnDecl>(name.lexeme, std::move(params), std::move(returnType),
-                                    std::vector<std::unique_ptr<Stmt>>(), false, fnToken.line, fnToken.column);
+                                    std::vector<std::unique_ptr<Stmt>>(), false, isPub, fnToken.line, fnToken.column);
 }
 
 std::unique_ptr<Stmt> Parser::parseFnDef() {
     auto fn = parseFnSignature();
 
-    // Parse body and set it
     auto body = parseBody();
     fn->body = std::move(body);
 
@@ -242,6 +251,35 @@ std::unique_ptr<Stmt> Parser::parseExternBlock() {
     expect(TokenType::RBrace);
 
     return std::make_unique<ExternBlock>(abi, std::move(declarations), externToken.line, externToken.column);
+}
+
+std::unique_ptr<ImportStmt> Parser::parseImportStmt() {
+    Token importToken = expect(TokenType::Import);
+    std::string modulePath = expect(TokenType::Identifier).lexeme;
+    std::vector<std::string> importedItems;
+
+    // Parse module path: std.io
+    while (check(TokenType::Dot) && !isAtEnd()) {
+        advance();  // consume dot
+        modulePath += ".";
+        modulePath += expect(TokenType::Identifier).lexeme;
+    }
+
+    // Expect opening brace
+    expect(TokenType::LBrace);
+
+    // Parse imported items
+    while (!check(TokenType::RBrace) && !isAtEnd()) {
+        importedItems.push_back(expect(TokenType::Identifier).lexeme);
+        if (!check(TokenType::RBrace)) {
+            expect(TokenType::Comma);
+        }
+    }
+
+    expect(TokenType::RBrace);
+    expect(TokenType::Semicolon);
+
+    return std::make_unique<ImportStmt>(modulePath, importedItems, importToken.line, importToken.column);
 }
 
 std::vector<std::unique_ptr<Stmt>> Parser::parseBody() {
