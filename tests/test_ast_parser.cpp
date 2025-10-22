@@ -2,11 +2,13 @@
 #include "Lexer/Lexer.hpp"
 #include "Parser/Parser.hpp"
 #include "Parser/AST.hpp"
+#include "Type/TypeRegistry.hpp"
 #include "Error/Error.hpp"
 
 class ParserTest : public ::testing::Test {
 protected:
     DiagnosticManager diag;
+    Type::TypeRegistry typeRegistry;
 
     std::unique_ptr<Program> parse(const std::string& source) {
         Lexer lexer(source, diag);
@@ -16,7 +18,7 @@ protected:
             return nullptr;
         }
 
-        Parser parser(tokens, diag);
+        Parser parser(tokens, typeRegistry, diag);
         return parser.parseProgram();
     }
 };

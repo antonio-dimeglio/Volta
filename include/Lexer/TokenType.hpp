@@ -76,6 +76,7 @@
     X(RBrace) \
     /* Misc */ \
     X(Colon) \
+    X(DoubleColon) \
     X(Semicolon) \
     X(Arrow) \
     X(FatArrow) \

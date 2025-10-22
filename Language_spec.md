@@ -31,42 +31,115 @@ Two arrays exist, one, beign a fixed size array, denoted with the type syntax `[
 ##### HashMap and HashSet
 Hashmap and hashset and are declared respectively using the type syntax `{KeyType:ValueType}` and `{ValueType}`.
 ##### Composite types (Structs)
-Structs in Volta are basically a copy and paste of Structs type in rust, how convenient! They also have methods defined in impl blocks and traits for shared behaviour. They also rely on the `self` keyword, though all structures are mutable, unless the self is preceeded by the `const` keyword. Structs (and their implementatio) can be generic. Examples of structs are the following
-```{rust}
+Structs in Volta define custom data types with fields and methods. Unlike Rust, methods are defined directly inside the struct body rather than in separate `impl` blocks.
+
+**Visibility:**
+- Structs can be `pub` (importable) or private (file-scoped only)
+- Fields can be `pub` (accessible from outside) or private (only accessible within methods)
+- Methods can be `pub` or private
+
+**Struct Literals:**
+- If a struct has any private fields, you cannot create it with a struct literal from outside the module
+- You must use a constructor method (typically `new`)
+
+**Method Types:**
+- **Static methods**: No `self` parameter, called with `::` operator (e.g., `Point::new(x, y)`)
+- **Instance methods**: Have `self` or `mut self` parameter, called with `.` operator (e.g., `p.distance()`)
+
+**Mutability:**
+- Struct field mutability is tied to the variable mutability (not per-field)
+- Methods taking `mut self` can only be called on mutable variables
+- Methods taking `self` can be called on both mutable and immutable variables
+- The `self` parameter is always passed by reference (automatic, user doesn't specify `&`)
+
+**Examples:**
+
+```rust
+// Public struct with public and private fields
 pub struct Point {
-    x: f32,
-    y: f32
-}
+    pub x: f32,      // Public field
+    pub y: f32,      // Public field
+    cache: f32,      // Private field
 
-impl Point {
+    // Static method (constructor) - called with Point::new()
     pub fn new(x: f32, y: f32) -> Point {
-        return Point {
-            x: x,
-            y: y
-        }
+        return Point { x: x, y: y, cache: 0.0 };
     }
 
-    pub fn get_x(self) -> f32 {
-        return self.x
+    // Instance method with immutable self - called with p.distance()
+    pub fn distance(self) -> f32 {
+        return sqrt(self.x * self.x + self.y * self.y);
+    }
+
+    // Instance method with mutable self - called with p.move_by()
+    pub fn move_by(mut self, dx: f32, dy: f32) {
+        self.x = self.x + dx;
+        self.y = self.y + dy;
+    }
+
+    // Private helper method
+    fn update_cache(mut self) {
+        self.cache = self.distance();
     }
 }
 
-pub struct Array<T> {
-    data: Ptr<T>,
-    length: u32,
-    capacity: u32
-}
+// Usage:
+let mut p = Point::new(10.0, 20.0);  // Static method with ::
+let d = p.distance();                // Instance method with .
+p.move_by(5.0, 5.0);                 // Mutable method on mutable var
 
-impl<T> Array<T> {
-    pub fn new() -> Array {
-        Array {    
-            data: malloc(sizeof(T) * 8),
-            length: 0,
-            capacity: 8
-        }
+// Can access public fields directly:
+let x = p.x;
+p.x = 30.0;
+
+// Cannot access private fields:
+// let c = p.cache;  // ERROR: field 'cache' is private
+```
+
+**Private structs:**
+
+```rust
+// Private struct - cannot be imported by other modules
+struct InternalCounter {
+    count: i32,
+
+    fn new() -> InternalCounter {
+        return InternalCounter { count: 0 };
+    }
+
+    fn increment(mut self) {
+        self.count = self.count + 1;
     }
 }
 ```
+
+**Structs with all private fields:**
+
+```rust
+pub struct OpaqueHandle {
+    internal_id: i32,     // Private field
+    internal_ptr: ptr<opaque>,  // Private field
+
+    // Must provide constructor since struct literal is not allowed
+    pub fn new(id: i32) -> OpaqueHandle {
+        return OpaqueHandle {
+            internal_id: id,
+            internal_ptr: malloc(128)
+        };
+    }
+
+    pub fn get_id(self) -> i32 {
+        return self.internal_id;
+    }
+}
+
+// In another module:
+let h = OpaqueHandle::new(42);  // OK - calls static method
+let id = h.get_id();            // OK - calls instance method
+// let h2 = OpaqueHandle { internal_id: 42, internal_ptr: ... };  // ERROR: private fields
+```
+
+Note: Generic structs will be supported in a future version.
 ##### Functions 
 Functions are defined with syntax `fn fn_name(arg1: type, arg2: type, varargs) -> Type {}`. Arguments can either be passed by value or by reference. eg `arg1: type` is by value `arg2: ref type` is by reference and `arg3: const ref type` is a constant reference. of course passing references to values that are immutable will give an error.
 ## Syntax

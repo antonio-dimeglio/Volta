@@ -1,13 +1,11 @@
 #include "../../include/Semantic/SymbolTable.hpp"
-#include "../../include/Semantic/TypeRegistry.hpp"
 #include <stdexcept>
 #include <iostream>
 
 namespace Semantic {
 
 
-SymbolTable::SymbolTable(const TypeRegistry& type_registry)
-    : type_registry(type_registry) {
+SymbolTable::SymbolTable() {
     scopes.push_back(Scope());
 }
 
@@ -35,17 +33,12 @@ bool SymbolTable::isGlobalScope() const {
     return scopes.size() == 1;
 }
 
-bool SymbolTable::define(const std::string& name, const Type* type, bool is_mut) {
+bool SymbolTable::define(const std::string& name, const Type::Type* type, bool is_mut) {
     if (existsInCurrentScope(name)) {
-        for (const auto& [varName, symbol] : currentScope()) {
-        }
         return false;
     }
 
-    if (!type_registry.isValidType(type)) {
-        return false;
-    }
-
+    // Type validation is done by parser/type-checker, no need to validate here
     currentScope().emplace(name, Symbol(name, type, is_mut));
     return true;
 }
@@ -69,10 +62,6 @@ bool SymbolTable::exists(const std::string& name) const {
     return lookup(name) != nullptr;
 }
 
-
-
-
-
 void SymbolTable::enterFunction() {
     enterScope();
 }
@@ -82,24 +71,11 @@ void SymbolTable::exitFunction() {
 }
 
 bool SymbolTable::addFunction(const std::string& name, const FunctionSignature& signature) {
-    
     if (functionExists(name)) {
         return false;
     }
 
-    
-    for (const auto& param : signature.parameters) {
-        if (!type_registry.isValidType(param.type)) {
-            return false;
-        }
-    }
-
-    
-    if (!type_registry.isValidType(signature.return_type)) {
-        return false;
-    }
-
-    
+    // Type validation is done by parser/type-checker, no need to validate here
     functions.emplace(name, signature);
     return true;
 }

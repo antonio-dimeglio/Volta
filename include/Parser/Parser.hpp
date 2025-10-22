@@ -2,17 +2,19 @@
 #include <vector>
 #include "Lexer/Token.hpp"
 #include "Error/Error.hpp"
+#include "Type/TypeRegistry.hpp"
 #include "AST.hpp"
 
 class Parser {
 private:
     size_t idx;
     std::vector<Token> tokens;
+    Type::TypeRegistry& types;
     DiagnosticManager& diag;
 
 public:
-    Parser(const std::vector<Token>& tokens, DiagnosticManager& diag) :
-        idx(0), tokens(tokens), diag(diag) {}
+    Parser(const std::vector<Token>& tokens, Type::TypeRegistry& types, DiagnosticManager& diag)  :
+        idx(0), tokens(tokens), types(types), diag(diag) {}
 
     std::unique_ptr<Program> parseProgram();
 
@@ -40,16 +42,17 @@ private:
     // Check if current token starts a literal expression
     bool isLiteralExpr() const;
 
-    // Parsing helpers
-
     // Parse type annotation (i32, f64, bool, etc.)
-    std::unique_ptr<Type> parseType();
+    const Type::Type* parseType();
 
     // Parse function definition (with body)
     std::unique_ptr<Stmt> parseFnDef();
 
     // Parse function signature (without body) - used for extern blocks
     std::unique_ptr<FnDecl> parseFnSignature();
+    
+    // Parse struct definiton 
+    std::unique_ptr<StructDecl> parseStructDecl();
 
     // Parse import statement
     std::unique_ptr<ImportStmt> parseImportStmt();
@@ -118,4 +121,7 @@ private:
     std::unique_ptr<Expr> parseArrayLiteral();
 
     std::unique_ptr<Expr> parseRangeExpr();
+
+    // Parse struct literal: StructName { field: value, ... }
+    std::unique_ptr<StructLiteral> parseStructLiteral(Token structName);
 };

@@ -79,14 +79,62 @@ std::string Range::toString() const {
     return "Range(" + from->toString() + ", " + to->toString() + ")";
 }
 
+std::string StructLiteral::toString() const {
+    std::ostringstream oss;
+    oss << structName.lexeme << " { ";
+    for (size_t i = 0; i < fields.size(); ++i) {
+        if (i > 0) oss << ", ";
+        oss << fields[i].first.lexeme << ": " << fields[i].second->toString();
+    }
+    oss << " }";
+    return oss.str();
+}
+
+std::string FieldAccess::toString() const {
+    return object->toString() + "." + fieldName.lexeme;
+}
+
+std::string StaticMethodCall::toString() const {
+    std::ostringstream oss;
+    oss << typeName.lexeme << "::" << methodName.lexeme << "(";
+    for (size_t i = 0; i < args.size(); ++i) {
+        if (i > 0) oss << ", ";
+        oss << args[i]->toString();
+    }
+    oss << ")";
+    return oss.str();
+}
+
+std::string InstanceMethodCall::toString() const {
+    std::ostringstream oss;
+    oss << object->toString() << "." << methodName.lexeme << "(";
+    for (size_t i = 0; i < args.size(); ++i) {
+        if (i > 0) oss << ", ";
+        oss << args[i]->toString();
+    }
+    oss << ")";
+    return oss.str();
+}
+
 std::string Param::toString() const {
-    std::string type_str = type->toString();
+    std::string typeStr = type->toString();
     if (isMutRef) {
-        return "mut ref " + name + ": " + type_str;
+        return "mut ref " + name + ": " + typeStr;
     } else if (isRef) {
-        return "ref " + name + ": " + type_str;
+        return "ref " + name + ": " + typeStr;
     } else {
-        return name + ": " + type_str;
+        return name + ": " + typeStr;
+    }
+}
+
+std::string StructField::toString() const {
+    std::string fieldName = name.lexeme;
+    std::string typeStr = type->toString();
+
+    if (isPublic) {
+        return "pub " + fieldName + ": " + typeStr;
+    } else {
+        return fieldName + ": " + typeStr;
     }
 }
 
@@ -95,11 +143,11 @@ std::string VarDecl::toString() const {
     oss << "VarDecl(";
     if (mutable_) oss << "mut ";
     oss << name.lexeme;
-    if (type_annotation) {
-        oss << ": " << type_annotation->toString();
+    if (typeAnnotation) {
+        oss << ": " << typeAnnotation->toString();
     }
-    if (init_value) {
-        oss << " = " << init_value->toString();
+    if (initValue) {
+        oss << " = " << initValue->toString();
     }
     oss << ")";
     return oss.str();
@@ -113,6 +161,20 @@ std::string FnDecl::toString() const {
         oss << params[i].toString();
     }
     oss << ") -> " << returnType->toString() << ")";
+    return oss.str();
+}
+
+std::string StructDecl::toString() const {
+    std::ostringstream oss;
+    oss << "Struct(" << name.lexeme << ")\n";
+    for (size_t i = 0; i < fields.size(); i++) {
+        if (i > 0) oss << ", ";
+        oss << fields[i].toString();
+    }
+    if (!methods.empty()) {
+        oss << "\n  Methods: " << methods.size();
+    }
+    oss << ")";
     return oss.str();
 }
 

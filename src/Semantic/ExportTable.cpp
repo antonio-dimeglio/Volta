@@ -55,8 +55,14 @@ void ExportTable::collectExportsFromAST(const Program& ast, const std::string& m
                 addExport(moduleName, fnDecl->name);
             }
         }
+        // Check if it's a struct declaration
+        else if (auto* structDecl = dynamic_cast<const StructDecl*>(stmt.get())) {
+            if (structDecl->isPublic) {
+                addExport(moduleName, structDecl->name.lexeme);
+            }
+        }
 
-        // TODO: Add support for pub struct, pub enum when implemented
+        // TODO: Add support for pub enum when implemented
     }
 }
 

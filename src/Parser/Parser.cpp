@@ -1,14 +1,12 @@
 #include "Parser/Parser.hpp"
 #include <sstream>
 
-// ==================== PUBLIC API ====================
-
 std::unique_ptr<Program> Parser::parseProgram() {
     auto program = std::make_unique<Program>();
 
     while (!isAtEnd()) {
         Token t = peek();
-        if (t.tt == TokenType::Function || t.tt == TokenType::Pub) {
+        if (t.tt == TokenType::Function || (t.tt == TokenType::Pub && peek(1).tt == TokenType::Function)) {
             auto stmt = parseFnDef();
             if (stmt) {
                 program->add_statement(std::move(stmt));
@@ -20,6 +18,11 @@ std::unique_ptr<Program> Parser::parseProgram() {
             }
         } else if(t.tt == TokenType::Import) {
             auto stmt = parseImportStmt();
+            if (stmt) {
+                program->add_statement(std::move(stmt));
+            }
+        } else if (t.tt == TokenType::Struct || (t.tt == TokenType::Pub && peek(1).tt == TokenType::Struct)) {
+            auto stmt = parseStructDecl();
             if (stmt) {
                 program->add_statement(std::move(stmt));
             }
@@ -84,11 +87,11 @@ bool Parser::isLiteralExpr() const {
            tt == TokenType::False_;
 }
 
-std::unique_ptr<Type> Parser::parseType() {
+const Type::Type* Parser::parseType() {
     if (check(TokenType::LSquare)) {
         advance(); 
 
-        auto elementType = parseType();
+        const Type::Type* elementType = parseType();
 
         expect(TokenType::Semicolon);
 
@@ -113,13 +116,12 @@ std::unique_ptr<Type> Parser::parseType() {
 
         expect(TokenType::RSquare);
 
-        return std::make_unique<ArrayType>(std::move(elementType), size);
+        return types.getArray(elementType, size);
     }
 
-    // Handle 'opaque' keyword
     if (check(TokenType::Opaque)) {
         advance();
-        return std::make_unique<OpaqueType>();
+        return types.getOpaque();
     }
 
     if (check(TokenType::Identifier)) {
@@ -128,7 +130,7 @@ std::unique_ptr<Type> Parser::parseType() {
         if (check(TokenType::LessThan)) {
             advance();
 
-            std::vector<std::unique_ptr<Type>> typeParams;
+            std::vector<const Type::Type*> typeParams;
             typeParams.push_back(parseType());
 
             while (match({TokenType::Comma})) {
@@ -136,19 +138,31 @@ std::unique_ptr<Type> Parser::parseType() {
             }
 
             expect(TokenType::GreaterThan);
-            return std::make_unique<GenericType>(typeStr, std::move(typeParams));
+
+            // Special case: ptr<T> is a pointer type, not a generic
+            if (typeStr == "ptr") {
+                if (typeParams.size() != 1) {
+                    diag.error("ptr requires exactly one type parameter", peek().line, peek().column);
+                    return types.getPointer(types.getPrimitive(Type::PrimitiveKind::I32));
+                }
+                return types.getPointer(typeParams[0]);
+            }
+
+            return types.getGeneric(typeStr, typeParams);
         }
 
-        auto maybeType = stringToPrimitiveTypeKind(typeStr);
-        if (maybeType.has_value()) {
-            return std::make_unique<PrimitiveType>(maybeType.value());
+        const Type::Type* parsedType = types.parseTypeName(typeStr);
+        if (parsedType) {
+            return parsedType;
         }
-        diag.error("Unknown type: " + typeStr, peek().line, peek().column);
-        return std::make_unique<PrimitiveType>(PrimitiveTypeKind::I32);
+
+        // If not a known primitive/struct, create an unresolved type
+        // This will be resolved during semantic analysis
+        return types.getUnresolved(typeStr);
     }
 
     diag.error("Expected type", peek().line, peek().column);
-    return std::make_unique<PrimitiveType>(PrimitiveTypeKind::I32); // Default fallback
+    return types.getPrimitive(Type::PrimitiveKind::I32); // Default fallback type
 }
 
 
@@ -168,6 +182,28 @@ std::unique_ptr<FnDecl> Parser::parseFnSignature() {
     while (!check(TokenType::RParen) && !isAtEnd()) {
         bool isRef = false;
         bool isMutRef = false;
+
+        // Check for 'mut self' or just 'self'
+        if (check(TokenType::Mut) && peek(1).tt == TokenType::Self_) {
+            advance();  // consume 'mut'
+            Token selfToken = expect(TokenType::Self_);
+            // 'mut self' - will be resolved to struct pointer type during semantic analysis
+            params.push_back(Param(selfToken.lexeme, nullptr, true, true));
+
+            if (!check(TokenType::RParen)) {
+                expect(TokenType::Comma);
+            }
+            continue;
+        } else if (check(TokenType::Self_)) {
+            Token selfToken = advance();
+            // 'self' - will be resolved to struct pointer type during semantic analysis
+            params.push_back(Param(selfToken.lexeme, nullptr, true, false));
+
+            if (!check(TokenType::RParen)) {
+                expect(TokenType::Comma);
+            }
+            continue;
+        }
 
         if (check(TokenType::Mut)) {
             advance();
@@ -196,9 +232,9 @@ std::unique_ptr<FnDecl> Parser::parseFnSignature() {
             isRef = true;
         }
 
-        auto paramType = parseType();
+        const Type::Type* paramType = parseType();
 
-        params.push_back(Param(paramName.lexeme, std::move(paramType), isRef, isMutRef));
+        params.push_back(Param(paramName.lexeme, paramType, isRef, isMutRef));
 
         if (!check(TokenType::RParen)) {
             expect(TokenType::Comma);
@@ -207,12 +243,12 @@ std::unique_ptr<FnDecl> Parser::parseFnSignature() {
 
     expect(TokenType::RParen);
 
-    std::unique_ptr<Type> returnType = std::make_unique<PrimitiveType>(PrimitiveTypeKind::Void);
+    const Type::Type* returnType = types.getPrimitive(Type::PrimitiveKind::Void);
     if (match({TokenType::Arrow})) {
         returnType = parseType();
     }
 
-    return std::make_unique<FnDecl>(name.lexeme, std::move(params), std::move(returnType),
+    return std::make_unique<FnDecl>(name.lexeme, std::move(params), returnType,
                                     std::vector<std::unique_ptr<Stmt>>(), false, isPub, fnToken.line, fnToken.column);
 }
 
@@ -223,6 +259,50 @@ std::unique_ptr<Stmt> Parser::parseFnDef() {
     fn->body = std::move(body);
 
     return fn;
+}
+
+std::unique_ptr<StructDecl> Parser::parseStructDecl() {
+    bool isPublic = match({TokenType::Pub});
+    expect(TokenType::Struct);  // Consume 'struct' keyword
+    Token structName = expect(TokenType::Identifier);
+    expect(TokenType::LBrace);
+
+    std::vector<StructField> fields;
+    std::vector<std::unique_ptr<FnDecl>> methods;
+
+    while (!check(TokenType::RBrace) && !isAtEnd()) {
+        bool memberIsPublic = false;
+        if (match({TokenType::Pub})) {
+            memberIsPublic = true;
+        }
+
+        // Check if this is a method (fn keyword) or a field
+        if (check(TokenType::Function)) {
+            // Parse method (parseFnSignature expects to see 'fn' token)
+            auto method = parseFnSignature();
+            method->isPublic = memberIsPublic;
+
+            // Parse method body
+            method->body = parseBody();
+
+            methods.push_back(std::move(method));
+        } else {
+            // Parse field
+            Token fieldName = expect(TokenType::Identifier);
+            expect(TokenType::Colon);
+            const Type::Type* fieldType = parseType();
+
+            fields.push_back(StructField(memberIsPublic, fieldName, fieldType));
+
+            if (check(TokenType::Comma)) {
+                advance();
+            }
+        }
+    }
+
+    expect(TokenType::RBrace);
+
+    return std::make_unique<StructDecl>(isPublic, structName, std::move(fields), std::move(methods));
 }
 
 std::unique_ptr<Stmt> Parser::parseExternBlock() {
@@ -327,19 +407,19 @@ std::unique_ptr<Stmt> Parser::parseVarDecl() {
 
     Token name = expect(TokenType::Identifier);
 
-    std::unique_ptr<Type> type_annotation = nullptr;
+    const Type::Type* typeAnnotation = nullptr;
     if (match({TokenType::Colon})) {
-        type_annotation = parseType();
+        typeAnnotation = parseType();
     }
 
-    std::unique_ptr<Expr> init_value = nullptr;
+    std::unique_ptr<Expr> initValue = nullptr;
     if (match({TokenType::Assign})) {
-        init_value = parseExpression();
+        initValue = parseExpression();
     } else if (match({TokenType::InferAssign})) {
-        init_value = parseExpression();
+        initValue = parseExpression();
     }
 
-    return std::make_unique<VarDecl>(mutable_, name, std::move(type_annotation), std::move(init_value));
+    return std::make_unique<VarDecl>(mutable_, name, typeAnnotation, std::move(initValue));
 }
 
 std::unique_ptr<Stmt> Parser::parseReturnStmt() {
@@ -411,6 +491,8 @@ std::unique_ptr<Stmt> Parser::parseExprStmt() {
         if (auto* var = dynamic_cast<Variable*>(expr.get())) {
             lhs = std::make_unique<Variable>(var->token);
         } else if (auto* idx = dynamic_cast<IndexExpr*>(expr.get())) {
+            lhs = std::move(expr);
+        } else if (auto* fieldAccess = dynamic_cast<FieldAccess*>(expr.get())) {
             lhs = std::move(expr);
         }
 
@@ -537,11 +619,36 @@ std::unique_ptr<Expr> Parser::parseUnary() {
 std::unique_ptr<Expr> Parser::parsePostfix() {
     auto expr = parsePrimary();
 
-    while (match({TokenType::LSquare})) {
-        Token lsqToken = tokens[idx - 1];
-        auto index = parseExpression();
-        expect(TokenType::RSquare);
-        expr = std::make_unique<IndexExpr>(std::move(expr), std::move(index), lsqToken.line, lsqToken.column);
+    while (true) {
+        if (match({TokenType::LSquare})) {
+            // Array indexing: expr[index]
+            Token lsqToken = tokens[idx - 1];
+            auto index = parseExpression();
+            expect(TokenType::RSquare);
+            expr = std::make_unique<IndexExpr>(std::move(expr), std::move(index), lsqToken.line, lsqToken.column);
+        } else if (match({TokenType::Dot})) {
+            Token dotToken = tokens[idx - 1];
+            Token memberName = expect(TokenType::Identifier);
+
+            // Check if this is a method call (followed by '(') or field access
+            if (check(TokenType::LParen)) {
+                // Instance method call: expr.method(args)
+                expect(TokenType::LParen);
+                std::vector<std::unique_ptr<Expr>> args;
+                if (!check(TokenType::RParen)) {
+                    do {
+                        args.push_back(parseExpression());
+                    } while (match({TokenType::Comma}));
+                }
+                expect(TokenType::RParen);
+                expr = std::make_unique<InstanceMethodCall>(std::move(expr), memberName, std::move(args), dotToken.line, dotToken.column);
+            } else {
+                // Field access: expr.field
+                expr = std::make_unique<FieldAccess>(std::move(expr), memberName, memberName.line, memberName.column);
+            }
+        } else {
+            break;
+        }
     }
 
     return expr;
@@ -570,10 +677,41 @@ std::unique_ptr<Expr> Parser::parsePrimary() {
         return std::make_unique<Literal>(token);
     }
 
+    // Handle 'self' keyword as a variable
+    if (check(TokenType::Self_)) {
+        Token token = advance();
+        return std::make_unique<Variable>(token);
+    }
+
     if (check(TokenType::Identifier)) {
+        // Check for static method call: Type::method(...)
+        if (check(TokenType::DoubleColon, 1)) {
+            Token typeName = advance();
+            expect(TokenType::DoubleColon);
+            Token methodName = expect(TokenType::Identifier);
+            expect(TokenType::LParen);
+
+            std::vector<std::unique_ptr<Expr>> args;
+            if (!check(TokenType::RParen)) {
+                do {
+                    args.push_back(parseExpression());
+                } while (match({TokenType::Comma}));
+            }
+
+            expect(TokenType::RParen);
+            return std::make_unique<StaticMethodCall>(typeName, methodName, std::move(args), typeName.line, typeName.column);
+        }
+
         if (check(TokenType::LParen, 1)) {
             return parseFunctionCall();
         }
+
+        // Check for struct literal: StructName { ... }
+        if (check(TokenType::LBrace, 1)) {
+            Token structName = advance();
+            return parseStructLiteral(structName);
+        }
+
         Token token = advance();
         return std::make_unique<Variable>(token);
     }
@@ -652,4 +790,28 @@ std::unique_ptr<Expr> Parser::parseRangeExpr() {
     bool inclusive = (rangeToken.tt == TokenType::InclusiveRange);
     auto rhs = parseExpression();
     return std::make_unique<Range>(std::move(lhs), std::move(rhs), inclusive, rangeToken.line, rangeToken.column);
+}
+
+std::unique_ptr<StructLiteral> Parser::parseStructLiteral(Token structName) {
+    // Already consumed the struct name, now consume the opening '{'
+    expect(TokenType::LBrace);
+
+    std::vector<std::pair<Token, std::unique_ptr<Expr>>> fields;
+
+    while (!check(TokenType::RBrace) && !isAtEnd()) {
+        Token fieldName = expect(TokenType::Identifier);
+        expect(TokenType::Colon);
+        auto fieldValue = parseExpression();
+
+        fields.push_back({fieldName, std::move(fieldValue)});
+
+        if (!match({TokenType::Comma})) {
+            break;
+        }
+    }
+
+    expect(TokenType::RBrace);
+
+    return std::make_unique<StructLiteral>(structName, std::move(fields),
+                                            structName.line, structName.column);
 }

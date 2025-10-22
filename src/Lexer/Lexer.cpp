@@ -257,6 +257,10 @@ Token Lexer::scanSymbol() {
                 advance();
                 return Token(TokenType::InferAssign, tokLine, tokColumn);
             }
+            if (peek() == ':') {
+                advance();
+                return Token(TokenType::DoubleColon, tokLine, tokColumn);
+            }
             return Token(TokenType::Colon, tokLine, tokColumn);
 
         case '>':

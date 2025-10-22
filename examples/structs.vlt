@@ -1,23 +1,12 @@
-fn abs(val: f32) -> f32 {
-    if (val > 0) {
-        return val;
-    } else {
-        return -val;
-    }
-}
-
 struct Point {
     pub x: f32,
     pub y: f32
-}
 
-impl Point {
     pub fn new(x: f32, y: f32) -> Point {
         return Point {x, y};
     }
+}
 
-    pub fn dist(self, other: Point) -> f32 {
-        
-        return abs(self.x - other.x) + (self.y - other.y);
-    }
+fn main() -> i32 {
+    return 0;
 }

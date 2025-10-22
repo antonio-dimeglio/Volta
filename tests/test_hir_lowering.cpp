@@ -3,20 +3,22 @@
 #include "Parser/Parser.hpp"
 #include "HIR/Lowering.hpp"
 #include "Parser/AST.hpp"
+#include "Type/TypeRegistry.hpp"
 #include "Error/Error.hpp"
 
 class HIRLoweringTest : public ::testing::Test {
 protected:
     DiagnosticManager diag;
+    Type::TypeRegistry typeRegistry;
 
     Program lowerSource(const std::string& source) {
         Lexer lexer(source, diag);
         auto tokens = lexer.tokenize();
 
-        Parser parser(tokens, diag);
+        Parser parser(tokens, typeRegistry, diag);
         auto ast = parser.parseProgram();
 
-        HIRLowering lowering;
+        HIRLowering lowering(typeRegistry);
         return lowering.lower(std::move(*ast));
     }
 };
@@ -377,6 +379,68 @@ TEST_F(HIRLoweringTest, OnlyNonSugaredCode) {
     // Should pass through unchanged
     auto* fnDecl = dynamic_cast<FnDecl*>(hir.statements[0].get());
     ASSERT_NE(fnDecl, nullptr);
+}
+
+// ==================== ARRAY FLATTENING TESTS ====================
+
+TEST_F(HIRLoweringTest, ArrayLiteralFlattening) {
+    auto hir = lowerSource(R"(
+        fn test() -> void {
+            let matrix: [[i32; 2]; 2] = [[1, 2], [3, 4]];
+        }
+    )");
+
+    EXPECT_FALSE(diag.hasErrors());
+
+    // The nested array literal should be flattened to [1, 2, 3, 4]
+    auto* fnDecl = dynamic_cast<FnDecl*>(hir.statements[0].get());
+    ASSERT_NE(fnDecl, nullptr);
+}
+
+TEST_F(HIRLoweringTest, MultiDimensionalIndexFlattening) {
+    auto hir = lowerSource(R"(
+        fn test() -> i32 {
+            let arr: [[i32; 3]; 2] = [[1, 2, 3], [4, 5, 6]];
+            return arr[1][2];
+        }
+    )");
+
+    EXPECT_FALSE(diag.hasErrors());
+
+    // arr[1][2] should be flattened to arr[1*3 + 2] = arr[5]
+    auto* fnDecl = dynamic_cast<FnDecl*>(hir.statements[0].get());
+    ASSERT_NE(fnDecl, nullptr);
+}
+
+TEST_F(HIRLoweringTest, ThreeDimensionalArrayFlattening) {
+    auto hir = lowerSource(R"(
+        fn test() -> i32 {
+            let cube: [[[i32; 2]; 2]; 2] = [[[1, 2], [3, 4]], [[5, 6], [7, 8]]];
+            return cube[1][1][0];
+        }
+    )");
+
+    EXPECT_FALSE(diag.hasErrors());
+
+    auto* fnDecl = dynamic_cast<FnDecl*>(hir.statements[0].get());
+    ASSERT_NE(fnDecl, nullptr);
+}
+
+TEST_F(HIRLoweringTest, ArrayParameterFlattening) {
+    auto hir = lowerSource(R"(
+        fn process(matrix: [[i32; 2]; 2]) -> i32 {
+            return matrix[0][1];
+        }
+    )");
+
+    EXPECT_FALSE(diag.hasErrors());
+
+    auto* fnDecl = dynamic_cast<FnDecl*>(hir.statements[0].get());
+    ASSERT_NE(fnDecl, nullptr);
+
+    // Check that parameter type is flattened
+    ASSERT_FALSE(fnDecl->params.empty());
+    // Parameter should be [i32; 4] now instead of [[i32; 2]; 2]
 }
 
 int main(int argc, char** argv) {

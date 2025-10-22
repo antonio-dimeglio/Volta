@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
-#include "../Parser/Type.hpp"
+#include "../Type/Type.hpp"
 
 // Forward declarations
 namespace Semantic {
@@ -17,10 +17,10 @@ namespace Semantic {
  */
 struct Symbol {
     std::string name;
-    const Type* type;  // Pointer to interned type
+    const Type::Type* type;  // Pointer to interned type
     bool is_mut;
 
-    Symbol(const std::string& name, const Type* type, bool is_mut)
+    Symbol(const std::string& name, const Type::Type* type, bool is_mut)
         : name(name), type(type), is_mut(is_mut) {}
 };
 
@@ -29,11 +29,11 @@ struct Symbol {
  */
 struct FunctionParameter {
     std::string name;
-    const Type* type;  // Pointer to interned type
+    const Type::Type* type;  // Pointer to interned type
     bool is_ref;       // Pass by reference
     bool is_mut_ref;   // Pass by mutable reference
 
-    FunctionParameter(const std::string& name, const Type* type,
+    FunctionParameter(const std::string& name, const Type::Type* type,
                      bool is_ref = false, bool is_mut_ref = false)
         : name(name), type(type), is_ref(is_ref), is_mut_ref(is_mut_ref) {}
 };
@@ -43,10 +43,10 @@ struct FunctionParameter {
  */
 struct FunctionSignature {
     std::vector<FunctionParameter> parameters;
-    const Type* return_type;  // Pointer to interned type
+    const Type::Type* return_type;  // Pointer to interned type
 
     FunctionSignature(const std::vector<FunctionParameter>& parameters,
-                     const Type* return_type)
+                     const Type::Type* return_type)
         : parameters(parameters), return_type(return_type) {}
 };
 
@@ -60,17 +60,6 @@ using Scope = std::unordered_map<std::string, Symbol>;
  *
  * The SymbolTable is a ledger for all types and definitions.
  * It is the primary component that allows correct semantic analysis.
- *
- * Structure:
- * - Scope Stack: Stack of scopes for variable shadowing
- *   - Global scope (index 0): Top-level variable definitions
- *   - Local scopes: Function bodies, if statements, loops, etc.
- * - Functions: Map of function names to their signatures
- *
- * Scope Management:
- * - enterScope(): Push new scope when entering a block
- * - exitScope(): Pop scope when exiting a block
- * - Lookup walks from innermost to outermost scope (shadowing)
  */
 class SymbolTable {
 private:
@@ -80,13 +69,8 @@ private:
     // Function registry (name -> signature)
     std::unordered_map<std::string, FunctionSignature> functions;
 
-    // Reference to TypeRegistry for type validation
-    const TypeRegistry& type_registry;
-
 public:
-    explicit SymbolTable(const TypeRegistry& type_registry);
-
-    // ========== Scope Management ==========
+    SymbolTable();
 
     /**
      * Push a new scope onto the stack when entering a block
@@ -111,13 +95,11 @@ public:
      */
     bool isGlobalScope() const;
 
-    // ========== Variable Management ==========
-
     /**
      * Add a variable to the current scope
      * Returns false if variable already exists in current scope
      */
-    bool define(const std::string& name, const Type* type, bool is_mut);
+    bool define(const std::string& name, const Type::Type* type, bool is_mut);
 
     /**
      * Look up a variable from current scope back to global scope
@@ -134,8 +116,6 @@ public:
      * Check if a variable exists in any scope
      */
     bool exists(const std::string& name) const;
-
-    // ========== Function Management ==========
 
     /**
      * Enter a new scope for a function
@@ -164,8 +144,6 @@ public:
      * Check if a function exists
      */
     bool functionExists(const std::string& name) const;
-
-    // ========== Debug Utilities ==========
 
     /**
      * Get current scope depth (0 = global, 1 = first nested scope, etc.)

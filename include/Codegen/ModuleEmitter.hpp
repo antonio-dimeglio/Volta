@@ -31,6 +31,7 @@ public:
     void emitObjectFile(const std::string& filename);
     void emitAssembly(const std::string& filename);
 
-    // Compile to executable (generates temp .o, links, cleans up)
-    void compileToExecutable(const std::string& outputExe, int optLevel, bool dumpIR = false);
+    // Compile to executable
+    void compileToExecutable(const std::string& outputExe, int optLevel, bool dumpIR = false,
+                             const std::vector<std::string>& linkObjects = {});
 };

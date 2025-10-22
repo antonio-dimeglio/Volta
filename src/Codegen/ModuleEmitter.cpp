@@ -160,7 +160,8 @@ void ModuleEmitter::dumpLLVMIR() {
     module->print(llvm::outs(), nullptr);
 }
 
-void ModuleEmitter::compileToExecutable(const std::string& outputExe, int optLevel, bool dumpIR) {
+void ModuleEmitter::compileToExecutable(const std::string& outputExe, int optLevel, bool dumpIR,
+                                         const std::vector<std::string>& linkObjects) {
     // Optimize
     optimize(optLevel);
 
@@ -175,8 +176,15 @@ void ModuleEmitter::compileToExecutable(const std::string& outputExe, int optLev
     std::string objFile = outputExe + ".tmp.o";
     emitObjectFile(objFile);
 
-    // Link with gcc (includes C runtime)
-    std::string linkCmd = "gcc " + objFile + " -o " + outputExe;
+    // Build link command with all object files
+    std::string linkCmd = "gcc " + objFile;
+    for (const auto& obj : linkObjects) {
+        linkCmd += " " + obj;
+    }
+    // Always link with Boehm GC for heap allocation
+    linkCmd += " -lgc";
+    linkCmd += " -o " + outputExe;
+
     int result = std::system(linkCmd.c_str());
 
     if (result != 0) {
