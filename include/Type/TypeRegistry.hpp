@@ -93,7 +93,7 @@ public:
     StructType* getStruct(const std::string& name);
 
     // Check if a struct type is registered
-    bool hasStruct(const std::string& name) const;
+    [[nodiscard]] bool hasStruct(const std::string& name) const;
 
     // Utility function that converts a string to a type
     const Type* parseTypeName(const std::string& name);

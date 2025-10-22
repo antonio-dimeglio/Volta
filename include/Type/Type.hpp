@@ -12,7 +12,7 @@ struct Type {
     explicit Type(TypeKind kind) : kind(kind) {}
     virtual ~Type() = default;
 
-    virtual std::string toString() const = 0;
+    [[nodiscard]] virtual std::string toString() const = 0;
     virtual bool equals(const Type* other) const = 0;
 };
 
@@ -22,7 +22,7 @@ struct PrimitiveType : Type {
     explicit PrimitiveType(PrimitiveKind kind) : Type(TypeKind::Primitive), kind(kind) {}
 
     // Check if this primitive type is unsigned
-    bool isUnsigned() const {
+    [[nodiscard]] bool isUnsigned() const {
         return kind == PrimitiveKind::U8 ||
                kind == PrimitiveKind::U16 ||
                kind == PrimitiveKind::U32 ||
@@ -30,7 +30,7 @@ struct PrimitiveType : Type {
     }
 
     // Check if this primitive type is signed integer
-    bool isSigned() const {
+    [[nodiscard]] bool isSigned() const {
         return kind == PrimitiveKind::I8 ||
                kind == PrimitiveKind::I16 ||
                kind == PrimitiveKind::I32 ||
@@ -38,11 +38,11 @@ struct PrimitiveType : Type {
     }
 
     // Check if this is an integer type (signed or unsigned)
-    bool isInteger() const {
+    [[nodiscard]] bool isInteger() const {
         return isSigned() || isUnsigned();
     }
 
-    std::string toString() const override {
+    [[nodiscard]] std::string toString() const override {
         switch (kind) {
             case PrimitiveKind::I8:     return "i8";
             case PrimitiveKind::I16:    return "i16";
@@ -62,7 +62,7 @@ struct PrimitiveType : Type {
     }
 
     bool equals(const Type* other) const override {
-        if (auto* prim = dynamic_cast<const PrimitiveType*>(other)) {
+        if (const auto* prim = dynamic_cast<const PrimitiveType*>(other)) {
             return kind == prim->kind;
         }
         return false;
@@ -76,12 +76,12 @@ struct ArrayType : Type {
     ArrayType(const Type* elementType, int size)
         : Type(TypeKind::Array), elementType(elementType), size(size) {}
 
-    std::string toString() const override {
+    [[nodiscard]] std::string toString() const override {
         return "[" + elementType->toString() + "; " + std::to_string(size) + "]";
     }
 
     bool equals(const Type* other) const override {
-        if (auto* arr = dynamic_cast<const ArrayType*>(other)) {
+        if (const auto* arr = dynamic_cast<const ArrayType*>(other)) {
             return size == arr->size && elementType->equals(arr->elementType);
         }
         return false;
@@ -124,34 +124,37 @@ struct StructType : Type {
                const std::vector<FieldInfo>& fields)
         : Type(TypeKind::Struct), name(name), fields(fields) {}
 
-    std::string toString() const override {
+    [[nodiscard]] std::string toString() const override {
         return name;
     }
 
     bool equals(const Type* other) const override {
-        if (auto* st = dynamic_cast<const StructType*>(other)) {
+        if (const auto* st = dynamic_cast<const StructType*>(other)) {
             return name == st->name;
         }
         return false;
     }
 
-    const Type* getFieldType(const std::string& fieldName) const {
+    [[nodiscard]] const Type* getFieldType(const std::string& fieldName) const {
         for (const auto& field : fields) {
-            if (field.name == fieldName) return field.type;
+            if (field.name == fieldName) { return field.type;
+}
         }
         return nullptr;
     }
 
-    bool isFieldPublic(const std::string& fieldName) const {
+    [[nodiscard]] bool isFieldPublic(const std::string& fieldName) const {
         for (const auto& field : fields) {
-            if (field.name == fieldName) return field.isPublic;
+            if (field.name == fieldName) { return field.isPublic;
+}
         }
         return false;  // Field not found, treat as private
     }
 
-    const MethodSignature* getMethod(const std::string& methodName) const {
+    [[nodiscard]] const MethodSignature* getMethod(const std::string& methodName) const {
         for (const auto& method : methods) {
-            if (method.name == methodName) return &method;
+            if (method.name == methodName) { return &method;
+}
         }
         return nullptr;
     }
@@ -168,10 +171,11 @@ struct GenericType : Type {
     GenericType(const std::string& name, std::vector<const Type*> typeParams)
         : Type(TypeKind::Generic), name(name), typeParams(typeParams) {}
 
-    std::string toString() const override {
+    [[nodiscard]] std::string toString() const override {
         std::string result = name + "<";
         for (size_t i = 0; i < typeParams.size(); ++i) {
-            if (i > 0) result += ", ";
+            if (i > 0) { result += ", ";
+}
             result += typeParams[i]->toString();
         }
         result += ">";
@@ -179,7 +183,7 @@ struct GenericType : Type {
     }
 
     bool equals(const Type* other) const override {
-        if (auto* gen = dynamic_cast<const GenericType*>(other)) {
+        if (const auto* gen = dynamic_cast<const GenericType*>(other)) {
             if (name != gen->name || typeParams.size() != gen->typeParams.size()) {
                 return false;
             }
@@ -197,7 +201,7 @@ struct GenericType : Type {
 struct OpaqueType : Type {
     OpaqueType() : Type(TypeKind::Opaque) {}
 
-    std::string toString() const override {
+    [[nodiscard]] std::string toString() const override {
         return "opaque";
     }
 
@@ -212,12 +216,12 @@ struct PointerType : Type {
     explicit PointerType(const Type* pointee)
         : Type(TypeKind::Pointer), pointeeType(pointee) {}
 
-    std::string toString() const override {
+    [[nodiscard]] std::string toString() const override {
         return "ptr " + pointeeType->toString();
     }
 
     bool equals(const Type* other) const override {
-        if (auto* ptr = dynamic_cast<const PointerType*>(other)) {
+        if (const auto* ptr = dynamic_cast<const PointerType*>(other)) {
             return pointeeType->equals(ptr->pointeeType);
         }
         return false;
@@ -233,12 +237,12 @@ struct UnresolvedType : Type {
     explicit UnresolvedType(const std::string& name)
         : Type(TypeKind::Unresolved), name(name) {}
 
-    std::string toString() const override {
+    [[nodiscard]] std::string toString() const override {
         return name + " (unresolved)";
     }
 
     bool equals(const Type* other) const override {
-        if (auto* unresolved = dynamic_cast<const UnresolvedType*>(other)) {
+        if (const auto* unresolved = dynamic_cast<const UnresolvedType*>(other)) {
             return name == unresolved->name;
         }
         return false;

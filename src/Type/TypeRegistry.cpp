@@ -30,7 +30,7 @@ const PrimitiveType* TypeRegistry::getPrimitive(PrimitiveKind kind) {
 }
 
 const ArrayType* TypeRegistry::getArray(const Type* elementType, int size) {
-    ArrayTypeKey key{elementType, size};
+    ArrayTypeKey const key{elementType, size};
     auto it = arrayCache.find(key);
     if (it != arrayCache.end()) {
         return it->second;
@@ -58,7 +58,7 @@ const PointerType* TypeRegistry::getPointer(const Type* pointeeType) {
 
 const GenericType* TypeRegistry::getGeneric(const std::string& name, 
                                             const std::vector<const Type*>& typeParams) {
-    GenericTypeKey key{name, typeParams};
+    GenericTypeKey const key{name, typeParams};
 
     auto it = genericCache.find(key);
     if (it != genericCache.end()) {
@@ -73,7 +73,7 @@ const GenericType* TypeRegistry::getGeneric(const std::string& name,
 }
 
 const OpaqueType* TypeRegistry::getOpaque() {
-    if (!opaqueType) {
+    if (opaqueType == nullptr) {
         auto opaque = std::make_unique<OpaqueType>();
         opaqueType = opaque.get();
         ownedTypes.push_back(std::move(opaque));
@@ -95,19 +95,32 @@ const UnresolvedType* TypeRegistry::getUnresolved(const std::string& name) {
 }
 
 const Type* TypeRegistry::parseTypeName(const std::string& name) {
-    if (name == "i8")     return getPrimitive(PrimitiveKind::I8);
-    if (name == "i16")    return getPrimitive(PrimitiveKind::I16);
-    if (name == "i32")    return getPrimitive(PrimitiveKind::I32);
-    if (name == "i64")    return getPrimitive(PrimitiveKind::I64);
-    if (name == "u8")     return getPrimitive(PrimitiveKind::U8);
-    if (name == "u16")    return getPrimitive(PrimitiveKind::U16);
-    if (name == "u32")    return getPrimitive(PrimitiveKind::U32);
-    if (name == "u64")    return getPrimitive(PrimitiveKind::U64);
-    if (name == "f32")    return getPrimitive(PrimitiveKind::F32);
-    if (name == "f64")    return getPrimitive(PrimitiveKind::F64);
-    if (name == "bool")   return getPrimitive(PrimitiveKind::Bool);
-    if (name == "void")   return getPrimitive(PrimitiveKind::Void);
-    if (name == "str")    return getPrimitive(PrimitiveKind::String);
+    if (name == "i8") {     return getPrimitive(PrimitiveKind::I8);
+}
+    if (name == "i16") {    return getPrimitive(PrimitiveKind::I16);
+}
+    if (name == "i32") {    return getPrimitive(PrimitiveKind::I32);
+}
+    if (name == "i64") {    return getPrimitive(PrimitiveKind::I64);
+}
+    if (name == "u8") {     return getPrimitive(PrimitiveKind::U8);
+}
+    if (name == "u16") {    return getPrimitive(PrimitiveKind::U16);
+}
+    if (name == "u32") {    return getPrimitive(PrimitiveKind::U32);
+}
+    if (name == "u64") {    return getPrimitive(PrimitiveKind::U64);
+}
+    if (name == "f32") {    return getPrimitive(PrimitiveKind::F32);
+}
+    if (name == "f64") {    return getPrimitive(PrimitiveKind::F64);
+}
+    if (name == "bool") {   return getPrimitive(PrimitiveKind::Bool);
+}
+    if (name == "void") {   return getPrimitive(PrimitiveKind::Void);
+}
+    if (name == "str") {    return getPrimitive(PrimitiveKind::String);
+}
 
     // Check if it's a registered struct type
     auto structIt = structCache.find(name);

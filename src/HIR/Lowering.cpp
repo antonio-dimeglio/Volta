@@ -417,7 +417,7 @@ std::unique_ptr<Expr> HIRLowering::desugarExpr(Expr& expr) {
 }
 
 static std::unique_ptr<Expr> cloneExpr(Expr* expr) {
-    if (!expr) {
+    if (expr == nullptr) {
         std::cerr << "Warning: cloneExpr called with null expression\n";
         return std::make_unique<Literal>(Token(TokenType::Integer, 0, 0, "0"));
     }
