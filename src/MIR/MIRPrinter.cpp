@@ -73,6 +73,15 @@ void MIRPrinter::printInstruction(const Instruction& inst) {
     out << " = ";
     out << opcodeToString(inst.opcode);
     out << " ";
+
+    // For Call instructions, print the function name
+    if (inst.opcode == Opcode::Call && inst.callTarget.has_value()) {
+        out << inst.callTarget.value();
+        if (!inst.operands.empty()) {
+            out << "(";
+        }
+    }
+
     size_t i = 0;
 
     for (auto& opr : inst.operands) {
@@ -80,7 +89,14 @@ void MIRPrinter::printInstruction(const Instruction& inst) {
         if (i < inst.operands.size() - 1) {
             out << ", ";
         }
+        i++;
     }
+
+    // For Call instructions, close the parentheses
+    if (inst.opcode == Opcode::Call && inst.callTarget.has_value() && !inst.operands.empty()) {
+        out << ")";
+    }
+
     out << "\n";
 }
 

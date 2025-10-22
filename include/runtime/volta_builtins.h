@@ -25,6 +25,20 @@ void volta_println(VoltaString* str);
 void volta_print(VoltaString* str);
 
 /**
+ * Print helpers for primitive types
+ */
+void volta_print_i32(int32_t val);
+void volta_print_i64(int64_t val);
+void volta_print_u32(uint32_t val);
+void volta_print_u64(uint64_t val);
+void volta_print_f32(float val);
+void volta_print_f64(double val);
+void volta_print_bool(bool val);
+void volta_print_char(char c);
+void volta_print_ptr(void* ptr);
+void volta_print_newline(void);
+
+/**
  * Panic with a message and abort execution
  * Volta signature: fn panic(msg: string) -> !
  * This function never returns (noreturn)

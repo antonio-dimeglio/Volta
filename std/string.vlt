@@ -1,0 +1,80 @@
+// External C functions from volta_string.h
+// Note: Using ptr<opaque> since extern blocks can't reference struct types
+extern "C" {
+    fn volta_string_from_cstr(cstr: ptr<i8>) -> ptr<opaque>;
+    fn volta_string_with_capacity(capacity: u64) -> ptr<opaque>;
+    fn volta_string_print(s: ptr<opaque>) -> void;
+    fn volta_string_println(s: ptr<opaque>) -> void;
+    fn volta_string_clone(s: ptr<opaque>) -> ptr<opaque>;
+    fn volta_string_length(s: ptr<opaque>) -> u64;
+    fn volta_string_byte_length(s: ptr<opaque>) -> u64;
+    fn volta_string_capacity(s: ptr<opaque>) -> u64;
+    fn volta_string_is_empty(s: ptr<opaque>) -> bool;
+    fn volta_string_concat(a: ptr<opaque>, b: ptr<opaque>) -> ptr<opaque>;
+    fn volta_string_append(dest: ptr<opaque>, src: ptr<opaque>) -> bool;
+    fn volta_string_equals(a: ptr<opaque>, b: ptr<opaque>) -> bool;
+    fn volta_string_compare(a: ptr<opaque>, b: ptr<opaque>) -> i32;
+}
+// IMPORTANT TODO: Check for null in data, that means that GC has failed!
+
+// String struct that matches the C VoltaString layout exactly
+// C layout: { char* data; size_t size; size_t length; }
+pub struct String {
+    data: ptr<i8>,   // char* - pointer to UTF-8 data (char is signed)
+    size: u64,       // size_t - byte capacity
+    length: u64      // size_t - character count (UTF-8 code points)
+
+    // Create a new empty string
+    pub fn new() -> String {
+        return volta_string_with_capacity(0);
+    }
+
+    // Create a string from a C string literal (null-terminated)
+    pub fn from_cstr(cstr: ptr<i8>) -> String {
+        return volta_string_from_cstr(cstr);
+    }
+
+    pub fn print(self) -> void {
+        volta_string_print(self);
+    }
+
+    pub fn println(self) -> void {
+        volta_string_println(self);
+    }
+
+    pub fn clone(self) -> String {
+        return volta_string_clone(self);
+    }
+
+    pub fn length(self) -> u64 {
+        return volta_string_length(self);
+    }
+
+    pub fn byte_length(self) -> u64 {
+        return volta_string_byte_length(self);
+    }
+
+    pub fn capacity(self) -> u64 {
+        return volta_string_capacity(self);
+    }
+
+    pub fn is_empty(self) -> bool {
+        return volta_string_is_empty(self);
+    }
+
+    pub fn concat(a: String, b: String) -> String {
+        return volta_string_concat(a, b);
+    }
+
+    pub fn append(dest: String, src: String) -> bool {
+        return volta_string_append(dest, src);
+    }
+
+    pub fn equals(a: String, b: String) -> bool {
+        return volta_string_equals(a, b);
+    }
+
+    pub fn compare(a: String, b: String) -> i32 {
+        return volta_string_compare(a, b);
+    }
+}

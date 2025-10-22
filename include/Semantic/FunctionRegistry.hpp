@@ -16,12 +16,14 @@ struct GlobalFunctionSignature {
     std::vector<FunctionParameter> parameters;
     const Type::Type* return_type;
     std::string moduleName;  // Which module this function is defined in
+    bool isExtern;           // Whether this is an extern function
 
     GlobalFunctionSignature(const std::string& name,
                            const std::vector<FunctionParameter>& params,
                            const Type::Type* returnType,
-                           const std::string& moduleName)
-        : name(name), parameters(params), return_type(returnType), moduleName(moduleName) {}
+                           const std::string& moduleName,
+                           bool isExtern = false)
+        : name(name), parameters(params), return_type(returnType), moduleName(moduleName), isExtern(isExtern) {}
 };
 
 // Registry of all functions across all modules
@@ -35,7 +37,8 @@ public:
     void registerFunction(const std::string& name,
                          const std::vector<FunctionParameter>& params,
                          const Type::Type* returnType,
-                         const std::string& moduleName);
+                         const std::string& moduleName,
+                         bool isExtern = false);
 
     // Collect all public functions from an HIR program
     void collectFromHIR(const HIR::HIRProgram& hir, const std::string& moduleName);

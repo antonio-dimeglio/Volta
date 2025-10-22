@@ -30,6 +30,7 @@ static const std::unordered_map<std::string, TokenType> keywords = {
     {"pub", TokenType::Pub},
     {"true", TokenType::True_},
     {"false", TokenType::False_},
+    {"null", TokenType::Null},
     {"and", TokenType::And},
     {"or", TokenType::Or},
     {"not", TokenType::Not},

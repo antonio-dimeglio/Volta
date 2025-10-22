@@ -54,7 +54,7 @@ void volta_string_free(VoltaString* str);
  * @param str String to measure
  * @return Number of Unicode code points
  */
-int32_t volta_string_length(const VoltaString* str);
+size_t volta_string_length(const VoltaString* str);
 
 /**
  * Get the byte length of a string (UTF-8 encoding size)
@@ -125,6 +125,18 @@ const char* volta_string_to_cstr(const VoltaString* str);
  * @return Pointer to internal UTF-8 bytes (do not free!)
  */
 const char* volta_string_data(const VoltaString* str);
+
+/**
+ * Helper to print a Volta String struct to stdout
+ * @param volta_str Pointer to Volta String struct
+ */
+void volta_string_print(const VoltaString* volta_str);
+
+/**
+ * Helper to print a Volta String struct to stdout with a newline
+ * @param volta_str Pointer to Volta String struct
+ */
+void volta_string_println(const VoltaString* volta_str);
 
 #ifdef __cplusplus
 }

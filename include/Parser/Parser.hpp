@@ -78,6 +78,9 @@ private:
     // Parse for-in loop with range
     std::unique_ptr<Stmt> parseForStmt();
 
+    // Parse standalone block statement
+    std::unique_ptr<Stmt> parseBlockStmt();
+
     // Parse break statement
     std::unique_ptr<Stmt> parseBreakStmt();
 

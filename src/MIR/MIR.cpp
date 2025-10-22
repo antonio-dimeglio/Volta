@@ -100,6 +100,13 @@ Value Value::makeConstantString(const std::string& value, const Type::Type* type
     return v;
 }
 
+Value Value::makeConstantNull(const Type::Type* ptrType) {
+    // Null pointer constant
+    Value v(ValueKind::Constant, "null", ptrType);
+    v.constantNull = true;
+    return v;
+}
+
 std::string Value::toString() const {
     switch (kind) {
         case ValueKind::Local:
@@ -108,6 +115,8 @@ std::string Value::toString() const {
         case ValueKind::Global:
             return "@" + name;
         case ValueKind::Constant:
+            if (constantNull.has_value() && constantNull.value())
+                return "null";
             if (constantInt.has_value())
                 return std::to_string(constantInt.value());
             if (constantBool.has_value())

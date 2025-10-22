@@ -72,6 +72,10 @@ Value MIRBuilder::createConstantFloat(double value, const Type::Type* type) {
     return Value::makeConstantFloat(value, type);
 }
 
+Value MIRBuilder::createConstantNull(const Type::Type* ptrType) {
+    return Value::makeConstantNull(ptrType);
+}
+
 
 Value MIRBuilder::createIAdd(const Value& lhs, const Value& rhs) {
     auto result = createTemporary(lhs.type);
@@ -352,7 +356,7 @@ Value MIRBuilder::createGetElementPtr(const Value& arrayPtr, const Value& index)
 Value MIRBuilder::createGetFieldPtr(const Value& structPtr, int fieldIndex) {
     const auto* ptrType = static_cast<const Type::PointerType*>(structPtr.type);
     const auto* structType = static_cast<const Type::StructType*>(ptrType->pointeeType);
-    const Type::Type* fieldType = structType->fields[fieldIndex].second;
+    const Type::Type* fieldType = structType->fields[fieldIndex].type;
     const Type::Type* resultType = typeRegistry.getPointer(fieldType);
 
     Value result = createTemporary(resultType);

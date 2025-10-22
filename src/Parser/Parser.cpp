@@ -84,7 +84,8 @@ bool Parser::isLiteralExpr() const {
            tt == TokenType::Float ||
            tt == TokenType::String ||
            tt == TokenType::True_ ||
-           tt == TokenType::False_;
+           tt == TokenType::False_ ||
+           tt == TokenType::Null;
 }
 
 const Type::Type* Parser::parseType() {
@@ -209,6 +210,7 @@ std::unique_ptr<FnDecl> Parser::parseFnSignature() {
             advance();
             if (check(TokenType::Ref)) {
                 advance();
+                isRef = true;
                 isMutRef = true;
             }
         } else if (check(TokenType::Ref)) {
@@ -223,6 +225,7 @@ std::unique_ptr<FnDecl> Parser::parseFnSignature() {
             advance();
             if (check(TokenType::Ref)) {
                 advance();
+                isRef = true;
                 isMutRef = true;
             } else {
                 isMutRef = true;
@@ -340,6 +343,12 @@ std::unique_ptr<ImportStmt> Parser::parseImportStmt() {
 
     // Parse module path: std.io
     while (check(TokenType::Dot) && !isAtEnd()) {
+        // Check if the dot is followed by a brace (end of module path)
+        if (check(TokenType::LBrace, 1)) {
+            advance();  // consume the final dot before the brace
+            break;
+        }
+
         advance();  // consume dot
         modulePath += ".";
         modulePath += expect(TokenType::Identifier).lexeme;
@@ -387,6 +396,8 @@ std::vector<std::unique_ptr<Stmt>> Parser::parseBody() {
             expect(TokenType::Semicolon);
         } else if (t.tt == TokenType::For) {
             stmts.push_back(parseForStmt());
+        } else if (t.tt == TokenType::LBrace) {
+            stmts.push_back(parseBlockStmt());
         } else {
             stmts.push_back(parseExprStmt());
             expect(TokenType::Semicolon);
@@ -440,7 +451,14 @@ std::unique_ptr<Stmt> Parser::parseIfStmt() {
 
     std::vector<std::unique_ptr<Stmt>> elseBody;
     if (match({TokenType::Else})) {
-        elseBody = parseBody();
+        // Check if this is "else if" or just "else"
+        if (check(TokenType::If)) {
+            // Recursively parse the "else if" as a nested if-statement
+            elseBody.push_back(parseIfStmt());
+        } else {
+            // Parse regular else block
+            elseBody = parseBody();
+        }
     }
 
     return std::make_unique<IfStmt>(std::move(condition), std::move(thenBody), std::move(elseBody), ifToken.line, ifToken.column);
@@ -466,6 +484,43 @@ std::unique_ptr<Stmt> Parser::parseForStmt() {
     auto range = std::unique_ptr<Range>(static_cast<Range*>(rangeExpr.release()));
 
     return std::make_unique<ForStmt>(std::move(varNode), std::move(range), std::move(body), forToken.line, forToken.column);
+}
+
+std::unique_ptr<Stmt> Parser::parseBlockStmt() {
+    Token lbrace = expect(TokenType::LBrace);
+    std::vector<std::unique_ptr<Stmt>> stmts;
+
+    while (!check(TokenType::RBrace) && !isAtEnd()) {
+        Token t = peek();
+
+        if (t.tt == TokenType::Let) {
+            stmts.push_back(parseVarDecl());
+            expect(TokenType::Semicolon);
+        } else if (t.tt == TokenType::Return) {
+            stmts.push_back(parseReturnStmt());
+            expect(TokenType::Semicolon);
+        } else if (t.tt == TokenType::If) {
+            stmts.push_back(parseIfStmt());
+        } else if (t.tt == TokenType::While) {
+            stmts.push_back(parseWhileStmt());
+        } else if (t.tt == TokenType::Break) {
+            stmts.push_back(parseBreakStmt());
+            expect(TokenType::Semicolon);
+        } else if (t.tt == TokenType::Continue) {
+            stmts.push_back(parseContinueStmt());
+            expect(TokenType::Semicolon);
+        } else if (t.tt == TokenType::For) {
+            stmts.push_back(parseForStmt());
+        } else if (t.tt == TokenType::LBrace) {
+            stmts.push_back(parseBlockStmt());  // Recursive!
+        } else {
+            stmts.push_back(parseExprStmt());
+            expect(TokenType::Semicolon);
+        }
+    }
+
+    expect(TokenType::RBrace);
+    return std::make_unique<BlockStmt>(std::move(stmts), lbrace.line, lbrace.column);
 }
 
 std::unique_ptr<Stmt> Parser::parseBreakStmt() {
@@ -707,9 +762,14 @@ std::unique_ptr<Expr> Parser::parsePrimary() {
         }
 
         // Check for struct literal: StructName { ... }
+        // Use heuristic: treat as struct literal if identifier starts with uppercase
+        // This prevents false positives like "variable and something {" being parsed as struct literal
         if (check(TokenType::LBrace, 1)) {
-            Token structName = advance();
-            return parseStructLiteral(structName);
+            Token identToken = peek();
+            if (!identToken.lexeme.empty() && std::isupper(identToken.lexeme[0])) {
+                Token structName = advance();
+                return parseStructLiteral(structName);
+            }
         }
 
         Token token = advance();

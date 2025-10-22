@@ -25,9 +25,9 @@ The language supports both Char and String types, both internally use UTF8 repre
 ##### Variables
 Variables in the language are immutable by default, and are declared with one of the following syntaxes `let x: int`, or if we want to assign a value we can do either `let x: int = 42` or `let x := 42` for type inference. Mutable variables can be declared as such by writing `let mut x: int = 42` or `let mut x := 42`. Compound assignment operators (`+=`, `-=`, `*=`, `/=`, `%=`) and increment/decrement operators (`++`, `--`) are supported for mutable variables.
 ##### Pointers
-Pointers are a critical aspect of the language, as they are necessary for binding to c libraries. The language provides a unique interface for pointers, `Ptr<Type>`. Elements declared as pointers are NOT collected by GC, and users are expected to do their due diligence with them.
+Pointers are a critical aspect of the language, as they are necessary for binding to c libraries. The language provides a unique interface for pointers, `Ptr<Type>`. Elements declared as pointers are NOT collected by GC, and users are expected to do their due diligence with them. Uninitialized ptrs are set to null, and ptrs are the only type in the language that can be rendered nullable.
 ##### Array
-Two arrays exist, one, beign a fixed size array, denoted with the type syntax `[Type; Size]` and generic, dynamically allocated homogenous array, declared with the generic syntax `Array<Type>`.
+Two arrays exist, one, beign a fixed size array, denoted with the type syntax `[Type; Size]` and generic, dynamically allocated homogenous array, declared with the generic syntax `Array<Type>`. Arrays are always passed by reference to functions.
 ##### HashMap and HashSet
 Hashmap and hashset and are declared respectively using the type syntax `{KeyType:ValueType}` and `{ValueType}`.
 ##### Composite types (Structs)
@@ -84,8 +84,8 @@ pub struct Point {
 }
 
 // Usage:
-let mut p = Point::new(10.0, 20.0);  // Static method with ::
-let d = p.distance();                // Instance method with .
+let mut p = Point.new(10.0, 20.0);  
+let d = p.distance();
 p.move_by(5.0, 5.0);                 // Mutable method on mutable var
 
 // Can access public fields directly:
@@ -134,7 +134,7 @@ pub struct OpaqueHandle {
 }
 
 // In another module:
-let h = OpaqueHandle::new(42);  // OK - calls static method
+let h = OpaqueHandle.new(42);  // OK - calls static method
 let id = h.get_id();            // OK - calls instance method
 // let h2 = OpaqueHandle { internal_id: 42, internal_ptr: ... };  // ERROR: private fields
 ```
@@ -152,18 +152,39 @@ For loops can be performed on anything that is iterable, such as statically size
 ##### Match
 The match syntax is also the same as rust one, with the exception of the `else` keyword for default matching. Example of the match structure can be found in enum!
 ##### Enums
-Enums are fully algebraic data types, like Rust, so as an example:
-```{rust}
-enum Expr {
+Enums are user-defined data type consisting of a set of named constant, and use the same syntax of C++:
+```{Rust}
+pub enum Status {
+    Success = 0,
+    Error = 1,
+    Pending = 2,
+}
+
+// Auto-numbered (starts at 0)
+enum Color {
+    Red,      // 0
+    Green,    // 1
+    Blue,     // 2
+}
+
+// Specify underlying type
+enum Priority: u8 {
+    Low = 0,
+    Medium = 1,
+    High = 2,
+}
+```
+# Variants
+Variants are fully algebraic data types, similar to Rust enums, so as an example:
+```
+Variant Expr {
     Number(i32),
     Add(Expr, Expr),
     Multiply(Expr, Expr),
     Negate(Expr),
-}
 
-impl Expr {
     fn eval(self) -> i32 {
-        match self {
+        return match self {
             Expr::Number(n) => n,
             Expr::Add(lhs, rhs) => lhs.eval() + rhs.eval(),
             Expr::Multiply(lhs, rhs) => lhs.eval() * rhs.eval(),

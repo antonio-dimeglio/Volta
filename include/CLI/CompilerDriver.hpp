@@ -44,6 +44,7 @@ private:
     std::vector<std::string> collectSourceFiles();
     bool parseAllFiles(const std::vector<std::string>& files);
     bool resolveImports(Semantic::ExportTable& exportTable);
+    void registerStructNames();  // Pre-register struct names for HIR desugaring
     bool lowerToHIR();
     std::vector<std::unique_ptr<Semantic::SemanticAnalyzer>> performSemanticAnalysis(Semantic::FunctionRegistry& functionRegistry);
     bool lowerToMIR(const std::vector<std::unique_ptr<Semantic::SemanticAnalyzer>>& analyzers);

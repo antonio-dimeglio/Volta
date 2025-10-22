@@ -65,6 +65,10 @@ int CompilerDriver::compile() {
         return 1;
     }
 
+    // Phase 2.5: Pre-register struct names (for HIR desugaring of Point.new() → StaticMethodCall)
+    std::cout << "\nPhase 2.5: Pre-registering struct types\n";
+    registerStructNames();
+
     // Phase 3: HIR lowering
     std::cout << "\nPhase 3: HIR Lowering\n";
     if (!lowerToHIR()) {
@@ -288,6 +292,25 @@ bool CompilerDriver::resolveImports(Semantic::ExportTable& exportTable) {
     return true;
 }
 
+void CompilerDriver::registerStructNames() {
+    // Pre-register struct names from all parsed ASTs (including imported files).
+    // This allows HIR lowering to check if "Point" is a type name for Point.new() desugaring.
+    // The full struct definitions (fields, methods) are registered later in semantic analysis.
+
+    int structCount = 0;
+    for (const auto& unit : units) {
+        for (const auto& stmt : unit.ast->statements) {
+            if (auto* structDecl = dynamic_cast<StructDecl*>(stmt.get())) {
+                // Register just the name as a stub (no fields yet)
+                typeRegistry.registerStructStub(structDecl->name.lexeme);
+                structCount++;
+            }
+        }
+    }
+
+    std::cout << "  Registered " << structCount << " struct type name(s)\n";
+}
+
 bool CompilerDriver::lowerToHIR() {
     for (auto& unit : units) {
         std::string moduleName = Semantic::fileToModule(unit.sourceFile);
@@ -382,7 +405,7 @@ bool CompilerDriver::verifyMIR() {
         std::cout << "  Verifying: " << moduleName << "\n";
 
         MIR::MIRVerifier verifier(diag);
-        if (verifier.verify(unit.mir)) {
+        if (!verifier.verify(unit.mir)) {
             std::cerr << "MIR verification failed for module: " << moduleName << "\n";
             diag.printAll(std::cerr);
             return false;

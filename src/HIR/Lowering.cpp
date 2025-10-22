@@ -385,6 +385,33 @@ std::unique_ptr<Expr> HIRLowering::desugarExpr(Expr& expr) {
         );
     }
 
+    // Handle Point.new() => StaticMethodCall
+    // The parser creates InstanceMethodCall for "TypeName.method()" because it can't
+    // distinguish type names from variables. Here we desugar it into StaticMethodCall.
+    if (auto* instanceCall = dynamic_cast<InstanceMethodCall*>(&expr)) {
+        // Check if the object is a Variable node
+        if (auto* varNode = dynamic_cast<Variable*>(instanceCall->object.get())) {
+            // Check if this variable name is actually a struct type
+            const auto* structType = typeRegistry.getStruct(varNode->token.lexeme);
+
+            if (structType) {
+                // DESUGAR: Transform Point.new() => StaticMethodCall("Point", "new", [...])
+                std::vector<std::unique_ptr<Expr>> clonedArgs;
+                for (auto& arg : instanceCall->args) {
+                    clonedArgs.push_back(cloneExpr(arg.get()));
+                }
+
+                return std::make_unique<StaticMethodCall>(
+                    varNode->token,           // type name token
+                    instanceCall->methodName, // method name token
+                    std::move(clonedArgs),
+                    instanceCall->line,
+                    instanceCall->column
+                );
+            }
+        }
+    }
+
     // For other expressions, just clone them as-is
     return cloneExpr(&expr);
 }

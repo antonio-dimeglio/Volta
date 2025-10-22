@@ -2,6 +2,7 @@
 #include "runtime/volta_gc.h"
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 size_t utf8_length(const char* s, size_t byte_length) {
     size_t count = 0;
@@ -81,7 +82,7 @@ void volta_string_free(VoltaString* str) {
     }
 }
 
-int32_t volta_string_length(const VoltaString* str) {
+size_t volta_string_length(const VoltaString* str) {
     return str->length;
 }
 
@@ -142,4 +143,18 @@ const char* volta_string_to_cstr(const VoltaString* str) {
 
 const char* volta_string_data(const VoltaString* str) {
     return str->data;
+}
+
+void volta_string_print(const VoltaString* volta_str) {
+    if (!volta_str || !volta_str->data) {
+        printf("(null string)");
+        return;
+    }
+    // Print the string (not null-terminated, so use fwrite or printf with precision)
+    printf("%.*s", (int)volta_str->size, volta_str->data);
+}
+
+void volta_string_println(const VoltaString* volta_str) {
+    volta_string_print(volta_str);
+    printf("\n");
 }

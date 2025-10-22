@@ -592,6 +592,11 @@ llvm::Value* MIRToLLVM::getValue(const MIR::Value& value) {
             return module.getFunction(value.name);
 
         case ValueKind::Constant:
+            if (value.constantNull.has_value() && value.constantNull.value()) {
+                // Null pointer constant
+                auto* type = getLLVMType(value.type);
+                return llvm::ConstantPointerNull::get(static_cast<llvm::PointerType*>(type));
+            }
             if (value.constantInt.has_value()) {
                 auto* type = getLLVMType(value.type);
                 return llvm::ConstantInt::get(type, value.constantInt.value());
@@ -718,8 +723,8 @@ llvm::Type* MIRToLLVM::getLLVMType(const Type::Type* type) {
 
             // Create LLVM struct type with field types
             std::vector<llvm::Type*> fieldTypes;
-            for (const auto& [fieldName, fieldType] : structType->fields) {
-                fieldTypes.push_back(getLLVMType(fieldType));
+            for (const auto& field : structType->fields) {
+                fieldTypes.push_back(getLLVMType(field.type));
             }
 
             llvm::StructType* llvmStructType = llvm::StructType::create(
@@ -731,6 +736,11 @@ llvm::Type* MIRToLLVM::getLLVMType(const Type::Type* type) {
             structTypeMap[structType->name] = llvmStructType;
             return llvmStructType;
         }
+
+        case Type::TypeKind::Opaque:
+            // Opaque type (void* in C) is represented as i8 in LLVM
+            // When used as ptr<opaque>, it becomes i8*
+            return llvm::Type::getInt8Ty(context);
 
         case Type::TypeKind::Unresolved:
             // Unresolved types should have been resolved by semantic analysis

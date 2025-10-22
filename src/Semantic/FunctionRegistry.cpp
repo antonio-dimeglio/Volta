@@ -5,8 +5,9 @@ namespace Semantic {
 void FunctionRegistry::registerFunction(const std::string& name,
                                        const std::vector<FunctionParameter>& params,
                                        const Type::Type* returnType,
-                                       const std::string& moduleName) {
-    functions[name].emplace_back(name, params, returnType, moduleName);
+                                       const std::string& moduleName,
+                                       bool isExtern) {
+    functions[name].emplace_back(name, params, returnType, moduleName, isExtern);
 }
 
 void FunctionRegistry::collectFromHIR(const HIR::HIRProgram& hir, const std::string& moduleName) {
@@ -18,7 +19,7 @@ void FunctionRegistry::collectFromHIR(const HIR::HIRProgram& hir, const std::str
                 funcParams.emplace_back(param.name, param.type);
             }
             // Only register functions (extern declarations are also functions)
-            registerFunction(fnDecl->name, funcParams, fnDecl->returnType, moduleName);
+            registerFunction(fnDecl->name, funcParams, fnDecl->returnType, moduleName, fnDecl->isExtern);
         }
     }
 }

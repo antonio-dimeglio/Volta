@@ -81,7 +81,12 @@ public:
     // Register a new struct type (called during semantic analysis)
     // Returns nullptr if a struct with this name already exists
     StructType* registerStruct(const std::string& name,
-                               const std::vector<std::pair<std::string, const Type*>>& fields);
+                               const std::vector<FieldInfo>& fields);
+
+    // Register a struct name as a placeholder (for HIR desugaring before semantic analysis)
+    // This allows HIR lowering to check if "Point" is a type name for Point.new() desugaring
+    // Returns the stub struct type, or existing type if already registered
+    StructType* registerStructStub(const std::string& name);
 
     // Get a registered struct type by name
     // Returns nullptr if not found

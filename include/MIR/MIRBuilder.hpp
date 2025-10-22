@@ -63,6 +63,7 @@ public:
     Value createConstantBool(bool value, const Type::Type* type);
     Value createConstantFloat(double value, const Type::Type* type);
     Value createConstantString(const std::string& value, const Type::Type* type);
+    Value createConstantNull(const Type::Type* ptrType);
 
     // Integer arithmetic
     Value createIAdd(const Value& lhs, const Value& rhs);
@@ -166,7 +167,7 @@ public:
     void clearSymbolTable();
 
     // Get the constructed MIR program
-    Program getProgram() const { return program; }
+    Program& getProgram() { return program; }
 
     // Get the current function being built
     Function* getCurrentFunction() const { return currentFunction; }

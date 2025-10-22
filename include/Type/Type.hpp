@@ -106,13 +106,22 @@ struct MethodSignature {
           hasSelf(self), hasMutSelf(mutSelf), isPublic(pub) {}
 };
 
+struct FieldInfo {
+    std::string name;
+    const Type* type;
+    bool isPublic;
+
+    FieldInfo(const std::string& n, const Type* t, bool pub)
+        : name(n), type(t), isPublic(pub) {}
+};
+
 struct StructType : Type {
     std::string name;
-    std::vector<std::pair<std::string, const Type*>> fields;
+    std::vector<FieldInfo> fields;
     std::vector<MethodSignature> methods;
 
     StructType(const std::string& name,
-               const std::vector<std::pair<std::string, const Type*>>& fields)
+               const std::vector<FieldInfo>& fields)
         : Type(TypeKind::Struct), name(name), fields(fields) {}
 
     std::string toString() const override {
@@ -127,10 +136,17 @@ struct StructType : Type {
     }
 
     const Type* getFieldType(const std::string& fieldName) const {
-        for (const auto& [name, type] : fields) {
-            if (name == fieldName) return type;
+        for (const auto& field : fields) {
+            if (field.name == fieldName) return field.type;
         }
         return nullptr;
+    }
+
+    bool isFieldPublic(const std::string& fieldName) const {
+        for (const auto& field : fields) {
+            if (field.name == fieldName) return field.isPublic;
+        }
+        return false;  // Field not found, treat as private
     }
 
     const MethodSignature* getMethod(const std::string& methodName) const {

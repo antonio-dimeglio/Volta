@@ -1,0 +1,47 @@
+// I/O utilities for printing and input
+// Provides simple print functions for different types
+
+extern "C" {
+    fn volta_print_i32(val: i32) -> void;
+    fn volta_print_i64(val: i64) -> void;
+    fn volta_print_u32(val: u32) -> void;
+    fn volta_print_u64(val: u64) -> void;
+    fn volta_print_f32(val: f32) -> void;
+    fn volta_print_f64(val: f64) -> void;
+    fn volta_print_bool(val: bool) -> void;
+    fn volta_print_newline() -> void;
+}
+
+// Print functions for each type
+pub fn print_i32(val: i32) -> void {
+    volta_print_i32(val);
+}
+
+pub fn print_i64(val: i64) -> void {
+    volta_print_i64(val);
+}
+
+pub fn print_u32(val: u32) -> void {
+    volta_print_u32(val);
+}
+
+pub fn print_u64(val: u64) -> void {
+    volta_print_u64(val);
+}
+
+pub fn print_f32(val: f32) -> void {
+    volta_print_f32(val);
+}
+
+pub fn print_f64(val: f64) -> void {
+    volta_print_f64(val);
+}
+
+pub fn print_bool(val: bool) -> void {
+    volta_print_bool(val);
+}
+
+// Print newline
+pub fn println() -> void {
+    volta_print_newline();
+}

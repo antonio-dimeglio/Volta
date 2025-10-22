@@ -8,6 +8,7 @@
     X(Float) \
     X(True_) \
     X(False_) \
+    X(Null) \
     X(String) \
     /* Arithmetic */ \
     X(Plus) \

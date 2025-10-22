@@ -426,10 +426,20 @@ struct FnDecl : Stmt {
     bool isPublic;
 
     FnDecl(const std::string& name, std::vector<Param> params,
-           const Type::Type* returnType, std::vector<std::unique_ptr<Stmt>> body, 
+           const Type::Type* returnType, std::vector<std::unique_ptr<Stmt>> body,
            bool isExtern = false, bool isPublic = false, int line = 0, int column = 0)
         : Stmt(line, column), name(name), params(std::move(params)), returnType(returnType),
           body(std::move(body)), isExtern(isExtern), isPublic(isPublic) {}
+
+    // Check if this is an instance method (has 'self' as first parameter)
+    bool isInstanceMethod() const {
+        return !params.empty() && params[0].name == "self";
+    }
+
+    // Check if this is a static method (no 'self' parameter)
+    bool isStaticMethod() const {
+        return !isInstanceMethod();
+    }
 
     std::string toString() const override;
 

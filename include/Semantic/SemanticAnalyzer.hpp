@@ -83,9 +83,77 @@ private:
     void resolveTypesInStmt(HIR::HIRStmt* stmt);
     const Type::Type* resolveType(const Type::Type* type);
     const Type::Type* errorType();
+
+    // ========================================================================
+    // Type Classification Utilities
+    // ========================================================================
+
+    /// Check if type is any numeric type (integer or float)
     bool isNumericType(const Type::Type* type);
+
+    /// Check if type is any integer type (signed or unsigned)
     bool isIntegerType(const Type::Type* type);
-    bool isTypeCompatible(const Type::Type* from, const Type::Type* to);
+
+    /// Check if type is a signed integer type
+    bool isSignedIntegerType(const Type::Type* type);
+
+    /// Check if type is an unsigned integer type
+    bool isUnsignedIntegerType(const Type::Type* type);
+
+    /// Check if type is a floating-point type
+    bool isFloatType(const Type::Type* type);
+
+    /// Get bit width of a primitive type (returns 0 for non-primitives)
+    int getTypeBitWidth(const Type::Type* type);
+
+    // ========================================================================
+    // Type Compatibility Checking Utilities
+    // ========================================================================
+
+    /// Check if two types are exactly the same (no conversion)
+    bool areTypesEqual(const Type::Type* a, const Type::Type* b);
+
+    /// Check if 'from' can be IMPLICITLY converted to 'to'
+    /// This enforces strict rules:
+    /// - No implicit conversions between signed and unsigned
+    /// - No implicit narrowing conversions
+    /// - No implicit conversions between int and float
+    /// - Allows widening within same signedness (i8→i32, u8→u32, f32→f64)
+    /// - Special cases: str→ptr<i8>, struct↔ptr<struct>
+    bool isImplicitlyConvertible(const Type::Type* from, const Type::Type* to);
+
+    /// Check if 'from' type has the same signedness as 'to' type
+    /// Returns true if both are signed, both are unsigned, or either is non-integer
+    bool haveSameSignedness(const Type::Type* from, const Type::Type* to);
+
+    /// Check if conversion from 'from' to 'to' is a widening conversion
+    /// (going from smaller to larger bit width)
+    bool isWideningConversion(const Type::Type* from, const Type::Type* to);
+
+    /// Check if conversion from 'from' to 'to' is a narrowing conversion
+    /// (going from larger to smaller bit width)
+    bool isNarrowingConversion(const Type::Type* from, const Type::Type* to);
+
+    /// Check if a literal value fits within the range of a target type
+    /// Used for validating integer literal assignments
+    bool doesLiteralFitInType(int64_t value, const Type::Type* targetType);
+
+    /// Check if conversion from 'from' to 'to' would be valid with explicit cast
+    /// More permissive than implicit conversion - allows:
+    /// - All numeric to numeric conversions (for future 'as' operator)
+    /// - Sign changes, narrowing, int↔float, etc.
+    bool isExplicitlyConvertible(const Type::Type* from, const Type::Type* to);
+
+    // ========================================================================
+    // Helper Functions
+    // ========================================================================
+
+    /// Try to coerce an integer literal (including negative literals) to a target type
+    /// Returns true if successful, false if the literal doesn't fit or expr is not a literal
+    bool tryCoerceIntegerLiteral(Expr* expr, const Type::Type* targetType);
+
+    /// Check if a statement list contains a return statement (recursively)
+    bool containsReturn(const std::vector<std::unique_ptr<HIR::HIRStmt>>& stmts);
 };
 
 } // namespace Semantic

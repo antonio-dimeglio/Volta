@@ -32,6 +32,7 @@ struct Value {
     std::optional<bool> constantBool;
     std::optional<double> constantFloat;
     std::optional<std::string> constantString;
+    std::optional<bool> constantNull;  // true if this is a null pointer constant
 
     Value() = default;
     Value(ValueKind k, std::string n, const Type::Type* t)
@@ -45,6 +46,7 @@ struct Value {
     static Value makeConstantBool(bool value, const Type::Type* type);
     static Value makeConstantFloat(double value, const Type::Type* type);
     static Value makeConstantString(const std::string& value, const Type::Type* type);
+    static Value makeConstantNull(const Type::Type* ptrType);
 
     // Get string representation: "%result", "@main", "42", etc.
     std::string toString() const;

@@ -44,10 +44,12 @@ struct FunctionParameter {
 struct FunctionSignature {
     std::vector<FunctionParameter> parameters;
     const Type::Type* return_type;  // Pointer to interned type
+    bool isExtern;                   // Whether this is an extern function
 
     FunctionSignature(const std::vector<FunctionParameter>& parameters,
-                     const Type::Type* return_type)
-        : parameters(parameters), return_type(return_type) {}
+                     const Type::Type* return_type,
+                     bool isExtern = false)
+        : parameters(parameters), return_type(return_type), isExtern(isExtern) {}
 };
 
 /**

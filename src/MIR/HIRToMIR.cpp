@@ -19,17 +19,19 @@ MIR::Program HIRToMIR::lower(const HIR::HIRProgram& hirProgram) {
             // Convert parameters
             std::vector<Value> params;
             for (auto& par : fnDecl->params) {
-                // Structs are always passed by reference (pointer)
+                // Structs and arrays are always passed by reference (pointer)
                 const Type::Type* paramType = par.type;
-                if (paramType->kind == Type::TypeKind::Struct) {
+                if (paramType->kind == Type::TypeKind::Struct ||
+                    paramType->kind == Type::TypeKind::Array) {
                     paramType = typeRegistry.getPointer(paramType);
                 }
                 params.push_back(Value::makeParam(par.name, paramType));
             }
 
-            // Convert return type - structs are returned by reference (pointer)
+            // Convert return type - structs and arrays are returned by reference (pointer)
             const Type::Type* returnType = fnDecl->returnType;
-            if (returnType->kind == Type::TypeKind::Struct) {
+            if (returnType->kind == Type::TypeKind::Struct ||
+                returnType->kind == Type::TypeKind::Array) {
                 returnType = typeRegistry.getPointer(returnType);
             }
 
@@ -41,7 +43,12 @@ MIR::Program HIRToMIR::lower(const HIR::HIRProgram& hirProgram) {
             for (size_t i = 0; i < params.size(); i++) {
                 auto& param = params[i];
                 auto& paramDecl = fnDecl->params[i];
-                if (paramDecl.isMutRef) {
+
+                // For mut ref parameters of primitive types, we need to allocate space
+                // But for arrays/structs, they're already passed as pointers, so just use them directly
+                if (paramDecl.isMutRef &&
+                    paramDecl.type->kind != Type::TypeKind::Array &&
+                    paramDecl.type->kind != Type::TypeKind::Struct) {
                     Value ptr = builder.createAlloca(param.type);
                     builder.createStore(param, ptr);
                     varPointers[param.name] = ptr;
@@ -76,11 +83,24 @@ MIR::Program HIRToMIR::lower(const HIR::HIRProgram& hirProgram) {
             for (auto& fnDecl : externBlock->declarations) {
                 std::vector<Value> params;
                 for (const auto& param : fnDecl->params) {
-                    params.push_back(Value::makeParam(param.name, param.type));
+                    // Structs and arrays are passed by reference (pointer)
+                    const Type::Type* paramType = param.type;
+                    if (paramType->kind == Type::TypeKind::Struct ||
+                        paramType->kind == Type::TypeKind::Array) {
+                        paramType = typeRegistry.getPointer(paramType);
+                    }
+                    params.push_back(Value::makeParam(param.name, paramType));
+                }
+
+                // Structs and arrays are returned by reference (pointer)
+                const Type::Type* returnType = fnDecl->returnType;
+                if (returnType->kind == Type::TypeKind::Struct ||
+                    returnType->kind == Type::TypeKind::Array) {
+                    returnType = typeRegistry.getPointer(returnType);
                 }
 
                 // Create MIR function with no body (empty blocks = extern)
-                builder.createFunction(fnDecl->name, params, fnDecl->returnType);
+                builder.createFunction(fnDecl->name, params, returnType);
                 builder.finishFunction();
             }
         }
@@ -94,18 +114,20 @@ MIR::Program HIRToMIR::lower(const HIR::HIRProgram& hirProgram) {
                 // Convert parameters
                 std::vector<Value> params;
                 for (auto& par : method->params) {
-                    // Structs are always passed by reference (pointer)
+                    // Structs and arrays are always passed by reference (pointer)
                     // Note: self parameter is already a pointer type from semantic analysis
                     const Type::Type* paramType = par.type;
-                    if (paramType->kind == Type::TypeKind::Struct) {
+                    if (paramType->kind == Type::TypeKind::Struct ||
+                        paramType->kind == Type::TypeKind::Array) {
                         paramType = typeRegistry.getPointer(paramType);
                     }
                     params.push_back(Value::makeParam(par.name, paramType));
                 }
 
-                // Convert return type - structs are returned by reference (pointer)
+                // Convert return type - structs and arrays are returned by reference (pointer)
                 const Type::Type* returnType = method->returnType;
-                if (returnType->kind == Type::TypeKind::Struct) {
+                if (returnType->kind == Type::TypeKind::Struct ||
+                    returnType->kind == Type::TypeKind::Array) {
                     returnType = typeRegistry.getPointer(returnType);
                 }
 
@@ -214,15 +236,18 @@ void HIRToMIR::visitVarDecl(::VarDecl& decl) {
     // Lower the initializer expression
     Value initValue = lowerExpr(*decl.initValue);
 
-    // For structs, always use varPointers (even for immutable) to avoid auto-loading
+    // For structs and arrays, always use varPointers (even for immutable) to avoid auto-loading
     // Immutability is enforced at semantic analysis level
-    if (decl.mutable_ || decl.typeAnnotation->kind == Type::TypeKind::Struct) {
-        // For structs (heap pointers), allocate pointer-sized slot
+    if (decl.mutable_ ||
+        decl.typeAnnotation->kind == Type::TypeKind::Struct ||
+        decl.typeAnnotation->kind == Type::TypeKind::Array) {
+        // For structs/arrays (heap pointers), allocate pointer-sized slot
         // For primitives, allocate value-sized slot
         const Type::Type* storageType = decl.typeAnnotation;
-        if (decl.typeAnnotation->kind == Type::TypeKind::Struct) {
+        if (decl.typeAnnotation->kind == Type::TypeKind::Struct ||
+            decl.typeAnnotation->kind == Type::TypeKind::Array) {
             storageType = typeRegistry.getPointer(decl.typeAnnotation);
-            // initValue is already a pointer from visitStructLiteral
+            // initValue is already a pointer from visitStructLiteral/visitArrayLiteral
         }
 
         Value ptr = builder.createAlloca(storageType);
@@ -243,7 +268,7 @@ void HIRToMIR::visitReturnStmt(::ReturnStmt& stmt) {
     if (stmt.value) {
         Value retVal = lowerExpr(*stmt.value);
 
-        // Structs are returned as pointers (heap-allocated, GC-managed)
+        // Structs and arrays are returned as pointers (by reference)
 
         builder.createReturn(retVal);
     } else {
@@ -585,6 +610,8 @@ Value HIRToMIR::visitLiteral(::Literal& lit) {
             return builder.createConstantBool(false, type);
         case TokenType::String:
             return builder.createConstantString(lit.token.lexeme, type);
+        case TokenType::Null:
+            return builder.createConstantNull(type);
         default:
             diag.error("Unknown literal type", lit.line, lit.column);
             return Value();
@@ -736,7 +763,10 @@ Value HIRToMIR::visitFnCall(::FnCall& call) {
         if (func && i < func->params.size()) {
             const Type::Type* paramType = func->params[i].type;
 
-            // Structs are passed as pointers (already correct from visitStructLiteral)
+            // Structs and arrays are passed as pointers
+            // - Structs: already correct from visitStructLiteral (returns heap pointer)
+            // - Arrays: already correct from visitArrayLiteral (returns stack pointer)
+            // - Array/struct variables: already pointers from visitVariable
             // Just convert primitive types if needed
             if (arg.type != paramType) {
                 arg = convertValue(arg, paramType);
@@ -748,6 +778,12 @@ Value HIRToMIR::visitFnCall(::FnCall& call) {
 
     // Get return type from type map
     const Type::Type* returnType = getExprType(&call);
+
+    // If the return type is a struct or array, it's returned as a pointer
+    if (returnType && (returnType->kind == Type::TypeKind::Struct ||
+                       returnType->kind == Type::TypeKind::Array)) {
+        returnType = typeRegistry.getPointer(returnType);
+    }
 
     // Emit call
     return builder.createCall(call.name, args, returnType);
@@ -815,11 +851,19 @@ Value HIRToMIR::visitGroupingExpr(::GroupingExpr& expr) {
 Value HIRToMIR::visitArrayLiteral(::ArrayLiteral& lit) {
     // Get array type
     const Type::Type* arrayType = getExprType(&lit);
-    const auto* arrType = static_cast<const Type::ArrayType*>(arrayType);
-    const Type::Type* elemType = arrType->elementType;
 
-    // Allocate array on stack
-    Value arrayPtr = builder.createAlloca(arrayType);
+    // Allocate space on the GC heap for the array (like structs)
+    size_t arrayByteSize = getTypeSize(arrayType);
+    const Type::Type* i64Type = typeRegistry.getPrimitive(Type::PrimitiveKind::I64);
+    Value sizeVal = builder.createConstantInt(static_cast<int64_t>(arrayByteSize), i64Type);
+
+    // Call volta_gc_malloc(size)
+    const Type::Type* voidPtrType = typeRegistry.getPointer(typeRegistry.getPrimitive(Type::PrimitiveKind::Void));
+    Value heapPtr = builder.createCall("volta_gc_malloc", {sizeVal}, voidPtrType);
+
+    // Cast void* to typed array pointer
+    Value arrayPtr = heapPtr;  // MIR doesn't need explicit casting, types are tracked separately
+    arrayPtr.type = typeRegistry.getPointer(arrayType);
 
     // Store each element
     for (size_t i = 0; i < lit.elements.size(); i++) {
@@ -1169,9 +1213,9 @@ size_t HIRToMIR::getTypeSize(const Type::Type* type) {
         case Type::TypeKind::Struct: {
             const auto* structType = static_cast<const Type::StructType*>(type);
             size_t total = 0;
-            for (const auto& [fieldName, fieldType] : structType->fields) {
+            for (const auto& field : structType->fields) {
                 // TODO: Add proper alignment/padding calculation
-                total += getTypeSize(fieldType);
+                total += getTypeSize(field.type);
             }
             return total;
         }

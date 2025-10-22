@@ -19,6 +19,47 @@ void volta_print(VoltaString* str) {
     printf("%.*s", (int)volta_string_length(str), volta_string_data(str));
 }
 
+// Print helpers for different types
+void volta_print_i32(int32_t val) {
+    printf("%d", val);
+}
+
+void volta_print_i64(int64_t val) {
+    printf("%lld", (long long)val);
+}
+
+void volta_print_u32(uint32_t val) {
+    printf("%u", val);
+}
+
+void volta_print_u64(uint64_t val) {
+    printf("%llu", (unsigned long long)val);
+}
+
+void volta_print_f32(float val) {
+    printf("%g", val);
+}
+
+void volta_print_f64(double val) {
+    printf("%g", val);
+}
+
+void volta_print_bool(bool val) {
+    printf("%s", val ? "true" : "false");
+}
+
+void volta_print_char(char c) {
+    printf("%c", c);
+}
+
+void volta_print_ptr(void* ptr) {
+    printf("%p", ptr);
+}
+
+void volta_print_newline(void) {
+    printf("\n");
+}
+
 void volta_panic(VoltaString* msg) {
     if (!msg) {
         fprintf(stderr, "PANIC\n");

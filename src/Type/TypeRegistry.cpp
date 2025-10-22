@@ -119,14 +119,36 @@ const Type* TypeRegistry::parseTypeName(const std::string& name) {
 }
 
 StructType* TypeRegistry::registerStruct(const std::string& name,
-                                          const std::vector<std::pair<std::string, const Type*>>& fields) {
+                                          const std::vector<FieldInfo>& fields) {
     // Check if already exists
-    if (structCache.find(name) != structCache.end()) {
-        return nullptr;  // Already registered
+    auto it = structCache.find(name);
+    if (it != structCache.end()) {
+        // If it exists as a stub (no fields), update it with full definition
+        StructType* existing = it->second;
+        if (existing->fields.empty() && !fields.empty()) {
+            existing->fields = fields;
+            return existing;
+        }
+        return nullptr;  // Already fully registered
     }
 
     // Create new struct type
     auto structType = std::make_unique<StructType>(name, fields);
+    StructType* ptr = structType.get();
+    ownedTypes.push_back(std::move(structType));
+    structCache[name] = ptr;
+    return ptr;
+}
+
+StructType* TypeRegistry::registerStructStub(const std::string& name) {
+    // Check if already exists
+    auto it = structCache.find(name);
+    if (it != structCache.end()) {
+        return it->second;  // Return existing (stub or full)
+    }
+
+    // Create new struct stub (no fields yet)
+    auto structType = std::make_unique<StructType>(name, std::vector<FieldInfo>{});
     StructType* ptr = structType.get();
     ownedTypes.push_back(std::move(structType));
     structCache[name] = ptr;

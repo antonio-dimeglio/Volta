@@ -100,9 +100,11 @@ RUNTIME_OBJS := $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(RUNTIME_SRCS))
 MAIN_SRC := $(SRC_DIR)/main.cpp
 MAIN_OBJ := $(BUILD_DIR)/main.o
 
-# Test sources and binaries
-TEST_SRCS := $(wildcard $(TEST_DIR)/test_*.cpp)
-TEST_BINS := $(patsubst $(TEST_DIR)/test_%.cpp,$(BUILD_DIR)/test_%,$(TEST_SRCS))
+# Test sources and binaries - search in subdirectories
+TEST_SRCS := $(shell find $(TEST_DIR) -name 'test_*.cpp' 2>/dev/null)
+# Extract just the test name from the full path
+TEST_BINS := $(patsubst %.cpp,%,$(notdir $(TEST_SRCS)))
+TEST_BINS := $(addprefix $(BUILD_DIR)/,$(TEST_BINS))
 
 # Main executable
 EXECUTABLE := $(BUILD_DIR)/volta
@@ -199,8 +201,16 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	@$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
 
 # Test executables - link against library after it's fully built
-$(BUILD_DIR)/test_%: $(TEST_DIR)/test_%.cpp $(LIB)
-	@echo "Building test: $@"
+$(BUILD_DIR)/test_%: $(TEST_DIR)/unit/test_%.cpp $(LIB)
+	@echo "Building unit test: $@"
+	@$(CXX) $(CXXFLAGS) $(TEST_CXXFLAGS) $< -L$(BUILD_DIR) -lvolta $(TEST_LDFLAGS) $(LDFLAGS) $(LIBS) -o $@
+
+$(BUILD_DIR)/test_%: $(TEST_DIR)/integration/test_%.cpp $(LIB)
+	@echo "Building integration test: $@"
+	@$(CXX) $(CXXFLAGS) $(TEST_CXXFLAGS) $< -L$(BUILD_DIR) -lvolta $(TEST_LDFLAGS) $(LDFLAGS) $(LIBS) -o $@
+
+$(BUILD_DIR)/test_%: $(TEST_DIR)/e2e/test_%.cpp $(LIB)
+	@echo "Building e2e test: $@"
 	@$(CXX) $(CXXFLAGS) $(TEST_CXXFLAGS) $< -L$(BUILD_DIR) -lvolta $(TEST_LDFLAGS) $(LDFLAGS) $(LIBS) -o $@
 
 # Build all tests
