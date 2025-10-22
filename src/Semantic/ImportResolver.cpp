@@ -9,11 +9,12 @@ namespace Semantic {
 
 // Calculate Levenshtein distance between two strings
 static size_t levenshteinDistance(const std::string& s1, const std::string& s2) {
-    const size_t len1 = s1.size(), len2 = s2.size();
+    const size_t len1 = s1.size();
+    const size_t len2 = s2.size();
     std::vector<std::vector<size_t>> d(len1 + 1, std::vector<size_t>(len2 + 1));
 
-    for (size_t i = 0; i <= len1; ++i) d[i][0] = i;
-    for (size_t j = 0; j <= len2; ++j) d[0][j] = j;
+    for (size_t i = 0; i <= len1; ++i) { d[i][0] = i; }
+    for (size_t j = 0; j <= len2; ++j) { d[0][j] = j; }
 
     for (size_t i = 1; i <= len1; ++i) {
         for (size_t j = 1; j <= len2; ++j) {
@@ -31,7 +32,7 @@ static size_t levenshteinDistance(const std::string& s1, const std::string& s2) 
 
 // Find the closest matching export symbol using Levenshtein distance
 static std::string findClosestMatch(const std::string& symbol, const std::unordered_set<std::string>& exports) {
-    if (exports.empty()) return "";
+    if (exports.empty()) { return ""; }
 
     std::string closest;
     size_t minDistance = SIZE_MAX;
@@ -68,7 +69,7 @@ bool validateImports(
     const ExportTable& exportTable,
     DiagnosticManager& diag
 ) {
-    bool hasErrors = false ;
+    bool hasErrors = false;
 
     for (auto&[source, ast] : units) {
         for (auto& stmt : ast->statements) {
@@ -151,7 +152,7 @@ static bool detectCyclesDFS(
         std::string cycleDesc = "Circular dependency detected: ";
         bool first = true;
         for (auto it = cycleStart; it != path.end(); ++it) {
-            if (!first) cycleDesc += " → ";
+            if (!first) { cycleDesc += " → "; }
             cycleDesc += *it;
             first = false;
         }

@@ -378,7 +378,7 @@ struct FieldAccess : Expr {
 
 struct Param {
     std::string name;
-    const Type::Type* type;
+    const Type::Type* type{};
     bool isRef;
     bool isMutRef;
 
@@ -391,7 +391,7 @@ struct Param {
 struct StructField {
     bool isPublic;
     Token name;
-    const Type::Type* type;
+    const Type::Type* type{};
 
     StructField(bool isPub, Token name, const Type::Type* type)
         : isPublic(isPub), name(name), type(type) {}
@@ -401,7 +401,7 @@ struct StructField {
 struct VarDecl : Stmt {
     bool mutable_;
     Token name;
-    const Type::Type* typeAnnotation;
+    const Type::Type* typeAnnotation{};
     std::unique_ptr<Expr> initValue{};
     std::vector<int> array_dimensions{};
 
@@ -420,7 +420,7 @@ struct VarDecl : Stmt {
 struct FnDecl : Stmt {
     std::string name;
     std::vector<Param> params{};
-    const Type::Type* returnType;
+    const Type::Type* returnType{};
     std::vector<std::unique_ptr<Stmt>> body{};
     bool isExtern;
     bool isPublic;

@@ -13,7 +13,7 @@ namespace Semantic {
 // Extended function signature with module information
 struct GlobalFunctionSignature {
     std::string name;
-    std::vector<FunctionParameter> parameters;
+    std::vector<FunctionParameter> parameters{};
     const Type::Type* return_type;
     std::string moduleName;  // Which module this function is defined in
     bool isExtern;           // Whether this is an extern function
@@ -30,7 +30,7 @@ struct GlobalFunctionSignature {
 class FunctionRegistry {
 private:
     // Map: function name -> list of signatures (handles overloading in future)
-    std::unordered_map<std::string, std::vector<GlobalFunctionSignature>> functions;
+    std::unordered_map<std::string, std::vector<GlobalFunctionSignature>> functions{};
 
 public:
     // Add a function signature to the registry
@@ -44,13 +44,13 @@ public:
     void collectFromHIR(const HIR::HIRProgram& hir, const std::string& moduleName);
 
     // Check if a function exists
-    bool hasFunction(const std::string& name) const;
+    [[nodiscard]] bool hasFunction(const std::string& name) const;
 
     // Get function signature (returns first match for now, handles overloading later)
-    const GlobalFunctionSignature* getFunction(const std::string& name) const;
+    [[nodiscard]] const GlobalFunctionSignature* getFunction(const std::string& name) const;
 
     // Get all signatures for a function name
-    const std::vector<GlobalFunctionSignature>& getFunctionOverloads(const std::string& name) const;
+    [[nodiscard]] const std::vector<GlobalFunctionSignature>& getFunctionOverloads(const std::string& name) const;
 };
 
 } // namespace Semantic

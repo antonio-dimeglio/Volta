@@ -90,7 +90,7 @@ struct ArrayType : Type {
 
 struct MethodSignature {
     std::string name;
-    std::vector<const Type*> paramTypes;
+    std::vector<const Type*> paramTypes{};
     const Type* returnType;
     bool hasSelf;        // true for instance methods
     bool hasMutSelf;     // true for mutable instance methods
@@ -117,8 +117,8 @@ struct FieldInfo {
 
 struct StructType : Type {
     std::string name;
-    std::vector<FieldInfo> fields;
-    std::vector<MethodSignature> methods;
+    std::vector<FieldInfo> fields{};
+    std::vector<MethodSignature> methods{};
 
     StructType(const std::string& name,
                const std::vector<FieldInfo>& fields)
@@ -166,7 +166,7 @@ struct StructType : Type {
 
 struct GenericType : Type {
     std::string name;
-    std::vector<const Type*> typeParams;
+    std::vector<const Type*> typeParams{};
 
     GenericType(const std::string& name, std::vector<const Type*> typeParams)
         : Type(TypeKind::Generic), name(name), typeParams(typeParams) {}

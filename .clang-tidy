@@ -28,10 +28,12 @@ Checks: >
   -readability-function-cognitive-complexity,
   -readability-else-after-return,
   -readability-identifier-naming,
+  -readability-convert-member-functions-to-static,
   misc-*,
   -misc-non-private-member-variables-in-classes,
   -misc-no-recursion,
-  -misc-include-cleaner
+  -misc-include-cleaner,
+  -misc-const-correctness
 
 WarningsAsErrors: ''
 

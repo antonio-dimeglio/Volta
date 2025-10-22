@@ -32,7 +32,7 @@ const Type::Type* SemanticAnalyzer::visitLiteral(Literal& node) {
         case TokenType::Integer: {
             // Parse the integer literal and infer its type based on value range
             try {
-                int64_t value = std::stoll(node.token.lexeme);
+                int64_t const value = std::stoll(node.token.lexeme);
 
                 // Check if it fits in i32 range
                 if (value >= INT32_MIN && value <= INT32_MAX) {
@@ -44,7 +44,7 @@ const Type::Type* SemanticAnalyzer::visitLiteral(Literal& node) {
             } catch (const std::out_of_range&) {
                 // Value too large for signed i64, try unsigned u64
                 try {
-                    uint64_t value = std::stoull(node.token.lexeme);
+                    uint64_t const value = std::stoull(node.token.lexeme);
                     type = typeRegistry.getPrimitive(Type::PrimitiveKind::U64);
                 } catch (const std::out_of_range&) {
                     diag.error("Integer literal out of range: " + node.token.lexeme,
@@ -87,7 +87,7 @@ const Type::Type* SemanticAnalyzer::visitGroupingExpr(GroupingExpr& node) {
 const Type::Type* SemanticAnalyzer::visitVariable(Variable& node) {
     const Semantic::Symbol* symbol = symbolTable.lookup(node.token.lexeme);
     const Type::Type* type = nullptr;
-    if (!symbol) {
+    if (symbol == nullptr) {
         diag.error("Undefined variable: " + node.token.lexeme, node.line, node.column);
         type = errorType();
     } else {
@@ -125,7 +125,7 @@ void SemanticAnalyzer::visitWhileStmt(HIR::HIRWhileStmt& node) {
         diag.error("While condition must be boolean type", node.line, node.column);
     }
 
-    bool oldInLoop = inLoop;
+    bool const oldInLoop = inLoop;
     inLoop = true;
 
     // While body gets its own scope
@@ -191,7 +191,7 @@ bool SemanticAnalyzer::tryCoerceIntegerLiteral(Expr* expr, const Type::Type* tar
         // Integer literal
         if (literal->token.tt == TokenType::Integer) {
             try {
-                int64_t value = std::stoll(literal->token.lexeme);
+                int64_t const value = std::stoll(literal->token.lexeme);
                 if (doesLiteralFitInType(value, targetType)) {
                     exprTypes[literal] = targetType;
                     return true;
@@ -265,9 +265,9 @@ void SemanticAnalyzer::visitReturnStmt(HIR::HIRReturnStmt& node) {
 }
 
 void SemanticAnalyzer::visitVarDecl(HIR::HIRVarDecl& node) {
-    const Type::Type* varType;
+    const Type::Type* varType = nullptr;
 
-    if (node.typeAnnotation) {
+    if (node.typeAnnotation != nullptr) {
         varType = node.typeAnnotation;
 
         if (node.initValue) {
@@ -491,7 +491,7 @@ const Type::Type* SemanticAnalyzer::visitAssignment(Assignment& node) {
     // Check if LHS is a variable
     if (auto* varNode = dynamic_cast<Variable*>(node.lhs.get())) {
         const Symbol* sym = symbolTable.lookup(varNode->token.lexeme);
-        if (!sym) {
+        if (sym == nullptr) {
             diag.error("Undefined variable: " + varNode->token.lexeme, node.line, node.column);
             const Type::Type* type = errorType();
             exprTypes[&node] = type;
@@ -572,9 +572,9 @@ const Type::Type* SemanticAnalyzer::visitFnCall(FnCall& node) {
     const FunctionSignature* sig = symbolTable.lookupFunction(node.name);
 
     // If not found locally, check the function registry (for cross-module calls)
-    if (!sig && functionRegistry) {
+    if ((sig == nullptr) && (functionRegistry != nullptr)) {
         const Semantic::GlobalFunctionSignature* globalSig = functionRegistry->getFunction(node.name);
-        if (globalSig) {
+        if (globalSig != nullptr) {
             // Convert global function signature to local format for validation
             // Note: We just check the types here; the actual function is in another module
             if (node.args.size() != globalSig->parameters.size()) {
@@ -620,7 +620,7 @@ const Type::Type* SemanticAnalyzer::visitFnCall(FnCall& node) {
                 if (!canConvert && globalSig->isExtern) {
                     if (argType->kind == Type::TypeKind::Struct &&
                         paramType->kind == Type::TypeKind::Pointer) {
-                        const auto* ptrType = static_cast<const Type::PointerType*>(paramType);
+                        const auto* ptrType = dynamic_cast<const Type::PointerType*>(paramType);
                         if (ptrType->pointeeType->kind == Type::TypeKind::Opaque) {
                             canConvert = true;  // Struct can be passed as ptr<opaque> to extern functions
                         }
@@ -639,7 +639,7 @@ const Type::Type* SemanticAnalyzer::visitFnCall(FnCall& node) {
         }
     }
 
-    if (!sig) {
+    if (sig == nullptr) {
         diag.error("Undefined function: " + node.name, node.line, node.column);
         const Type::Type* type = errorType();
         exprTypes[&node] = type;
@@ -664,7 +664,7 @@ const Type::Type* SemanticAnalyzer::visitFnCall(FnCall& node) {
             // Argument must be a mutable variable
             if (auto* varExpr = dynamic_cast<Variable*>(node.args[i].get())) {
                 const Symbol* sym = symbolTable.lookup(varExpr->token.lexeme);
-                if (sym && !sym->is_mut) {
+                if ((sym != nullptr) && !sym->is_mut) {
                     diag.error("Cannot pass immutable variable '" + varExpr->token.lexeme +
                               "' as mutable reference to parameter " + std::to_string(i+1),
                               node.args[i]->line, node.args[i]->column);
@@ -706,7 +706,7 @@ const Type::Type* SemanticAnalyzer::visitFnCall(FnCall& node) {
         if (!canConvert && sig->isExtern) {
             if (argType->kind == Type::TypeKind::Struct &&
                 paramType->kind == Type::TypeKind::Pointer) {
-                const auto* ptrType = static_cast<const Type::PointerType*>(paramType);
+                const auto* ptrType = dynamic_cast<const Type::PointerType*>(paramType);
                 if (ptrType->pointeeType->kind == Type::TypeKind::Opaque) {
                     canConvert = true;  // Struct can be passed as ptr<opaque> to extern functions
                 }
@@ -764,7 +764,7 @@ const Type::Type* SemanticAnalyzer::visitIndexExpr(IndexExpr& node) {
         diag.error("Array index must be integer type", node.line, node.column);
     }
 
-    auto* arrType = static_cast<const Type::ArrayType*>(arrayType);
+    auto* arrType = dynamic_cast<const Type::ArrayType*>(arrayType);
 
     // Compile-time bounds checking for literal indices
     int64_t literalIndex = -1;
@@ -862,7 +862,7 @@ const Type::Type* SemanticAnalyzer::visitRange(Range& node) {
 const Type::Type* SemanticAnalyzer::visitStructLiteral(StructLiteral& node) {
     // 1. Look up the struct type by name
     auto* structType = typeRegistry.getStruct(node.structName.lexeme);
-    if (!structType) {
+    if (structType == nullptr) {
         diag.error("Unknown struct type: " + node.structName.lexeme,
                    node.structName.line, node.structName.column);
         const Type::Type* type = errorType();
@@ -929,15 +929,15 @@ const Type::Type* SemanticAnalyzer::visitFieldAccess(FieldAccess& node) {
     // 2. Handle both struct values and pointers to structs
     const Type::StructType* structType = nullptr;
     if (objectType->kind == Type::TypeKind::Struct) {
-        structType = static_cast<const Type::StructType*>(objectType);
+        structType = dynamic_cast<const Type::StructType*>(objectType);
     } else if (objectType->kind == Type::TypeKind::Pointer) {
-        const auto* ptrType = static_cast<const Type::PointerType*>(objectType);
+        const auto* ptrType = dynamic_cast<const Type::PointerType*>(objectType);
         if (ptrType->pointeeType->kind == Type::TypeKind::Struct) {
             structType = static_cast<const Type::StructType*>(ptrType->pointeeType);
         }
     }
 
-    if (!structType) {
+    if (structType == nullptr) {
         diag.error("Field access on non-struct type", node.line, node.column);
         const Type::Type* type = errorType();
         exprTypes[&node] = type;
@@ -947,7 +947,7 @@ const Type::Type* SemanticAnalyzer::visitFieldAccess(FieldAccess& node) {
     // 3. Look up the field in the struct
     const Type::Type* fieldType = structType->getFieldType(node.fieldName.lexeme);
 
-    if (!fieldType) {
+    if (fieldType == nullptr) {
         diag.error("Unknown field '" + node.fieldName.lexeme + "' in struct '" + structType->name + "'",
                    node.fieldName.line, node.fieldName.column);
         const Type::Type* type = errorType();
@@ -982,7 +982,7 @@ const Type::Type* SemanticAnalyzer::visitFieldAccess(FieldAccess& node) {
 const Type::Type* SemanticAnalyzer::visitStaticMethodCall(StaticMethodCall& node) {
     // 1. Look up the struct type
     const auto* structType = typeRegistry.getStruct(node.typeName.lexeme);
-    if (!structType) {
+    if (structType == nullptr) {
         diag.error("Unknown type '" + node.typeName.lexeme + "'",
                    node.typeName.line, node.typeName.column);
         const Type::Type* type = errorType();
@@ -992,7 +992,7 @@ const Type::Type* SemanticAnalyzer::visitStaticMethodCall(StaticMethodCall& node
 
     // 2. Look up the method in the struct type
     const auto* methodSig = structType->getMethod(node.methodName.lexeme);
-    if (!methodSig) {
+    if (methodSig == nullptr) {
         diag.error("Unknown method '" + node.methodName.lexeme + "' in struct '" + structType->name + "'",
                    node.methodName.line, node.methodName.column);
         const Type::Type* type = errorType();
@@ -1067,15 +1067,15 @@ const Type::Type* SemanticAnalyzer::visitInstanceMethodCall(InstanceMethodCall& 
     // 2. Handle both struct values and pointers to structs
     const Type::StructType* structType = nullptr;
     if (objectType->kind == Type::TypeKind::Struct) {
-        structType = static_cast<const Type::StructType*>(objectType);
+        structType = dynamic_cast<const Type::StructType*>(objectType);
     } else if (objectType->kind == Type::TypeKind::Pointer) {
-        const auto* ptrType = static_cast<const Type::PointerType*>(objectType);
+        const auto* ptrType = dynamic_cast<const Type::PointerType*>(objectType);
         if (ptrType->pointeeType->kind == Type::TypeKind::Struct) {
             structType = static_cast<const Type::StructType*>(ptrType->pointeeType);
         }
     }
 
-    if (!structType) {
+    if (structType == nullptr) {
         diag.error("Method call on non-struct type", node.line, node.column);
         const Type::Type* type = errorType();
         exprTypes[&node] = type;
@@ -1084,7 +1084,7 @@ const Type::Type* SemanticAnalyzer::visitInstanceMethodCall(InstanceMethodCall& 
 
     // 3. Look up the method in the struct type
     const auto* methodSig = structType->getMethod(node.methodName.lexeme);
-    if (!methodSig) {
+    if (methodSig == nullptr) {
         diag.error("Unknown method '" + node.methodName.lexeme + "' in struct '" + structType->name + "'",
                    node.methodName.line, node.methodName.column);
         const Type::Type* type = errorType();
@@ -1176,8 +1176,9 @@ void SemanticAnalyzer::registerFunction(HIR::HIRFnDecl& node) {
 }
 
 bool SemanticAnalyzer::isNumericType(const Type::Type* type) {
-    if (type->kind != Type::TypeKind::Primitive) return false;
-    auto* prim = static_cast<const Type::PrimitiveType*>(type);
+    if (type->kind != Type::TypeKind::Primitive) { return false;
+}
+    const auto* prim = dynamic_cast<const Type::PrimitiveType*>(type);
     return prim->kind == Type::PrimitiveKind::I32 ||
            prim->kind == Type::PrimitiveKind::I64 ||
            prim->kind == Type::PrimitiveKind::U32 ||
@@ -1187,8 +1188,9 @@ bool SemanticAnalyzer::isNumericType(const Type::Type* type) {
 }
 
 bool SemanticAnalyzer::isIntegerType(const Type::Type* type) {
-    if (type->kind != Type::TypeKind::Primitive) return false;
-    auto* prim = static_cast<const Type::PrimitiveType*>(type);
+    if (type->kind != Type::TypeKind::Primitive) { return false;
+}
+    const auto* prim = dynamic_cast<const Type::PrimitiveType*>(type);
     return prim->kind == Type::PrimitiveKind::I32 ||
            prim->kind == Type::PrimitiveKind::I64 ||
            prim->kind == Type::PrimitiveKind::U32 ||
@@ -1204,27 +1206,31 @@ bool SemanticAnalyzer::isIntegerType(const Type::Type* type) {
 // ============================================================================
 
 bool SemanticAnalyzer::isSignedIntegerType(const Type::Type* type) {
-    if (type->kind != Type::TypeKind::Primitive) return false;
-    const auto* prim = static_cast<const Type::PrimitiveType*>(type);
+    if (type->kind != Type::TypeKind::Primitive) { return false;
+}
+    const auto* prim = dynamic_cast<const Type::PrimitiveType*>(type);
     return prim->isSigned();
 }
 
 bool SemanticAnalyzer::isUnsignedIntegerType(const Type::Type* type) {
-    if (type->kind != Type::TypeKind::Primitive) return false;
-    const auto* prim = static_cast<const Type::PrimitiveType*>(type);
+    if (type->kind != Type::TypeKind::Primitive) { return false;
+}
+    const auto* prim = dynamic_cast<const Type::PrimitiveType*>(type);
     return prim->isUnsigned();
 }
 
 bool SemanticAnalyzer::isFloatType(const Type::Type* type) {
-    if (type->kind != Type::TypeKind::Primitive) return false;
-    const auto* prim = static_cast<const Type::PrimitiveType*>(type);
+    if (type->kind != Type::TypeKind::Primitive) { return false;
+}
+    const auto* prim = dynamic_cast<const Type::PrimitiveType*>(type);
     return prim->kind == Type::PrimitiveKind::F32 ||
            prim->kind == Type::PrimitiveKind::F64;
 }
 
 int SemanticAnalyzer::getTypeBitWidth(const Type::Type* type) {
-    if (type->kind != Type::TypeKind::Primitive) return 0;
-    const auto* prim = static_cast<const Type::PrimitiveType*>(type);
+    if (type->kind != Type::TypeKind::Primitive) { return 0;
+}
+    const auto* prim = dynamic_cast<const Type::PrimitiveType*>(type);
 
     switch (prim->kind) {
         case Type::PrimitiveKind::I8:
@@ -1254,7 +1260,8 @@ bool SemanticAnalyzer::areTypesEqual(const Type::Type* a, const Type::Type* b) {
 
 bool SemanticAnalyzer::haveSameSignedness(const Type::Type* from, const Type::Type* to) {
     // Non-integer types are considered to have compatible signedness
-    if (!isIntegerType(from) || !isIntegerType(to)) return true;
+    if (!isIntegerType(from) || !isIntegerType(to)) { return true;
+}
 
     return (isSignedIntegerType(from) && isSignedIntegerType(to)) ||
            (isUnsignedIntegerType(from) && isUnsignedIntegerType(to));
@@ -1265,8 +1272,8 @@ bool SemanticAnalyzer::isWideningConversion(const Type::Type* from, const Type::
         return false;
     }
 
-    int fromWidth = getTypeBitWidth(from);
-    int toWidth = getTypeBitWidth(to);
+    int const fromWidth = getTypeBitWidth(from);
+    int const toWidth = getTypeBitWidth(to);
 
     return fromWidth > 0 && toWidth > fromWidth;
 }
@@ -1276,15 +1283,16 @@ bool SemanticAnalyzer::isNarrowingConversion(const Type::Type* from, const Type:
         return false;
     }
 
-    int fromWidth = getTypeBitWidth(from);
-    int toWidth = getTypeBitWidth(to);
+    int const fromWidth = getTypeBitWidth(from);
+    int const toWidth = getTypeBitWidth(to);
 
     return fromWidth > 0 && toWidth > 0 && toWidth < fromWidth;
 }
 
 bool SemanticAnalyzer::doesLiteralFitInType(int64_t value, const Type::Type* targetType) {
-    if (targetType->kind != Type::TypeKind::Primitive) return false;
-    const auto* prim = static_cast<const Type::PrimitiveType*>(targetType);
+    if (targetType->kind != Type::TypeKind::Primitive) { return false;
+}
+    const auto* prim = dynamic_cast<const Type::PrimitiveType*>(targetType);
 
     switch (prim->kind) {
         case Type::PrimitiveKind::I8:
@@ -1310,12 +1318,13 @@ bool SemanticAnalyzer::doesLiteralFitInType(int64_t value, const Type::Type* tar
 
 bool SemanticAnalyzer::isImplicitlyConvertible(const Type::Type* from, const Type::Type* to) {
     // Exact type match - always allowed
-    if (areTypesEqual(from, to)) return true;
+    if (areTypesEqual(from, to)) { return true;
+}
 
     // Special case: ptr<opaque> conversions (bi-directional)
     if (from->kind == Type::TypeKind::Pointer && to->kind == Type::TypeKind::Pointer) {
-        const auto* ptrFrom = static_cast<const Type::PointerType*>(from);
-        const auto* ptrTo = static_cast<const Type::PointerType*>(to);
+        const auto* ptrFrom = dynamic_cast<const Type::PointerType*>(from);
+        const auto* ptrTo = dynamic_cast<const Type::PointerType*>(to);
 
         // ptr<opaque> can convert to any pointer type (for null)
         if (ptrFrom->pointeeType->kind == Type::TypeKind::Opaque) {
@@ -1330,12 +1339,12 @@ bool SemanticAnalyzer::isImplicitlyConvertible(const Type::Type* from, const Typ
 
     // Special case: str -> ptr<i8>
     if (from->kind == Type::TypeKind::Primitive && to->kind == Type::TypeKind::Pointer) {
-        const auto* primFrom = static_cast<const Type::PrimitiveType*>(from);
-        const auto* ptrTo = static_cast<const Type::PointerType*>(to);
+        const auto* primFrom = dynamic_cast<const Type::PrimitiveType*>(from);
+        const auto* ptrTo = dynamic_cast<const Type::PointerType*>(to);
 
         if (primFrom->kind == Type::PrimitiveKind::String &&
             ptrTo->pointeeType->kind == Type::TypeKind::Primitive) {
-            const auto* pointeePrim = static_cast<const Type::PrimitiveType*>(ptrTo->pointeeType);
+            const auto* pointeePrim = dynamic_cast<const Type::PrimitiveType*>(ptrTo->pointeeType);
             if (pointeePrim->kind == Type::PrimitiveKind::I8) {
                 return true;  // str -> ptr<i8> is allowed
             }
@@ -1344,14 +1353,14 @@ bool SemanticAnalyzer::isImplicitlyConvertible(const Type::Type* from, const Typ
 
     // Special case: struct <-> ptr<struct> (bi-directional)
     if (from->kind == Type::TypeKind::Pointer && to->kind == Type::TypeKind::Struct) {
-        const auto* ptrFrom = static_cast<const Type::PointerType*>(from);
+        const auto* ptrFrom = dynamic_cast<const Type::PointerType*>(from);
         if (ptrFrom->pointeeType == to) {
             return true;  // ptr<Point> -> Point is allowed
         }
     }
 
     if (from->kind == Type::TypeKind::Struct && to->kind == Type::TypeKind::Pointer) {
-        const auto* ptrTo = static_cast<const Type::PointerType*>(to);
+        const auto* ptrTo = dynamic_cast<const Type::PointerType*>(to);
         if (ptrTo->pointeeType == from) {
             return true;  // Point -> ptr<Point> is allowed
         }
@@ -1359,8 +1368,8 @@ bool SemanticAnalyzer::isImplicitlyConvertible(const Type::Type* from, const Typ
 
     // Numeric type conversions
     if (from->kind == Type::TypeKind::Primitive && to->kind == Type::TypeKind::Primitive) {
-        const auto* primFrom = static_cast<const Type::PrimitiveType*>(from);
-        const auto* primTo = static_cast<const Type::PrimitiveType*>(to);
+        const auto* primFrom = dynamic_cast<const Type::PrimitiveType*>(from);
+        const auto* primTo = dynamic_cast<const Type::PrimitiveType*>(to);
 
         // Integer to integer: only allow widening with same signedness
         if (primFrom->isInteger() && primTo->isInteger()) {
@@ -1381,15 +1390,17 @@ bool SemanticAnalyzer::isImplicitlyConvertible(const Type::Type* from, const Typ
 
 bool SemanticAnalyzer::isExplicitlyConvertible(const Type::Type* from, const Type::Type* to) {
     // Exact type match
-    if (areTypesEqual(from, to)) return true;
+    if (areTypesEqual(from, to)) { return true;
+}
 
     // All implicit conversions are also explicit
-    if (isImplicitlyConvertible(from, to)) return true;
+    if (isImplicitlyConvertible(from, to)) { return true;
+}
 
     // Additional conversions allowed with explicit cast:
     if (from->kind == Type::TypeKind::Primitive && to->kind == Type::TypeKind::Primitive) {
-        const auto* primFrom = static_cast<const Type::PrimitiveType*>(from);
-        const auto* primTo = static_cast<const Type::PrimitiveType*>(to);
+        const auto* primFrom = dynamic_cast<const Type::PrimitiveType*>(from);
+        const auto* primTo = dynamic_cast<const Type::PrimitiveType*>(to);
 
         // Any numeric to any numeric conversion is allowed with explicit cast
         if (isNumericType(from) && isNumericType(to)) {
@@ -1573,7 +1584,8 @@ void SemanticAnalyzer::resolveTypesInStmts(std::vector<std::unique_ptr<HIR::HIRS
 }
 
 void SemanticAnalyzer::resolveTypesInStmt(HIR::HIRStmt* stmt) {
-    if (!stmt) return;
+    if (stmt == nullptr) { return;
+}
 
     // Resolve types in variable declarations
     if (auto* varDecl = dynamic_cast<HIR::HIRVarDecl*>(stmt)) {
@@ -1595,15 +1607,16 @@ void SemanticAnalyzer::resolveTypesInStmt(HIR::HIRStmt* stmt) {
 }
 
 const Type::Type* SemanticAnalyzer::resolveType(const Type::Type* type) {
-    if (!type) return nullptr;
+    if (type == nullptr) { return nullptr;
+}
 
     // If it's an unresolved type, look it up in the type registry
     if (type->kind == Type::TypeKind::Unresolved) {
-        const auto* unresolvedType = static_cast<const Type::UnresolvedType*>(type);
+        const auto* unresolvedType = dynamic_cast<const Type::UnresolvedType*>(type);
 
         // Try to find the struct type
         auto* structType = typeRegistry.getStruct(unresolvedType->name);
-        if (structType) {
+        if (structType != nullptr) {
             return structType;
         }
 
@@ -1614,7 +1627,7 @@ const Type::Type* SemanticAnalyzer::resolveType(const Type::Type* type) {
 
     // For array types, resolve the element type
     if (type->kind == Type::TypeKind::Array) {
-        const auto* arrayType = static_cast<const Type::ArrayType*>(type);
+        const auto* arrayType = dynamic_cast<const Type::ArrayType*>(type);
         const Type::Type* resolvedElement = resolveType(arrayType->elementType);
         if (resolvedElement != arrayType->elementType) {
             return typeRegistry.getArray(resolvedElement, arrayType->size);
@@ -1623,7 +1636,7 @@ const Type::Type* SemanticAnalyzer::resolveType(const Type::Type* type) {
 
     // For pointer types, resolve the pointee type
     if (type->kind == Type::TypeKind::Pointer) {
-        const auto* ptrType = static_cast<const Type::PointerType*>(type);
+        const auto* ptrType = dynamic_cast<const Type::PointerType*>(type);
         const Type::Type* resolvedPointee = resolveType(ptrType->pointeeType);
         if (resolvedPointee != ptrType->pointeeType) {
             return typeRegistry.getPointer(resolvedPointee);
@@ -1632,7 +1645,7 @@ const Type::Type* SemanticAnalyzer::resolveType(const Type::Type* type) {
 
     // For generic types, resolve all type parameters
     if (type->kind == Type::TypeKind::Generic) {
-        const auto* genType = static_cast<const Type::GenericType*>(type);
+        const auto* genType = dynamic_cast<const Type::GenericType*>(type);
         std::vector<const Type::Type*> resolvedParams;
         bool changed = false;
         for (const auto* param : genType->typeParams) {

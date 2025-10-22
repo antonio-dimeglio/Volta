@@ -1,4 +1,5 @@
 #include "../../include/Semantic/SymbolTable.hpp"
+#include <ranges>
 #include <stdexcept>
 #include <iostream>
 
@@ -6,12 +7,12 @@ namespace Semantic {
 
 
 SymbolTable::SymbolTable() {
-    scopes.push_back(Scope());
+    scopes.emplace_back();
 }
 
 
 void SymbolTable::enterScope() {
-    scopes.push_back(Scope());
+    scopes.emplace_back();
 }
 
 void SymbolTable::exitScope() {
@@ -45,9 +46,9 @@ bool SymbolTable::define(const std::string& name, const Type::Type* type, bool i
 
 const Symbol* SymbolTable::lookup(const std::string& name) const {
     
-    for (auto it = scopes.rbegin(); it != scopes.rend(); ++it) {
-        auto found = it->find(name);
-        if (found != it->end()) {
+    for (const auto & scope : std::ranges::reverse_view(scopes)) {
+        auto found = scope.find(name);
+        if (found != scope.end()) {
             return &found->second;
         }
     }
@@ -91,10 +92,6 @@ const FunctionSignature* SymbolTable::lookupFunction(const std::string& name) co
 bool SymbolTable::functionExists(const std::string& name) const {
     return functions.find(name) != functions.end();
 }
-
-
-
-
 
 size_t SymbolTable::scopeDepth() const {
     return scopes.size();

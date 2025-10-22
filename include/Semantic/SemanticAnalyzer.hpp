@@ -23,7 +23,7 @@ private:
     std::string currentFunctionName;
 
     // Type map: stores computed type for each expression
-    std::unordered_map<const Expr*, const Type::Type*> exprTypes;
+    std::unordered_map<const Expr*, const Type::Type*> exprTypes{};
 
 public:
     SemanticAnalyzer(Type::TypeRegistry& types, DiagnosticManager& diag);
@@ -33,10 +33,10 @@ public:
 
     void analyzeProgram(const HIR::HIRProgram& program);
     SymbolTable& getSymbolTable() { return symbolTable; }
-    const SymbolTable& getSymbolTable() const { return symbolTable; }
+    [[nodiscard]] const SymbolTable& getSymbolTable() const { return symbolTable; }
 
     // Get the type map (for HIR to MIR lowering)
-    const std::unordered_map<const Expr*, const Type::Type*>& getExprTypes() const { return exprTypes; }
+    [[nodiscard]] const std::unordered_map<const Expr*, const Type::Type*>& getExprTypes() const { return exprTypes; }
 
     // Public methods for cross-module type management
     void registerStructTypes(const HIR::HIRProgram& program);
@@ -89,29 +89,29 @@ private:
     // ========================================================================
 
     /// Check if type is any numeric type (integer or float)
-    bool isNumericType(const Type::Type* type);
+    static bool isNumericType(const Type::Type* type);
 
     /// Check if type is any integer type (signed or unsigned)
-    bool isIntegerType(const Type::Type* type);
+    static bool isIntegerType(const Type::Type* type);
 
     /// Check if type is a signed integer type
-    bool isSignedIntegerType(const Type::Type* type);
+    static bool isSignedIntegerType(const Type::Type* type);
 
     /// Check if type is an unsigned integer type
-    bool isUnsignedIntegerType(const Type::Type* type);
+    static bool isUnsignedIntegerType(const Type::Type* type);
 
     /// Check if type is a floating-point type
-    bool isFloatType(const Type::Type* type);
+    static bool isFloatType(const Type::Type* type);
 
     /// Get bit width of a primitive type (returns 0 for non-primitives)
-    int getTypeBitWidth(const Type::Type* type);
+    static int getTypeBitWidth(const Type::Type* type);
 
     // ========================================================================
     // Type Compatibility Checking Utilities
     // ========================================================================
 
     /// Check if two types are exactly the same (no conversion)
-    bool areTypesEqual(const Type::Type* a, const Type::Type* b);
+    static bool areTypesEqual(const Type::Type* a, const Type::Type* b);
 
     /// Check if 'from' can be IMPLICITLY converted to 'to'
     /// This enforces strict rules:
@@ -136,7 +136,7 @@ private:
 
     /// Check if a literal value fits within the range of a target type
     /// Used for validating integer literal assignments
-    bool doesLiteralFitInType(int64_t value, const Type::Type* targetType);
+    static bool doesLiteralFitInType(int64_t value, const Type::Type* targetType);
 
     /// Check if conversion from 'from' to 'to' would be valid with explicit cast
     /// More permissive than implicit conversion - allows:

@@ -29,7 +29,7 @@ struct Diagnostic {
 
 class DiagnosticManager {
 private:
-    std::vector<Diagnostic> diagnostics;
+    std::vector<Diagnostic> diagnostics{};
     size_t errorCount = 0;
     size_t warningCount = 0;
     bool useColor = true;

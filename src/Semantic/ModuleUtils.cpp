@@ -5,13 +5,15 @@ namespace Semantic {
 
 std::string fileToModule(std::string path) {
     // Remove leading "./" or ".\" if present
-    if (path.rfind("./", 0) == 0 || path.rfind(".\\", 0) == 0)
+    if (path.starts_with("./") || path.starts_with(".\\")) {
         path = path.substr(2);
+    }
 
     // Remove file extension (.vlt)
-    size_t dotPos = path.rfind('.');
-    if (dotPos != std::string::npos)
-        path = path.substr(0, dotPos);
+    size_t const dotPos = path.rfind('.');
+    if (dotPos != std::string::npos) {
+        path = path.substr(0, dotPos); 
+    }
 
     // Replace path separators with dots
     std::replace(path.begin(), path.end(), '/', '.');

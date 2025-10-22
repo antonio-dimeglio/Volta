@@ -16,17 +16,17 @@ bool ExportTable::addExport(const std::string& moduleName, const std::string& sy
 
 bool ExportTable::hasExport(const std::string& moduleName, const std::string& symbolName) const {
     auto it = modules.find(moduleName);
-    if (it == modules.end()) return false;
+    if (it == modules.end()) { return false; }
     return it->second.contains(symbolName);
 }
 
-const std::unordered_set<std::string> ExportTable::getExports(const std::string& moduleName) const {
+std::unordered_set<std::string> ExportTable::getExports(const std::string& moduleName) const {
     static const std::unordered_set<std::string> empty;
     auto it = modules.find(moduleName);
     return (it != modules.end()) ? it->second : empty;
 }
 
-std::string ExportTable::dump() const {
+std::string ExportTable::dump() {
     std::ostringstream oss;
     oss << "ExportTable {\n";
     for (const auto& [module, symbols] : modules) {

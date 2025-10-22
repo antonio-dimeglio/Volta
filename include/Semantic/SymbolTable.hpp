@@ -42,7 +42,7 @@ struct FunctionParameter {
  * FunctionSignature: Represents a function's type signature
  */
 struct FunctionSignature {
-    std::vector<FunctionParameter> parameters;
+    std::vector<FunctionParameter> parameters{};
     const Type::Type* return_type;  // Pointer to interned type
     bool isExtern;                   // Whether this is an extern function
 
@@ -90,12 +90,12 @@ public:
      * Get the current (innermost) scope
      */
     Scope& currentScope();
-    const Scope& currentScope() const;
+    [[nodiscard]] const Scope& currentScope() const;
 
     /**
      * Check if currently in global scope
      */
-    bool isGlobalScope() const;
+    [[nodiscard]] bool isGlobalScope() const;
 
     /**
      * Add a variable to the current scope
@@ -107,17 +107,17 @@ public:
      * Look up a variable from current scope back to global scope
      * Returns nullptr if not found
      */
-    const Symbol* lookup(const std::string& name) const;
+    [[nodiscard]] const Symbol* lookup(const std::string& name) const;
 
     /**
      * Check if a variable exists in the current scope (not parent scopes)
      */
-    bool existsInCurrentScope(const std::string& name) const;
+    [[nodiscard]] bool existsInCurrentScope(const std::string& name) const;
 
     /**
      * Check if a variable exists in any scope
      */
-    bool exists(const std::string& name) const;
+    [[nodiscard]] bool exists(const std::string& name) const;
 
     /**
      * Enter a new scope for a function
@@ -140,17 +140,17 @@ public:
      * Look up a function by name
      * Returns nullptr if not found
      */
-    const FunctionSignature* lookupFunction(const std::string& name) const;
+    [[nodiscard]] const FunctionSignature* lookupFunction(const std::string& name) const;
 
     /**
      * Check if a function exists
      */
-    bool functionExists(const std::string& name) const;
+    [[nodiscard]] bool functionExists(const std::string& name) const;
 
     /**
      * Get current scope depth (0 = global, 1 = first nested scope, etc.)
      */
-    size_t scopeDepth() const;
+    [[nodiscard]] size_t scopeDepth() const;
 };
 
 } // namespace Semantic
