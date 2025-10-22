@@ -2,8 +2,9 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <cstdint>
 
-enum class DiagnosticLevel {
+enum class DiagnosticLevel : std::uint8_t {
     Error,
     Warning,
     Info
@@ -42,7 +43,7 @@ public:
     void error(const std::string& message, size_t line, size_t column);
     void warning(const std::string& message, size_t line, size_t column);
     void info(const std::string& message, size_t line, size_t column);
-    void note(const std::string& message);
+    void note(const std::string& message) const;
 
     [[nodiscard]] bool hasErrors() const { return errorCount > 0; }
     [[nodiscard]] size_t getErrorCount() const { return errorCount; }

@@ -3,11 +3,11 @@
 
 // ANSI color codes
 namespace Color {
-    const char* Reset = "\033[0m";
-    const char* Red = "\033[1;31m";
-    const char* Yellow = "\033[1;33m";
-    const char* Cyan = "\033[1;36m";
-    const char* Bold = "\033[1m";
+    constexpr const char* Reset = "\033[0m";
+    constexpr const char* Red = "\033[1;31m";
+    constexpr const char* Yellow = "\033[1;33m";
+    constexpr const char* Cyan = "\033[1;36m";
+    constexpr const char* Bold = "\033[1m";
 }
 
 void DiagnosticManager::report(DiagnosticLevel level, const std::string& message,
@@ -33,7 +33,7 @@ void DiagnosticManager::info(const std::string& message, size_t line, size_t col
     report(DiagnosticLevel::Info, message, line, column);
 }
 
-void DiagnosticManager::note(const std::string& message) {
+void DiagnosticManager::note(const std::string& message) const {
     std::ostream& os = std::cerr;
 
     if (useColor) {
