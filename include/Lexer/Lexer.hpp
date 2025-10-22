@@ -20,8 +20,8 @@ public:
     std::vector<Token> tokenize();
 
 private:
-    inline bool isAtEnd() const { return idx >= len; }
-    char peek(size_t i = 0) const;
+    [[nodiscard]] bool isAtEnd() const { return idx >= len; }
+    [[nodiscard]] char peek(size_t i = 0) const;
     char advance();
     void skipWhitespace();
     Token scanToken();

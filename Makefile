@@ -27,6 +27,12 @@ CXXFLAGS += -D$(GC_MODE)
 
 # If using Boehm GC, link against it
 ifeq ($(GC_MODE),VOLTA_GC_BOEHM)
+    # Add Homebrew bdw-gc paths for macOS
+    ifeq ($(PLATFORM),macOS)
+        CFLAGS += -I/opt/homebrew/opt/bdw-gc/include
+        CXXFLAGS += -I/opt/homebrew/opt/bdw-gc/include
+        LDFLAGS += -L/opt/homebrew/opt/bdw-gc/lib
+    endif
     LIBS += -lgc
 endif
 
@@ -138,7 +144,7 @@ else
     $(info Using system GTest (default paths))
 endif
 
-.PHONY: all clean test help build-dir release
+.PHONY: all clean test help build-dir release tidy tidy-fix
 
 # Default target
 all: $(EXECUTABLE)
@@ -152,6 +158,8 @@ help:
 	@echo "  make test     - Build and run all tests"
 	@echo "  make clean    - Remove all build artifacts"
 	@echo "  make release  - Build optimized release version"
+	@echo "  make tidy     - Run clang-tidy on all source files"
+	@echo "  make tidy-fix - Run clang-tidy with auto-fix (use with caution!)"
 	@echo "  make help     - Show this help message"
 	@echo ""
 	@echo "Variables:"
@@ -160,6 +168,7 @@ help:
 	@echo "Examples:"
 	@echo "  make BUILD_TYPE=release"
 	@echo "  make test"
+	@echo "  make tidy"
 
 # Create build directories as needed
 $(BUILD_DIR):
@@ -259,7 +268,73 @@ release:
 clean:
 	@echo "Cleaning build artifacts..."
 	@rm -rf $(BUILD_DIR)
+	@rm -f compile_commands.json
 	@echo "✓ Clean complete!"
+
+# Clang-tidy targets
+CLANG_TIDY := clang-tidy
+RUN_CLANG_TIDY := run-clang-tidy
+TIDY_FLAGS := -- -std=c++20 $(foreach dir,$(INC_DIRS),-I$(dir)) $(LLVM_CXXFLAGS) -D$(GC_MODE)
+NPROC_CMD := $(shell $(NPROC))
+
+# Generate a temporary compile_commands.json for clang-tidy
+compile_commands.json:
+	@echo "Generating compile_commands.json..."
+	@echo '[' > compile_commands.json
+	@first=1; \
+	for src in $(LIB_SRCS) $(MAIN_SRC); do \
+		if [ $$first -eq 0 ]; then echo "," >> compile_commands.json; fi; \
+		first=0; \
+		echo "  {" >> compile_commands.json; \
+		echo "    \"directory\": \"$(shell pwd)\"," >> compile_commands.json; \
+		echo "    \"command\": \"$(CXX) $(CXXFLAGS) -c $$src\"," >> compile_commands.json; \
+		echo "    \"file\": \"$$src\"" >> compile_commands.json; \
+		printf "  }" >> compile_commands.json; \
+	done; \
+	echo "" >> compile_commands.json; \
+	echo ']' >> compile_commands.json
+	@echo "✓ compile_commands.json generated"
+
+tidy: compile_commands.json
+	@echo "======================================"
+	@echo "Running clang-tidy on Volta (parallel)"
+	@echo "======================================"
+	@if command -v $(RUN_CLANG_TIDY) >/dev/null 2>&1; then \
+		echo "Using run-clang-tidy with $(NPROC_CMD) parallel jobs..."; \
+		echo ""; \
+		$(RUN_CLANG_TIDY) -p . -j $(NPROC_CMD) 'src/.*\.cpp$$' || true; \
+	else \
+		echo "run-clang-tidy not found, falling back to serial execution..."; \
+		echo ""; \
+		for src in $(LIB_SRCS) $(MAIN_SRC); do \
+			echo "Checking: $$src"; \
+			$(CLANG_TIDY) $$src $(TIDY_FLAGS) || true; \
+		done; \
+	fi
+	@echo ""
+	@echo "======================================"
+	@echo "✓ clang-tidy analysis complete!"
+	@echo "======================================"
+
+tidy-fix: compile_commands.json
+	@echo "======================================"
+	@echo "Running clang-tidy with auto-fix (serial)"
+	@echo "======================================"
+	@echo ""
+	@echo "⚠️  This will modify your source files!"
+	@echo "Note: Auto-fix runs serially to avoid race conditions"
+	@echo ""
+	@read -p "Continue? [y/N] " response; \
+	if [ "$$response" = "y" ] || [ "$$response" = "Y" ]; then \
+		for src in $(LIB_SRCS) $(MAIN_SRC); do \
+			echo "Fixing: $$src"; \
+			$(CLANG_TIDY) -fix $$src $(TIDY_FLAGS) || true; \
+		done; \
+		echo ""; \
+		echo "✓ Auto-fix complete!"; \
+	else \
+		echo "Aborted."; \
+	fi
 
 # Include dependency files for incremental builds
 -include $(LIB_OBJS:.o=.d)

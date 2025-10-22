@@ -94,7 +94,7 @@ enum class TokenType {
 #undef X
 };
 
-inline const std::string tokenTypeToString(TokenType type) {
+inline std::string tokenTypeToString(TokenType type) {
     switch (type) {
 #define X(name) case TokenType::name: return std::string(#name);
         TOKEN_TYPES(X)

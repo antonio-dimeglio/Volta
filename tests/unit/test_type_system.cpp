@@ -3,57 +3,58 @@
 #include "../../include/Type/Type.hpp"
 #include "../../include/Type/TypeRegistry.hpp"
 
-using namespace Type;
+// Note: Do NOT use "using namespace Type;" here as it creates ambiguity
+// between the namespace Type and the struct Type::Type
 
 // ============================================================================
 // Primitive Type Tests
 // ============================================================================
 
 TEST(TypeSystemTest, PrimitiveI32) {
-    TypeRegistry registry;
-    auto* type = registry.getPrimitive(PrimitiveKind::I32);
+    Type::TypeRegistry registry;
+    auto* type = registry.getPrimitive(Type::PrimitiveKind::I32);
     ASSERT_NE(type, nullptr);
     EXPECT_EQ(type->toString(), "i32");
 }
 
 TEST(TypeSystemTest, PrimitiveI64) {
-    TypeRegistry registry;
-    auto* type = registry.getPrimitive(PrimitiveKind::I64);
+    Type::TypeRegistry registry;
+    auto* type = registry.getPrimitive(Type::PrimitiveKind::I64);
     ASSERT_NE(type, nullptr);
     EXPECT_EQ(type->toString(), "i64");
 }
 
 TEST(TypeSystemTest, PrimitiveF32) {
-    TypeRegistry registry;
-    auto* type = registry.getPrimitive(PrimitiveKind::F32);
+    Type::TypeRegistry registry;
+    auto* type = registry.getPrimitive(Type::PrimitiveKind::F32);
     ASSERT_NE(type, nullptr);
     EXPECT_EQ(type->toString(), "f32");
 }
 
 TEST(TypeSystemTest, PrimitiveF64) {
-    TypeRegistry registry;
-    auto* type = registry.getPrimitive(PrimitiveKind::F64);
+    Type::TypeRegistry registry;
+    auto* type = registry.getPrimitive(Type::PrimitiveKind::F64);
     ASSERT_NE(type, nullptr);
     EXPECT_EQ(type->toString(), "f64");
 }
 
 TEST(TypeSystemTest, PrimitiveBool) {
-    TypeRegistry registry;
-    auto* type = registry.getPrimitive(PrimitiveKind::Bool);
+    Type::TypeRegistry registry;
+    auto* type = registry.getPrimitive(Type::PrimitiveKind::Bool);
     ASSERT_NE(type, nullptr);
     EXPECT_EQ(type->toString(), "bool");
 }
 
 TEST(TypeSystemTest, PrimitiveString) {
-    TypeRegistry registry;
-    auto* type = registry.getPrimitive(PrimitiveKind::String);
+    Type::TypeRegistry registry;
+    auto* type = registry.getPrimitive(Type::PrimitiveKind::String);
     ASSERT_NE(type, nullptr);
     EXPECT_EQ(type->toString(), "str");
 }
 
 TEST(TypeSystemTest, PrimitiveVoid) {
-    TypeRegistry registry;
-    auto* type = registry.getPrimitive(PrimitiveKind::Void);
+    Type::TypeRegistry registry;
+    auto* type = registry.getPrimitive(Type::PrimitiveKind::Void);
     ASSERT_NE(type, nullptr);
     EXPECT_EQ(type->toString(), "void");
 }
@@ -63,27 +64,27 @@ TEST(TypeSystemTest, PrimitiveVoid) {
 // ============================================================================
 
 TEST(TypeSystemTest, PrimitiveEquality) {
-    TypeRegistry registry;
-    auto* i32_1 = registry.getPrimitive(PrimitiveKind::I32);
-    auto* i32_2 = registry.getPrimitive(PrimitiveKind::I32);
+    Type::TypeRegistry registry;
+    auto* i32_1 = registry.getPrimitive(Type::PrimitiveKind::I32);
+    auto* i32_2 = registry.getPrimitive(Type::PrimitiveKind::I32);
 
     EXPECT_TRUE(i32_1->equals(i32_2));
     EXPECT_TRUE(i32_2->equals(i32_1));
 }
 
 TEST(TypeSystemTest, PrimitiveInequality) {
-    TypeRegistry registry;
-    auto* i32 = registry.getPrimitive(PrimitiveKind::I32);
-    auto* i64 = registry.getPrimitive(PrimitiveKind::I64);
+    Type::TypeRegistry registry;
+    auto* i32 = registry.getPrimitive(Type::PrimitiveKind::I32);
+    auto* i64 = registry.getPrimitive(Type::PrimitiveKind::I64);
 
     EXPECT_FALSE(i32->equals(i64));
     EXPECT_FALSE(i64->equals(i32));
 }
 
 TEST(TypeSystemTest, IntegerVsFloat) {
-    TypeRegistry registry;
-    auto* i32 = registry.getPrimitive(PrimitiveKind::I32);
-    auto* f32 = registry.getPrimitive(PrimitiveKind::F32);
+    Type::TypeRegistry registry;
+    auto* i32 = registry.getPrimitive(Type::PrimitiveKind::I32);
+    auto* f32 = registry.getPrimitive(Type::PrimitiveKind::F32);
 
     EXPECT_FALSE(i32->equals(f32));
 }
@@ -93,12 +94,12 @@ TEST(TypeSystemTest, IntegerVsFloat) {
 // ============================================================================
 
 TEST(TypeSystemTest, SignedIntegerTypes) {
-    TypeRegistry registry;
+    Type::TypeRegistry registry;
 
-    auto* i8 = dynamic_cast<const PrimitiveType*>(registry.getPrimitive(PrimitiveKind::I8));
-    auto* i16 = dynamic_cast<const PrimitiveType*>(registry.getPrimitive(PrimitiveKind::I16));
-    auto* i32 = dynamic_cast<const PrimitiveType*>(registry.getPrimitive(PrimitiveKind::I32));
-    auto* i64 = dynamic_cast<const PrimitiveType*>(registry.getPrimitive(PrimitiveKind::I64));
+    auto* i8 = dynamic_cast<const Type::PrimitiveType*>(registry.getPrimitive(Type::PrimitiveKind::I8));
+    auto* i16 = dynamic_cast<const Type::PrimitiveType*>(registry.getPrimitive(Type::PrimitiveKind::I16));
+    auto* i32 = dynamic_cast<const Type::PrimitiveType*>(registry.getPrimitive(Type::PrimitiveKind::I32));
+    auto* i64 = dynamic_cast<const Type::PrimitiveType*>(registry.getPrimitive(Type::PrimitiveKind::I64));
 
     ASSERT_NE(i8, nullptr);
     ASSERT_NE(i16, nullptr);
@@ -117,12 +118,12 @@ TEST(TypeSystemTest, SignedIntegerTypes) {
 }
 
 TEST(TypeSystemTest, UnsignedIntegerTypes) {
-    TypeRegistry registry;
+    Type::TypeRegistry registry;
 
-    auto* u8 = dynamic_cast<const PrimitiveType*>(registry.getPrimitive(PrimitiveKind::U8));
-    auto* u16 = dynamic_cast<const PrimitiveType*>(registry.getPrimitive(PrimitiveKind::U16));
-    auto* u32 = dynamic_cast<const PrimitiveType*>(registry.getPrimitive(PrimitiveKind::U32));
-    auto* u64 = dynamic_cast<const PrimitiveType*>(registry.getPrimitive(PrimitiveKind::U64));
+    auto* u8 = dynamic_cast<const Type::PrimitiveType*>(registry.getPrimitive(Type::PrimitiveKind::U8));
+    auto* u16 = dynamic_cast<const Type::PrimitiveType*>(registry.getPrimitive(Type::PrimitiveKind::U16));
+    auto* u32 = dynamic_cast<const Type::PrimitiveType*>(registry.getPrimitive(Type::PrimitiveKind::U32));
+    auto* u64 = dynamic_cast<const Type::PrimitiveType*>(registry.getPrimitive(Type::PrimitiveKind::U64));
 
     ASSERT_NE(u8, nullptr);
     ASSERT_NE(u16, nullptr);
@@ -141,10 +142,10 @@ TEST(TypeSystemTest, UnsignedIntegerTypes) {
 }
 
 TEST(TypeSystemTest, FloatTypesNotInteger) {
-    TypeRegistry registry;
+    Type::TypeRegistry registry;
 
-    auto* f32 = dynamic_cast<const PrimitiveType*>(registry.getPrimitive(PrimitiveKind::F32));
-    auto* f64 = dynamic_cast<const PrimitiveType*>(registry.getPrimitive(PrimitiveKind::F64));
+    auto* f32 = dynamic_cast<const Type::PrimitiveType*>(registry.getPrimitive(Type::PrimitiveKind::F32));
+    auto* f64 = dynamic_cast<const Type::PrimitiveType*>(registry.getPrimitive(Type::PrimitiveKind::F64));
 
     ASSERT_NE(f32, nullptr);
     ASSERT_NE(f64, nullptr);
@@ -162,8 +163,8 @@ TEST(TypeSystemTest, FloatTypesNotInteger) {
 // ============================================================================
 
 TEST(TypeSystemTest, SimpleArrayType) {
-    TypeRegistry registry;
-    auto* i32 = registry.getPrimitive(PrimitiveKind::I32);
+    Type::TypeRegistry registry;
+    auto* i32 = registry.getPrimitive(Type::PrimitiveKind::I32);
     auto* arrayType = registry.getArray(i32, 10);
 
     ASSERT_NE(arrayType, nullptr);
@@ -171,8 +172,8 @@ TEST(TypeSystemTest, SimpleArrayType) {
 }
 
 TEST(TypeSystemTest, ArrayTypeEquality) {
-    TypeRegistry registry;
-    auto* i32 = registry.getPrimitive(PrimitiveKind::I32);
+    Type::TypeRegistry registry;
+    auto* i32 = registry.getPrimitive(Type::PrimitiveKind::I32);
     auto* arr1 = registry.getArray(i32, 10);
     auto* arr2 = registry.getArray(i32, 10);
 
@@ -180,8 +181,8 @@ TEST(TypeSystemTest, ArrayTypeEquality) {
 }
 
 TEST(TypeSystemTest, ArrayTypeDifferentSizes) {
-    TypeRegistry registry;
-    auto* i32 = registry.getPrimitive(PrimitiveKind::I32);
+    Type::TypeRegistry registry;
+    auto* i32 = registry.getPrimitive(Type::PrimitiveKind::I32);
     auto* arr10 = registry.getArray(i32, 10);
     auto* arr20 = registry.getArray(i32, 20);
 
@@ -189,9 +190,9 @@ TEST(TypeSystemTest, ArrayTypeDifferentSizes) {
 }
 
 TEST(TypeSystemTest, ArrayTypeDifferentElements) {
-    TypeRegistry registry;
-    auto* i32 = registry.getPrimitive(PrimitiveKind::I32);
-    auto* f32 = registry.getPrimitive(PrimitiveKind::F32);
+    Type::TypeRegistry registry;
+    auto* i32 = registry.getPrimitive(Type::PrimitiveKind::I32);
+    auto* f32 = registry.getPrimitive(Type::PrimitiveKind::F32);
     auto* arr_i32 = registry.getArray(i32, 10);
     auto* arr_f32 = registry.getArray(f32, 10);
 
@@ -199,8 +200,8 @@ TEST(TypeSystemTest, ArrayTypeDifferentElements) {
 }
 
 TEST(TypeSystemTest, NestedArrayType) {
-    TypeRegistry registry;
-    auto* i32 = registry.getPrimitive(PrimitiveKind::I32);
+    Type::TypeRegistry registry;
+    auto* i32 = registry.getPrimitive(Type::PrimitiveKind::I32);
     auto* inner = registry.getArray(i32, 5);
     auto* outer = registry.getArray(inner, 10);
 
@@ -213,8 +214,8 @@ TEST(TypeSystemTest, NestedArrayType) {
 // ============================================================================
 
 TEST(TypeSystemTest, SimplePointerType) {
-    TypeRegistry registry;
-    auto* i32 = registry.getPrimitive(PrimitiveKind::I32);
+    Type::TypeRegistry registry;
+    auto* i32 = registry.getPrimitive(Type::PrimitiveKind::I32);
     auto* ptrType = registry.getPointer(i32);
 
     ASSERT_NE(ptrType, nullptr);
@@ -222,8 +223,8 @@ TEST(TypeSystemTest, SimplePointerType) {
 }
 
 TEST(TypeSystemTest, PointerTypeEquality) {
-    TypeRegistry registry;
-    auto* i32 = registry.getPrimitive(PrimitiveKind::I32);
+    Type::TypeRegistry registry;
+    auto* i32 = registry.getPrimitive(Type::PrimitiveKind::I32);
     auto* ptr1 = registry.getPointer(i32);
     auto* ptr2 = registry.getPointer(i32);
 
@@ -231,9 +232,9 @@ TEST(TypeSystemTest, PointerTypeEquality) {
 }
 
 TEST(TypeSystemTest, PointerTypeDifferentPointee) {
-    TypeRegistry registry;
-    auto* i32 = registry.getPrimitive(PrimitiveKind::I32);
-    auto* f32 = registry.getPrimitive(PrimitiveKind::F32);
+    Type::TypeRegistry registry;
+    auto* i32 = registry.getPrimitive(Type::PrimitiveKind::I32);
+    auto* f32 = registry.getPrimitive(Type::PrimitiveKind::F32);
     auto* ptr_i32 = registry.getPointer(i32);
     auto* ptr_f32 = registry.getPointer(f32);
 
@@ -241,8 +242,8 @@ TEST(TypeSystemTest, PointerTypeDifferentPointee) {
 }
 
 TEST(TypeSystemTest, PointerToPointer) {
-    TypeRegistry registry;
-    auto* i32 = registry.getPrimitive(PrimitiveKind::I32);
+    Type::TypeRegistry registry;
+    auto* i32 = registry.getPrimitive(Type::PrimitiveKind::I32);
     auto* ptr = registry.getPointer(i32);
     auto* ptrptr = registry.getPointer(ptr);
 
@@ -251,7 +252,7 @@ TEST(TypeSystemTest, PointerToPointer) {
 }
 
 TEST(TypeSystemTest, OpaquePointerType) {
-    TypeRegistry registry;
+    Type::TypeRegistry registry;
     auto* opaque = registry.getOpaque();
     auto* ptr = registry.getPointer(opaque);
 
@@ -264,13 +265,13 @@ TEST(TypeSystemTest, OpaquePointerType) {
 // ============================================================================
 
 TEST(TypeSystemTest, SimpleStructType) {
-    TypeRegistry registry;
-    auto* i32 = registry.getPrimitive(PrimitiveKind::I32);
-    auto* f32 = registry.getPrimitive(PrimitiveKind::F32);
+    Type::TypeRegistry registry;
+    auto* i32 = registry.getPrimitive(Type::PrimitiveKind::I32);
+    auto* f32 = registry.getPrimitive(Type::PrimitiveKind::F32);
 
-    std::vector<Type::FieldInfo> fields = {
-        Type::FieldInfo("x", f32, true),
-        Type::FieldInfo("y", f32, true)
+    std::vector<::Type::FieldInfo> fields = {
+        ::Type::FieldInfo("x", f32, true),
+        ::Type::FieldInfo("y", f32, true)
     };
 
     auto* structType = registry.registerStruct("Point", fields);
@@ -279,12 +280,12 @@ TEST(TypeSystemTest, SimpleStructType) {
 }
 
 TEST(TypeSystemTest, StructFieldAccess) {
-    TypeRegistry registry;
-    auto* f32 = registry.getPrimitive(PrimitiveKind::F32);
+    Type::TypeRegistry registry;
+    auto* f32 = registry.getPrimitive(Type::PrimitiveKind::F32);
 
-    std::vector<Type::FieldInfo> fields = {
-        Type::FieldInfo("x", f32, true),
-        Type::FieldInfo("y", f32, true)
+    std::vector<::Type::FieldInfo> fields = {
+        ::Type::FieldInfo("x", f32, true),
+        ::Type::FieldInfo("y", f32, true)
     };
 
     auto* structType = registry.registerStruct("Point", fields);
@@ -303,12 +304,12 @@ TEST(TypeSystemTest, StructFieldAccess) {
 }
 
 TEST(TypeSystemTest, StructTypeEquality) {
-    TypeRegistry registry;
-    auto* f32 = registry.getPrimitive(PrimitiveKind::F32);
+    Type::TypeRegistry registry;
+    auto* f32 = registry.getPrimitive(Type::PrimitiveKind::F32);
 
-    std::vector<Type::FieldInfo> fields = {
-        Type::FieldInfo("x", f32, true),
-        Type::FieldInfo("y", f32, true)
+    std::vector<::Type::FieldInfo> fields = {
+        ::Type::FieldInfo("x", f32, true),
+        ::Type::FieldInfo("y", f32, true)
     };
 
     auto* struct1 = registry.registerStruct("Point2D", fields);
@@ -320,12 +321,12 @@ TEST(TypeSystemTest, StructTypeEquality) {
 }
 
 TEST(TypeSystemTest, StructTypeDifferentNames) {
-    TypeRegistry registry;
-    auto* f32 = registry.getPrimitive(PrimitiveKind::F32);
+    Type::TypeRegistry registry;
+    auto* f32 = registry.getPrimitive(Type::PrimitiveKind::F32);
 
-    std::vector<Type::FieldInfo> fields = {
-        Type::FieldInfo("x", f32, true),
-        Type::FieldInfo("y", f32, true)
+    std::vector<::Type::FieldInfo> fields = {
+        ::Type::FieldInfo("x", f32, true),
+        ::Type::FieldInfo("y", f32, true)
     };
 
     auto* point = registry.registerStruct("Point", fields);
@@ -339,10 +340,10 @@ TEST(TypeSystemTest, StructTypeDifferentNames) {
 // ============================================================================
 
 TEST(TypeSystemTest, SimpleGenericType) {
-    TypeRegistry registry;
-    auto* i32 = registry.getPrimitive(PrimitiveKind::I32);
+    Type::TypeRegistry registry;
+    auto* i32 = registry.getPrimitive(Type::PrimitiveKind::I32);
 
-    std::vector<const Type::Type*> params = {i32};
+    std::vector<const ::Type::Type*> params = {i32};
     auto* generic = registry.getGeneric("Array", params);
 
     ASSERT_NE(generic, nullptr);
@@ -350,10 +351,10 @@ TEST(TypeSystemTest, SimpleGenericType) {
 }
 
 TEST(TypeSystemTest, GenericTypeEquality) {
-    TypeRegistry registry;
-    auto* i32 = registry.getPrimitive(PrimitiveKind::I32);
+    Type::TypeRegistry registry;
+    auto* i32 = registry.getPrimitive(Type::PrimitiveKind::I32);
 
-    std::vector<const Type::Type*> params = {i32};
+    std::vector<const ::Type::Type*> params = {i32};
     auto* gen1 = registry.getGeneric("Array", params);
     auto* gen2 = registry.getGeneric("Array", params);
 
@@ -361,12 +362,12 @@ TEST(TypeSystemTest, GenericTypeEquality) {
 }
 
 TEST(TypeSystemTest, GenericTypeDifferentParams) {
-    TypeRegistry registry;
-    auto* i32 = registry.getPrimitive(PrimitiveKind::I32);
-    auto* f32 = registry.getPrimitive(PrimitiveKind::F32);
+    Type::TypeRegistry registry;
+    auto* i32 = registry.getPrimitive(Type::PrimitiveKind::I32);
+    auto* f32 = registry.getPrimitive(Type::PrimitiveKind::F32);
 
-    std::vector<const Type::Type*> params1 = {i32};
-    std::vector<const Type::Type*> params2 = {f32};
+    std::vector<const ::Type::Type*> params1 = {i32};
+    std::vector<const ::Type::Type*> params2 = {f32};
 
     auto* gen1 = registry.getGeneric("Array", params1);
     auto* gen2 = registry.getGeneric("Array", params2);
@@ -375,11 +376,11 @@ TEST(TypeSystemTest, GenericTypeDifferentParams) {
 }
 
 TEST(TypeSystemTest, GenericWithMultipleParams) {
-    TypeRegistry registry;
-    auto* i32 = registry.getPrimitive(PrimitiveKind::I32);
-    auto* str = registry.getPrimitive(PrimitiveKind::String);
+    Type::TypeRegistry registry;
+    auto* i32 = registry.getPrimitive(Type::PrimitiveKind::I32);
+    auto* str = registry.getPrimitive(Type::PrimitiveKind::String);
 
-    std::vector<const Type::Type*> params = {i32, str};
+    std::vector<const ::Type::Type*> params = {i32, str};
     auto* generic = registry.getGeneric("HashMap", params);
 
     ASSERT_NE(generic, nullptr);
@@ -391,8 +392,8 @@ TEST(TypeSystemTest, GenericWithMultipleParams) {
 // ============================================================================
 
 TEST(TypeSystemTest, ArrayOfPointers) {
-    TypeRegistry registry;
-    auto* i32 = registry.getPrimitive(PrimitiveKind::I32);
+    Type::TypeRegistry registry;
+    auto* i32 = registry.getPrimitive(Type::PrimitiveKind::I32);
     auto* ptr = registry.getPointer(i32);
     auto* arr = registry.getArray(ptr, 10);
 
@@ -401,8 +402,8 @@ TEST(TypeSystemTest, ArrayOfPointers) {
 }
 
 TEST(TypeSystemTest, PointerToArray) {
-    TypeRegistry registry;
-    auto* i32 = registry.getPrimitive(PrimitiveKind::I32);
+    Type::TypeRegistry registry;
+    auto* i32 = registry.getPrimitive(Type::PrimitiveKind::I32);
     auto* arr = registry.getArray(i32, 10);
     auto* ptr = registry.getPointer(arr);
 
@@ -411,8 +412,8 @@ TEST(TypeSystemTest, PointerToArray) {
 }
 
 TEST(TypeSystemTest, StructWithArrayFields) {
-    TypeRegistry registry;
-    auto* i32 = registry.getPrimitive(PrimitiveKind::I32);
+    Type::TypeRegistry registry;
+    auto* i32 = registry.getPrimitive(Type::PrimitiveKind::I32);
     auto* arr = registry.getArray(i32, 10);
 
     std::vector<Type::FieldInfo> fields = {
@@ -429,16 +430,16 @@ TEST(TypeSystemTest, StructWithArrayFields) {
 }
 
 TEST(TypeSystemTest, GenericOfStruct) {
-    TypeRegistry registry;
-    auto* f32 = registry.getPrimitive(PrimitiveKind::F32);
+    Type::TypeRegistry registry;
+    auto* f32 = registry.getPrimitive(Type::PrimitiveKind::F32);
 
-    std::vector<Type::FieldInfo> fields = {
-        Type::FieldInfo("x", f32, true),
-        Type::FieldInfo("y", f32, true)
+    std::vector<::Type::FieldInfo> fields = {
+        ::Type::FieldInfo("x", f32, true),
+        ::Type::FieldInfo("y", f32, true)
     };
 
     auto* point = registry.registerStruct("PointGen", fields);
-    std::vector<const Type::Type*> params = {point};
+    std::vector<const ::Type::Type*> params = {point};
     auto* generic = registry.getGeneric("Array", params);
 
     ASSERT_NE(generic, nullptr);
@@ -450,11 +451,11 @@ TEST(TypeSystemTest, GenericOfStruct) {
 // ============================================================================
 
 TEST(TypeSystemTest, TypeRegistryCaching) {
-    TypeRegistry registry;
+    Type::TypeRegistry registry;
 
     // Same primitive type should return same pointer
-    auto* i32_1 = registry.getPrimitive(PrimitiveKind::I32);
-    auto* i32_2 = registry.getPrimitive(PrimitiveKind::I32);
+    auto* i32_1 = registry.getPrimitive(Type::PrimitiveKind::I32);
+    auto* i32_2 = registry.getPrimitive(Type::PrimitiveKind::I32);
     EXPECT_EQ(i32_1, i32_2);
 
     // Same array type should return same pointer

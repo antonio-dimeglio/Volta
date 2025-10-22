@@ -448,8 +448,7 @@ struct FnDecl : Stmt {
     }
 };
 
-class StructDecl : public Stmt {
-public:
+struct StructDecl : Stmt {
     bool isPublic;
     Token name;
     std::vector<StructField> fields;

@@ -38,7 +38,8 @@ static const std::unordered_map<std::string, TokenType> keywords = {
 
 Token fromKeyword(const std::string& word, size_t line, size_t column) {
     auto it = keywords.find(word);
-    if (it != keywords.end())
-        return Token(it->second, line, column, word);
-    return Token(TokenType::Identifier, line, column, word);
+    if (it != keywords.end()) {
+        return {it->second, line, column, word};
+}
+    return {TokenType::Identifier, line, column, word};
 }

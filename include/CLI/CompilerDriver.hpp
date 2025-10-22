@@ -17,7 +17,7 @@
 #include <memory>
 
 // Forward declarations
-class Program;
+struct Program;
 
 struct CompilationUnit {
     std::string sourceFile;

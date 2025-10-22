@@ -44,9 +44,9 @@ public:
     void info(const std::string& message, size_t line, size_t column);
     void note(const std::string& message);
 
-    bool hasErrors() const { return errorCount > 0; }
-    size_t getErrorCount() const { return errorCount; }
-    size_t getWarningCount() const { return warningCount; }
+    [[nodiscard]] bool hasErrors() const { return errorCount > 0; }
+    [[nodiscard]] size_t getErrorCount() const { return errorCount; }
+    [[nodiscard]] size_t getWarningCount() const { return warningCount; }
 
     void printAll(std::ostream& os = std::cerr, const std::string& filename = "") const;
     void clear();

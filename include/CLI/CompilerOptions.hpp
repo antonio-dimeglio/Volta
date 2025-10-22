@@ -2,6 +2,11 @@
 #include <vector>
 #include <string>
 #include <filesystem>
+
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
+
 namespace fs = std::filesystem;
 
 struct CompilerOptions {

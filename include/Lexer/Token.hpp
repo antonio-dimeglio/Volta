@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <string>
 #include <iomanip>
+#include <sstream>
 
 struct Token {
     TokenType tt;
@@ -14,9 +15,9 @@ struct Token {
         tt(tt), line(line), column(column), lexeme(lexeme) {}
 
     Token(TokenType tt, size_t line, size_t column) :
-        tt(tt), line(line), column(column), lexeme("") {}
+        tt(tt), line(line), column(column) {}
 
-    std::string toString() const {
+    [[nodiscard]] std::string toString() const {
     std::ostringstream oss;
         constexpr int width = 15; // fixed width for token type
 
@@ -24,8 +25,9 @@ struct Token {
             << " line=" << line
             << " col=" << column;
 
-        if (!lexeme.empty())
+        if (!lexeme.empty()) {
             oss << " lexeme=\"" << lexeme << '"';
+}
 
         return oss.str();
     }

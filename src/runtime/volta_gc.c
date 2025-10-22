@@ -81,7 +81,7 @@ void* volta_gc_realloc(void* ptr, size_t new_size) {
 }
 
 void volta_gc_free(void* ptr) {
-    if (!ptr) return NULL;
+    if (!ptr) return;
     if (VOLTA_GC_MODE == VOLTA_GC_MANUAL) {
         free(ptr);
     }
