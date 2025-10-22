@@ -13,7 +13,7 @@ MIR::Program HIRToMIR::lower(const HIR::HIRProgram& hirProgram) {
     builder.createFunction("volta_gc_malloc", gcMallocParams, voidPtrType);
     builder.finishFunction();
 
-    for (auto& topLvlStmt : hirProgram.statements) {
+    for (const auto& topLvlStmt : hirProgram.statements) {
         // Handle function declarations
         if (auto* fnDecl = dynamic_cast<HIR::HIRFnDecl*>(topLvlStmt.get())) {
             // Convert parameters
@@ -65,7 +65,7 @@ MIR::Program HIRToMIR::lower(const HIR::HIRProgram& hirProgram) {
             // Add return if missing
             if (!builder.currentBlockTerminated()) {
                 if (fnDecl->returnType->kind == Type::TypeKind::Primitive) {
-                    const auto* primType = static_cast<const Type::PrimitiveType*>(fnDecl->returnType);
+                    const auto* primType = dynamic_cast<const Type::PrimitiveType*>(fnDecl->returnType);
                     if (primType->kind == Type::PrimitiveKind::Void) {
                         builder.createReturnVoid();
                     } else {
@@ -156,7 +156,7 @@ MIR::Program HIRToMIR::lower(const HIR::HIRProgram& hirProgram) {
                 // Add return if missing
                 if (!builder.currentBlockTerminated()) {
                     if (method->returnType->kind == Type::TypeKind::Primitive) {
-                        const auto* primType = static_cast<const Type::PrimitiveType*>(method->returnType);
+                        const auto* primType = dynamic_cast<const Type::PrimitiveType*>(method->returnType);
                         if (primType->kind == Type::PrimitiveKind::Void) {
                             builder.createReturnVoid();
                         } else {
@@ -215,7 +215,7 @@ void HIRToMIR::visitFnDecl(::FnDecl& fnDecl) {
 
     if (!builder.currentBlockTerminated()) {
         if (fnDecl.returnType->kind == Type::TypeKind::Primitive) {
-            const auto* primType = static_cast<const Type::PrimitiveType*>(fnDecl.returnType);
+            const auto* primType = dynamic_cast<const Type::PrimitiveType*>(fnDecl.returnType);
             if (primType->kind == Type::PrimitiveKind::Void) {
                 builder.createReturnVoid();
             } else {
@@ -496,7 +496,7 @@ void HIRToMIR::lowerHIRStmt(HIR::HIRStmt& stmt) {
         Value initVal = lowerExpr(*hirVarDecl->initValue);
 
         // Use the declared type if available, otherwise infer from initializer
-        const Type::Type* varType = hirVarDecl->typeAnnotation
+        const Type::Type* varType = (hirVarDecl->typeAnnotation != nullptr)
             ? hirVarDecl->typeAnnotation
             : getExprType(hirVarDecl->initValue.get());
 
@@ -589,7 +589,7 @@ Value HIRToMIR::lowerExpr(Expr& expr) {
     }
 
     diag.error("Unknown expression type in HIR lowering", expr.line, expr.column);
-    return Value();
+    return {};
 }
 
 Value HIRToMIR::visitLiteral(::Literal& lit) {
@@ -614,13 +614,13 @@ Value HIRToMIR::visitLiteral(::Literal& lit) {
             return builder.createConstantNull(type);
         default:
             diag.error("Unknown literal type", lit.line, lit.column);
-            return Value();
+            return {};
     }
 }
 
 Value HIRToMIR::visitVariable(::Variable& var) {
     // Check if variable is mutable (has pointer in varPointers)
-    if (varPointers.count(var.token.lexeme)) {
+    if (varPointers.count(var.token.lexeme) != 0U) {
         Value ptr = varPointers[var.token.lexeme];
 
         // Get the variable's semantic type to check if we should load
@@ -635,7 +635,7 @@ Value HIRToMIR::visitVariable(::Variable& var) {
         // For pointers to structs: also need to load (e.g., mut self parameter)
         // varPointers stores ptr-to-ptr, we need to load to get the single ptr
         if (varType->kind == Type::TypeKind::Pointer) {
-            const auto* ptrType = static_cast<const Type::PointerType*>(varType);
+            const auto* ptrType = dynamic_cast<const Type::PointerType*>(varType);
             if (ptrType->pointeeType->kind == Type::TypeKind::Struct) {
                 return builder.createLoad(ptr);  // Load the struct pointer
             }
@@ -667,7 +667,7 @@ Value HIRToMIR::visitBinaryExpr(::BinaryExpr& expr) {
     bool isUnsigned = false;
 
     if (lhsType->kind == Type::TypeKind::Primitive) {
-        const auto* primType = static_cast<const Type::PrimitiveType*>(lhsType);
+        const auto* primType = dynamic_cast<const Type::PrimitiveType*>(lhsType);
         isFloat = (primType->kind == Type::PrimitiveKind::F32 ||
                    primType->kind == Type::PrimitiveKind::F64);
         isUnsigned = primType->isUnsigned();
@@ -683,7 +683,8 @@ Value HIRToMIR::visitBinaryExpr(::BinaryExpr& expr) {
             return isFloat ? builder.createFMul(lhs, rhs) : builder.createIMul(lhs, rhs);
 
         case TokenType::Div:
-            if (isFloat) return builder.createFDiv(lhs, rhs);
+            if (isFloat) { return builder.createFDiv(lhs, rhs);
+}
             return isUnsigned ? builder.createUDiv(lhs, rhs) : builder.createIDiv(lhs, rhs);
 
         case TokenType::Modulo:
@@ -696,19 +697,23 @@ Value HIRToMIR::visitBinaryExpr(::BinaryExpr& expr) {
             return isFloat ? builder.createFCmpNE(lhs, rhs) : builder.createICmpNE(lhs, rhs);
 
         case TokenType::LessThan:
-            if (isFloat) return builder.createFCmpLT(lhs, rhs);
+            if (isFloat) { return builder.createFCmpLT(lhs, rhs);
+}
             return isUnsigned ? builder.createICmpULT(lhs, rhs) : builder.createICmpLT(lhs, rhs);
 
         case TokenType::LessEqual:
-            if (isFloat) return builder.createFCmpLE(lhs, rhs);
+            if (isFloat) { return builder.createFCmpLE(lhs, rhs);
+}
             return isUnsigned ? builder.createICmpULE(lhs, rhs) : builder.createICmpLE(lhs, rhs);
 
         case TokenType::GreaterThan:
-            if (isFloat) return builder.createFCmpGT(lhs, rhs);
+            if (isFloat) { return builder.createFCmpGT(lhs, rhs);
+}
             return isUnsigned ? builder.createICmpUGT(lhs, rhs) : builder.createICmpGT(lhs, rhs);
 
         case TokenType::GreaterEqual:
-            if (isFloat) return builder.createFCmpGE(lhs, rhs);
+            if (isFloat) { return builder.createFCmpGE(lhs, rhs);
+}
             return isUnsigned ? builder.createICmpUGE(lhs, rhs) : builder.createICmpGE(lhs, rhs);
 
         // Logical operators
@@ -719,7 +724,7 @@ Value HIRToMIR::visitBinaryExpr(::BinaryExpr& expr) {
 
         default:
             diag.error("Unknown binary operator", expr.line, expr.column);
-            return Value();
+            return {};
     }
 }
 
@@ -733,8 +738,8 @@ Value HIRToMIR::visitUnaryExpr(::UnaryExpr& expr) {
             // Negate: 0 - operand
             const Type::Type* operandType = getExprType(expr.operand.get());
             bool isFloat = operandType->kind == Type::TypeKind::Primitive &&
-                           (static_cast<const Type::PrimitiveType*>(operandType)->kind == Type::PrimitiveKind::F32 ||
-                            static_cast<const Type::PrimitiveType*>(operandType)->kind == Type::PrimitiveKind::F64);
+                           (dynamic_cast<const Type::PrimitiveType*>(operandType)->kind == Type::PrimitiveKind::F32 ||
+                            dynamic_cast<const Type::PrimitiveType*>(operandType)->kind == Type::PrimitiveKind::F64);
 
             if (isFloat) {
                 Value zero = builder.createConstantFloat(0.0, operandType);
@@ -746,7 +751,7 @@ Value HIRToMIR::visitUnaryExpr(::UnaryExpr& expr) {
         }
         default:
             diag.error("Unknown unary operator", expr.line, expr.column);
-            return Value();
+            return {};
     }
 }
 
@@ -760,7 +765,7 @@ Value HIRToMIR::visitFnCall(::FnCall& call) {
         Value arg = lowerExpr(*call.args[i]);
 
         // If we found the function, convert arguments to match parameter types
-        if (func && i < func->params.size()) {
+        if ((func != nullptr) && i < func->params.size()) {
             const Type::Type* paramType = func->params[i].type;
 
             // Structs and arrays are passed as pointers
@@ -780,7 +785,7 @@ Value HIRToMIR::visitFnCall(::FnCall& call) {
     const Type::Type* returnType = getExprType(&call);
 
     // If the return type is a struct or array, it's returned as a pointer
-    if (returnType && (returnType->kind == Type::TypeKind::Struct ||
+    if ((returnType != nullptr) && (returnType->kind == Type::TypeKind::Struct ||
                        returnType->kind == Type::TypeKind::Array)) {
         returnType = typeRegistry.getPointer(returnType);
     }
@@ -798,7 +803,7 @@ Value HIRToMIR::visitAssignment(::Assignment& assign) {
         std::string varName = varExpr->token.lexeme;
 
         // Get the pointer to assign to (must be mutable)
-        if (!varPointers.count(varName)) {
+        if (varPointers.count(varName) == 0U) {
             diag.error("Cannot assign to immutable variable: " + varName, assign.line, assign.column);
             return value;
         }
@@ -824,7 +829,7 @@ Value HIRToMIR::visitAssignment(::Assignment& assign) {
         Value fieldPtr = getFieldAccessPtr(*fieldAccess);
 
         // Get the field type from the pointer
-        const auto* ptrType = static_cast<const Type::PointerType*>(fieldPtr.type);
+        const auto* ptrType = dynamic_cast<const Type::PointerType*>(fieldPtr.type);
         const Type::Type* fieldType = ptrType->pointeeType;
 
         // Convert value to match field type if needed
@@ -908,37 +913,37 @@ Value HIRToMIR::getFieldAccessPtr(::FieldAccess& expr) {
 Value HIRToMIR::visitAddrOf(::AddrOf& node) {
     // Get the pointer to a variable
     if (auto* var = dynamic_cast<Variable*>(node.operand.get())) {
-        if (varPointers.count(var->token.lexeme)) {
+        if (varPointers.count(var->token.lexeme) != 0U) {
             // Variable is mutable, return its pointer
             return varPointers[var->token.lexeme];
         } else {
             diag.error("Cannot take address of immutable variable", node.line, node.column);
-            return Value();
+            return {};
         }
     }
 
     diag.error("Address-of operator only supported for variables", node.line, node.column);
-    return Value();
+    return {};
 }
 
 Value HIRToMIR::visitCompoundAssign(::CompoundAssign& node) {
     diag.error("Compound assignments should be lowered in HIR", node.line, node.column);
-    return Value();
+    return {};
 }
 
 Value HIRToMIR::visitIncrement(::Increment& node) {
     diag.error("Increment should be lowered in HIR", node.line, node.column);
-    return Value();
+    return {};
 }
 
 Value HIRToMIR::visitDecrement(::Decrement& node) {
     diag.error("Decrement should be lowered in HIR", node.line, node.column);
-    return Value();
+    return {};
 }
 
 Value HIRToMIR::visitRange(::Range& node) {
     diag.error("Ranges should be lowered in HIR", node.line, node.column);
-    return Value();
+    return {};
 }
 
 Value HIRToMIR::visitStructLiteral(::StructLiteral& node) {
@@ -1002,7 +1007,8 @@ Value HIRToMIR::visitStaticMethodCall(::StaticMethodCall& node) {
 
     // Lower the arguments
     std::vector<Value> args;
-    for (auto& arg : node.args) {
+    args.reserve(node.args.size());
+for (auto& arg : node.args) {
         args.push_back(lowerExpr(*arg));
     }
 
@@ -1023,21 +1029,21 @@ Value HIRToMIR::visitInstanceMethodCall(::InstanceMethodCall& node) {
     std::string structName;
 
     if (objectType->kind == Type::TypeKind::Struct) {
-        const auto* structType = static_cast<const Type::StructType*>(objectType);
+        const auto* structType = dynamic_cast<const Type::StructType*>(objectType);
         structName = structType->name;
     } else if (objectType->kind == Type::TypeKind::Pointer) {
-        const auto* ptrType = static_cast<const Type::PointerType*>(objectType);
+        const auto* ptrType = dynamic_cast<const Type::PointerType*>(objectType);
         if (ptrType->pointeeType->kind == Type::TypeKind::Struct) {
-            const auto* structType = static_cast<const Type::StructType*>(ptrType->pointeeType);
+            const auto* structType = dynamic_cast<const Type::StructType*>(ptrType->pointeeType);
             structName = structType->name;
         } else {
             diag.error("Instance method call on non-struct type", node.line, node.column);
-            return Value();
+            return {};
         }
     } else {
         // This should not happen if semantic analysis succeeded
         diag.error("Instance method call on non-struct type", node.line, node.column);
-        return Value();
+        return {};
     }
 
     // Mangle the function name
@@ -1100,14 +1106,14 @@ Value HIRToMIR::convertValue(const Value& value, const Type::Type* targetType) {
     }
 
     // Both must be primitives for numeric conversion
-    if (!value.type || !targetType ||
+    if ((value.type == nullptr) || (targetType == nullptr) ||
         value.type->kind != Type::TypeKind::Primitive ||
         targetType->kind != Type::TypeKind::Primitive) {
         return value;  // Can't convert, return as-is
     }
 
-    const auto* srcPrim = static_cast<const Type::PrimitiveType*>(value.type);
-    const auto* tgtPrim = static_cast<const Type::PrimitiveType*>(targetType);
+    const auto* srcPrim = dynamic_cast<const Type::PrimitiveType*>(value.type);
+    const auto* tgtPrim = dynamic_cast<const Type::PrimitiveType*>(targetType);
 
     // Helper lambdas for type classification
     auto isFloat = [](const Type::PrimitiveType* p) {
@@ -1179,11 +1185,12 @@ Value HIRToMIR::convertValue(const Value& value, const Type::Type* targetType) {
 }
 
 size_t HIRToMIR::getTypeSize(const Type::Type* type) {
-    if (!type) return 0;
+    if (type == nullptr) { return 0;
+}
 
     switch (type->kind) {
         case Type::TypeKind::Primitive: {
-            const auto* primType = static_cast<const Type::PrimitiveType*>(type);
+            const auto* primType = dynamic_cast<const Type::PrimitiveType*>(type);
             switch (primType->kind) {
                 case Type::PrimitiveKind::I8:
                 case Type::PrimitiveKind::U8:
@@ -1211,7 +1218,7 @@ size_t HIRToMIR::getTypeSize(const Type::Type* type) {
             return 8;  // 64-bit pointers
 
         case Type::TypeKind::Struct: {
-            const auto* structType = static_cast<const Type::StructType*>(type);
+            const auto* structType = dynamic_cast<const Type::StructType*>(type);
             size_t total = 0;
             for (const auto& field : structType->fields) {
                 // TODO: Add proper alignment/padding calculation
@@ -1221,7 +1228,7 @@ size_t HIRToMIR::getTypeSize(const Type::Type* type) {
         }
 
         case Type::TypeKind::Array: {
-            const auto* arrayType = static_cast<const Type::ArrayType*>(type);
+            const auto* arrayType = dynamic_cast<const Type::ArrayType*>(type);
             return getTypeSize(arrayType->elementType) * arrayType->size;
         }
 

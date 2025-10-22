@@ -2,6 +2,8 @@
 
 #include "TypeKind.hpp"
 #include <string>
+#include <utility>
+#include <utility>
 #include <vector>
 
 namespace Type {
@@ -90,19 +92,19 @@ struct ArrayType : Type {
 
 struct MethodSignature {
     std::string name;
-    std::vector<const Type*> paramTypes{};
+    std::vector<const Type*> paramTypes;
     const Type* returnType;
     bool hasSelf;        // true for instance methods
     bool hasMutSelf;     // true for mutable instance methods
     bool isPublic;
 
-    MethodSignature(const std::string& name,
+    MethodSignature(std::string  name,
                     const std::vector<const Type*>& params,
                     const Type* retType,
                     bool self = false,
                     bool mutSelf = false,
                     bool pub = false)
-        : name(name), paramTypes(params), returnType(retType),
+        : name(std::move(name)), paramTypes(params), returnType(retType),
           hasSelf(self), hasMutSelf(mutSelf), isPublic(pub) {}
 };
 
@@ -111,18 +113,18 @@ struct FieldInfo {
     const Type* type;
     bool isPublic;
 
-    FieldInfo(const std::string& n, const Type* t, bool pub)
-        : name(n), type(t), isPublic(pub) {}
+    FieldInfo(std::string  n, const Type* t, bool pub)
+        : name(std::move(n)), type(t), isPublic(pub) {}
 };
 
 struct StructType : Type {
     std::string name;
-    std::vector<FieldInfo> fields{};
-    std::vector<MethodSignature> methods{};
+    std::vector<FieldInfo> fields;
+    std::vector<MethodSignature> methods;
 
-    StructType(const std::string& name,
+    StructType(std::string  name,
                const std::vector<FieldInfo>& fields)
-        : Type(TypeKind::Struct), name(name), fields(fields) {}
+        : Type(TypeKind::Struct), name(std::move(name)), fields(fields) {}
 
     [[nodiscard]] std::string toString() const override {
         return name;
@@ -166,10 +168,10 @@ struct StructType : Type {
 
 struct GenericType : Type {
     std::string name;
-    std::vector<const Type*> typeParams{};
+    std::vector<const Type*> typeParams;
 
-    GenericType(const std::string& name, std::vector<const Type*> typeParams)
-        : Type(TypeKind::Generic), name(name), typeParams(typeParams) {}
+    GenericType(std::string  name, std::vector<const Type*> typeParams)
+        : Type(TypeKind::Generic), name(std::move(name)), typeParams(std::move(std::move(typeParams))) {}
 
     [[nodiscard]] std::string toString() const override {
         std::string result = name + "<";
@@ -234,8 +236,8 @@ struct PointerType : Type {
 struct UnresolvedType : Type {
     std::string name;
 
-    explicit UnresolvedType(const std::string& name)
-        : Type(TypeKind::Unresolved), name(name) {}
+    explicit UnresolvedType(std::string  name)
+        : Type(TypeKind::Unresolved), name(std::move(name)) {}
 
     [[nodiscard]] std::string toString() const override {
         return name + " (unresolved)";

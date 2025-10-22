@@ -42,10 +42,10 @@ public:
     void printType(const Type::Type* type);
 
     // Print an opcode name
-    std::string opcodeToString(Opcode opcode) const;
+    [[nodiscard]] std::string opcodeToString(Opcode opcode) const;
 
     // Print a terminator kind name
-    std::string terminatorKindToString(TerminatorKind kind) const;
+    [[nodiscard]] std::string terminatorKindToString(TerminatorKind kind) const;
 };
 
 } // namespace MIR

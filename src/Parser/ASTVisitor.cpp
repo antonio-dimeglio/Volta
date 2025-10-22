@@ -3,13 +3,13 @@
 
 
 void RecursiveASTVisitor::traverseExpr(Expr* expr) {
-    if (expr) {
+    if (expr != nullptr) {
         expr->accept(*this);
     }
 }
 
 void RecursiveASTVisitor::traverseStmt(Stmt* stmt) {
-    if (stmt) {
+    if (stmt != nullptr) {
         stmt->accept(*this);
     }
 }

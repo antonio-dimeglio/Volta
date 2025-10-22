@@ -61,7 +61,7 @@ struct CompilerOptions {
     std::string getVoltaRoot() const {
         const char* envRoot = std::getenv("VOLTA_ROOT");
         if (envRoot != nullptr) {
-            return std::string(envRoot);
+            return {envRoot};
         }
 
         #ifdef __linux__

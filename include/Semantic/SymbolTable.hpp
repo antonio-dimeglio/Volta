@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <utility>
 #include <vector>
 #include <unordered_map>
 #include "../Type/Type.hpp"
@@ -20,8 +21,8 @@ struct Symbol {
     const Type::Type* type;  // Pointer to interned type
     bool is_mut;
 
-    Symbol(const std::string& name, const Type::Type* type, bool is_mut)
-        : name(name), type(type), is_mut(is_mut) {}
+    Symbol(std::string  name, const Type::Type* type, bool is_mut)
+        : name(std::move(name)), type(type), is_mut(is_mut) {}
 };
 
 /**
@@ -33,16 +34,16 @@ struct FunctionParameter {
     bool is_ref;       // Pass by reference
     bool is_mut_ref;   // Pass by mutable reference
 
-    FunctionParameter(const std::string& name, const Type::Type* type,
+    FunctionParameter(std::string  name, const Type::Type* type,
                      bool is_ref = false, bool is_mut_ref = false)
-        : name(name), type(type), is_ref(is_ref), is_mut_ref(is_mut_ref) {}
+        : name(std::move(name)), type(type), is_ref(is_ref), is_mut_ref(is_mut_ref) {}
 };
 
 /**
  * FunctionSignature: Represents a function's type signature
  */
 struct FunctionSignature {
-    std::vector<FunctionParameter> parameters{};
+    std::vector<FunctionParameter> parameters;
     const Type::Type* return_type;  // Pointer to interned type
     bool isExtern;                   // Whether this is an extern function
 

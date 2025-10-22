@@ -23,7 +23,7 @@ private:
     std::string currentFunctionName;
 
     // Type map: stores computed type for each expression
-    std::unordered_map<const Expr*, const Type::Type*> exprTypes{};
+    std::unordered_map<const Expr*, const Type::Type*> exprTypes;
 
 public:
     SemanticAnalyzer(Type::TypeRegistry& types, DiagnosticManager& diag);

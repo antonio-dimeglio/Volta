@@ -3,8 +3,9 @@
 namespace MIR {
 
 void MIRPrinter::indent() {
-    for (int i = 0; i < indentLevel; ++i)
+    for (int i = 0; i < indentLevel; ++i) {
         out << "  ";
+}
 }
 
 void MIRPrinter::increaseIndent() {
@@ -16,7 +17,7 @@ void MIRPrinter::decreaseIndent() {
 }
 
 void MIRPrinter::print(const Program& program) {
-    for (auto& func : program.functions) {
+    for (const auto& func : program.functions) {
         printFunction(func);
         out << "\n";
     }
@@ -25,7 +26,7 @@ void MIRPrinter::print(const Program& program) {
 void MIRPrinter::printFunction(const Function& function) {
     out << "fn " << function.name << "(";
     size_t i = 0;
-    for (auto& param : function.params) {
+    for (const auto& param : function.params) {
         printType(param.type);
         out << " ";
         printValue(param);
@@ -37,7 +38,7 @@ void MIRPrinter::printFunction(const Function& function) {
     printType(function.returnType);
 
     out << " {\n";
-    for (auto& block : function.blocks) {
+    for (const auto& block : function.blocks) {
         printBasicBlock(block);
     }
 
@@ -48,7 +49,7 @@ void MIRPrinter::printBasicBlock(const BasicBlock& block) {
     indent();
     out << block.label << ":\n";
     increaseIndent();
-    for (auto& instr : block.instructions) {
+    for (const auto& instr : block.instructions) {
         printInstruction(instr);
     }
     printTerminator(block.terminator);
@@ -84,7 +85,7 @@ void MIRPrinter::printInstruction(const Instruction& inst) {
 
     size_t i = 0;
 
-    for (auto& opr : inst.operands) {
+    for (const auto& opr : inst.operands) {
         printValue(opr);
         if (i < inst.operands.size() - 1) {
             out << ", ";

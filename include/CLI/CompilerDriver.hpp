@@ -29,7 +29,7 @@ struct CompilationUnit {
 
 class CompilerDriver {
 public:
-    explicit CompilerDriver(const CompilerOptions& opts);
+    explicit CompilerDriver(CompilerOptions  opts);
     int compile();
 
 private:

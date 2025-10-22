@@ -15,8 +15,8 @@ ModuleEmitter::ModuleEmitter(llvm::Module* mod) : module(mod), targetMachine(nul
 
     // Lookup target
     std::string error;
-    auto target = llvm::TargetRegistry::lookupTarget(targetTriple, error);
-    if (!target) {
+    const auto *target = llvm::TargetRegistry::lookupTarget(targetTriple, error);
+    if (target == nullptr) {
         llvm::errs() << "Failed to lookup target: " << error << "\n";
         return;
     }

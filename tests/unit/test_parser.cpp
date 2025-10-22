@@ -1006,3 +1006,149 @@ variant Expr {
 )";
     EXPECT_TRUE(canParse(source));
 }
+
+// ============================================================================
+// Struct Literal Disambiguation Tests
+// These tests ensure the parser correctly distinguishes struct literals
+// from other constructs using lookahead (checking for "field:" pattern)
+// ============================================================================
+
+TEST_F(ParserTest, StructLiteralWithLowercaseName) {
+    // Struct literals should work regardless of capitalization
+    std::string source = R"(
+struct point {
+    pub x: f32,
+    pub y: f32
+}
+
+fn main() -> i32 {
+    let p := point { x: 10.0, y: 20.0 };
+    return 0;
+}
+)";
+    EXPECT_TRUE(canParse(source));
+}
+
+TEST_F(ParserTest, EmptyStructLiteral) {
+    // Empty struct literal: Point {}
+    std::string source = R"(
+struct Point {
+}
+
+fn main() -> i32 {
+    let p := Point {};
+    return 0;
+}
+)";
+    EXPECT_TRUE(canParse(source));
+}
+
+TEST_F(ParserTest, ChainedComparisonNotStructLiteral) {
+    // Critical test: "y < z {" should NOT be parsed as struct literal
+    // The { starts the if-body, not a struct literal
+    std::string source = R"(
+fn main() -> i32 {
+    let x: i32 = 5;
+    let y: i32 = 10;
+    let z: i32 = 15;
+    if x < y and y < z {
+        return 1;
+    }
+    return 0;
+}
+)";
+    EXPECT_TRUE(canParse(source));
+}
+
+TEST_F(ParserTest, VariableFollowedByBlockNotStructLiteral) {
+    // Variable followed by { should be treated as variable, not struct literal
+    std::string source = R"(
+fn main() -> i32 {
+    let condition: bool = true;
+    if condition {
+        return 1;
+    }
+    return 0;
+}
+)";
+    EXPECT_TRUE(canParse(source));
+}
+
+TEST_F(ParserTest, LogicalAndWithComparisonAndBlock) {
+    // More complex: multiple comparisons with logical operators before {
+    std::string source = R"(
+fn main() -> i32 {
+    let a: i32 = 1;
+    let b: i32 = 2;
+    let c: i32 = 3;
+    let d: i32 = 4;
+    if a < b and c < d {
+        return 1;
+    }
+    return 0;
+}
+)";
+    EXPECT_TRUE(canParse(source));
+}
+
+TEST_F(ParserTest, StructLiteralInIfCondition) {
+    // Struct literal CAN appear inside if condition (as expression)
+    std::string source = R"(
+struct Point {
+    pub x: i32,
+    pub y: i32
+}
+
+fn check(p: Point) -> bool {
+    return true;
+}
+
+fn main() -> i32 {
+    if check(Point { x: 1, y: 2 }) {
+        return 1;
+    }
+    return 0;
+}
+)";
+    EXPECT_TRUE(canParse(source));
+}
+
+TEST_F(ParserTest, StructLiteralInWhileCondition) {
+    // Struct literal in while loop expression context
+    std::string source = R"(
+struct State {
+    pub done: bool
+}
+
+fn is_done(s: State) -> bool {
+    return s.done;
+}
+
+fn main() -> i32 {
+    while is_done(State { done: false }) {
+        break;
+    }
+    return 0;
+}
+)";
+    EXPECT_TRUE(canParse(source));
+}
+
+TEST_F(ParserTest, NestedStructLiteral) {
+    // Nested struct literals
+    std::string source = R"(
+struct Inner {
+    pub value: i32
+}
+
+struct Outer {
+    pub inner: Inner
+}
+
+fn main() -> i32 {
+    let o := Outer { inner: Inner { value: 42 } };
+    return 0;
+}
+)";
+    EXPECT_TRUE(canParse(source));
+}

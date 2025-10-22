@@ -67,7 +67,8 @@ std::unique_ptr<HIR::HIRStmt> HIRLowering::lowerVarDecl(VarDecl& decl) {
 std::unique_ptr<HIR::HIRStmt> HIRLowering::lowerFnDecl(FnDecl& decl) {
     // Convert parameters
     std::vector<HIR::Param> hirParams;
-    for (auto& param : decl.params) {
+    hirParams.reserve(decl.params.size());
+for (auto& param : decl.params) {
         hirParams.emplace_back(param.name, param.type, param.isRef, param.isMutRef);
     }
 
@@ -146,8 +147,8 @@ std::unique_ptr<HIR::HIRStmt> HIRLowering::lowerForStmt(ForStmt& stmt) {
     // Desugar: for (var in range) { body }
     // Into: { let var = range.from; while (var < range.to) { body; var = var + 1; } }
 
-    auto range = dynamic_cast<Range*>(stmt.range.get());
-    if (!range) {
+    auto *range = dynamic_cast<Range*>(stmt.range.get());
+    if (range == nullptr) {
         std::cerr << "Error: For loop range is not a Range expression\n";
         return nullptr;
     }
@@ -290,7 +291,8 @@ std::unique_ptr<HIR::HIRStmt> HIRLowering::lowerExternBlock(ExternBlock& block) 
 
 std::unique_ptr<HIR::HIRStmt> HIRLowering::lowerImportStmt(ImportStmt& stmt) {
     std::vector<std::string> symbols;
-    for (auto& sym : stmt.importedItems) {
+    symbols.reserve(stmt.importedItems.size());
+for (auto& sym : stmt.importedItems) {
         symbols.push_back(sym);
     }
 
@@ -308,7 +310,7 @@ std::unique_ptr<HIR::HIRStmt> HIRLowering::lowerStructDecl(StructDecl& decl) {
     for (auto& method : decl.methods) {
         auto loweredMethod = lowerFnDecl(*method);
         loweredMethods.push_back(std::unique_ptr<HIR::HIRFnDecl>(
-            static_cast<HIR::HIRFnDecl*>(loweredMethod.release())));
+            dynamic_cast<HIR::HIRFnDecl*>(loweredMethod.release())));
     }
 
     // Struct declarations are lowered with methods
@@ -394,10 +396,11 @@ std::unique_ptr<Expr> HIRLowering::desugarExpr(Expr& expr) {
             // Check if this variable name is actually a struct type
             const auto* structType = typeRegistry.getStruct(varNode->token.lexeme);
 
-            if (structType) {
+            if (structType != nullptr) {
                 // DESUGAR: Transform Point.new() => StaticMethodCall("Point", "new", [...])
                 std::vector<std::unique_ptr<Expr>> clonedArgs;
-                for (auto& arg : instanceCall->args) {
+                clonedArgs.reserve(instanceCall->args.size());
+for (auto& arg : instanceCall->args) {
                     clonedArgs.push_back(cloneExpr(arg.get()));
                 }
 
@@ -443,7 +446,8 @@ static std::unique_ptr<Expr> cloneExpr(Expr* expr) {
         );
     } else if (auto* call = dynamic_cast<FnCall*>(expr)) {
         std::vector<std::unique_ptr<Expr>> clonedArgs;
-        for (auto& arg : call->args) {
+        clonedArgs.reserve(call->args.size());
+for (auto& arg : call->args) {
             clonedArgs.push_back(cloneExpr(arg.get()));
         }
         return std::make_unique<FnCall>(
@@ -467,7 +471,8 @@ static std::unique_ptr<Expr> cloneExpr(Expr* expr) {
         );
     } else if (auto* arrLit = dynamic_cast<ArrayLiteral*>(expr)) {
         std::vector<std::unique_ptr<Expr>> clonedElems;
-        for (auto& elem : arrLit->elements) {
+        clonedElems.reserve(arrLit->elements.size());
+for (auto& elem : arrLit->elements) {
             clonedElems.push_back(cloneExpr(elem.get()));
         }
         return std::make_unique<ArrayLiteral>(
@@ -490,8 +495,9 @@ static std::unique_ptr<Expr> cloneExpr(Expr* expr) {
         );
     } else if (auto* structLit = dynamic_cast<StructLiteral*>(expr)) {
         std::vector<std::pair<Token, std::unique_ptr<Expr>>> clonedFields;
-        for (auto& [fieldName, fieldValue] : structLit->fields) {
-            clonedFields.push_back({fieldName, cloneExpr(fieldValue.get())});
+        clonedFields.reserve(structLit->fields.size());
+for (auto& [fieldName, fieldValue] : structLit->fields) {
+            clonedFields.emplace_back(fieldName, cloneExpr(fieldValue.get()));
         }
         return std::make_unique<StructLiteral>(
             structLit->structName,
@@ -508,7 +514,8 @@ static std::unique_ptr<Expr> cloneExpr(Expr* expr) {
         );
     } else if (auto* staticCall = dynamic_cast<StaticMethodCall*>(expr)) {
         std::vector<std::unique_ptr<Expr>> clonedArgs;
-        for (auto& arg : staticCall->args) {
+        clonedArgs.reserve(staticCall->args.size());
+for (auto& arg : staticCall->args) {
             clonedArgs.push_back(cloneExpr(arg.get()));
         }
         return std::make_unique<StaticMethodCall>(
@@ -520,7 +527,8 @@ static std::unique_ptr<Expr> cloneExpr(Expr* expr) {
         );
     } else if (auto* instanceCall = dynamic_cast<InstanceMethodCall*>(expr)) {
         std::vector<std::unique_ptr<Expr>> clonedArgs;
-        for (auto& arg : instanceCall->args) {
+        clonedArgs.reserve(instanceCall->args.size());
+for (auto& arg : instanceCall->args) {
             clonedArgs.push_back(cloneExpr(arg.get()));
         }
         return std::make_unique<InstanceMethodCall>(

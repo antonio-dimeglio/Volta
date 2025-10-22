@@ -7,7 +7,7 @@
 namespace Semantic {
 
 SemanticAnalyzer::SemanticAnalyzer(Type::TypeRegistry& types, DiagnosticManager& diag)
-    : typeRegistry(types), symbolTable(), diag(diag) {
+    : typeRegistry(types),  diag(diag) {
 }
 
 void SemanticAnalyzer::analyzeProgram(const HIR::HIRProgram& program) {
@@ -155,7 +155,7 @@ void SemanticAnalyzer::visitBlockStmt(HIR::HIRBlockStmt& node) {
 bool SemanticAnalyzer::containsReturn(const std::vector<std::unique_ptr<HIR::HIRStmt>>& stmts) {
     for (const auto& stmt : stmts) {
         // Direct return statement
-        if (dynamic_cast<HIR::HIRReturnStmt*>(stmt.get())) {
+        if (dynamic_cast<HIR::HIRReturnStmt*>(stmt.get()) != nullptr) {
             return true;
         }
 
@@ -764,7 +764,7 @@ const Type::Type* SemanticAnalyzer::visitIndexExpr(IndexExpr& node) {
         diag.error("Array index must be integer type", node.line, node.column);
     }
 
-    auto* arrType = dynamic_cast<const Type::ArrayType*>(arrayType);
+    const auto* arrType = dynamic_cast<const Type::ArrayType*>(arrayType);
 
     // Compile-time bounds checking for literal indices
     int64_t literalIndex = -1;
@@ -900,7 +900,7 @@ const Type::Type* SemanticAnalyzer::visitStructLiteral(StructLiteral& node) {
     // 3. Type-check each field value
     for (auto& [fieldName, fieldValue] : node.fields) {
         const Type::Type* expectedType = structType->getFieldType(fieldName.lexeme);
-        if (expectedType) {
+        if (expectedType != nullptr) {
             const Type::Type* actualType = fieldValue->accept(*this);
 
             // Try to coerce numeric literals (both int and float) to the target type
@@ -933,7 +933,7 @@ const Type::Type* SemanticAnalyzer::visitFieldAccess(FieldAccess& node) {
     } else if (objectType->kind == Type::TypeKind::Pointer) {
         const auto* ptrType = dynamic_cast<const Type::PointerType*>(objectType);
         if (ptrType->pointeeType->kind == Type::TypeKind::Struct) {
-            structType = static_cast<const Type::StructType*>(ptrType->pointeeType);
+            structType = dynamic_cast<const Type::StructType*>(ptrType->pointeeType);
         }
     }
 
@@ -1071,7 +1071,7 @@ const Type::Type* SemanticAnalyzer::visitInstanceMethodCall(InstanceMethodCall& 
     } else if (objectType->kind == Type::TypeKind::Pointer) {
         const auto* ptrType = dynamic_cast<const Type::PointerType*>(objectType);
         if (ptrType->pointeeType->kind == Type::TypeKind::Struct) {
-            structType = static_cast<const Type::StructType*>(ptrType->pointeeType);
+            structType = dynamic_cast<const Type::StructType*>(ptrType->pointeeType);
         }
     }
 
@@ -1164,8 +1164,9 @@ void SemanticAnalyzer::collectFunctionSignatures(const HIR::HIRProgram& program)
 
 void SemanticAnalyzer::registerFunction(HIR::HIRFnDecl& node) {
     std::vector<FunctionParameter> params;
-    for (const auto& p : node.params) {
-        params.push_back(FunctionParameter(p.name, p.type, p.isRef, p.isMutRef));
+    params.reserve(node.params.size());
+for (const auto& p : node.params) {
+        params.emplace_back(p.name, p.type, p.isRef, p.isMutRef);
     }
 
     FunctionSignature sig(params, node.returnType, node.isExtern);
@@ -1429,7 +1430,7 @@ void SemanticAnalyzer::registerStructTypes(const HIR::HIRProgram& program) {
             // A struct is complete if it has been registered with its full definition
             // (not just as a stub from pre-registration phase)
             auto* existingStruct = typeRegistry.getStruct(structDecl->name.lexeme);
-            if (existingStruct) {
+            if (existingStruct != nullptr) {
                 // Check if it's a stub: stubs have no fields AND no methods
                 // If it has either fields or methods, it's already been fully registered
                 bool isStub = existingStruct->fields.empty() && existingStruct->methods.empty();
@@ -1442,7 +1443,8 @@ void SemanticAnalyzer::registerStructTypes(const HIR::HIRProgram& program) {
 
             // Collect fields (types might be unresolved at this point)
             std::vector<Type::FieldInfo> fields;
-            for (const auto& field : structDecl->fields) {
+            fields.reserve(structDecl->fields.size());
+for (const auto& field : structDecl->fields) {
                 fields.emplace_back(field.name.lexeme, field.type, field.isPublic);
             }
 
@@ -1515,13 +1517,14 @@ void SemanticAnalyzer::resolveUnresolvedTypes(HIR::HIRProgram& program) {
 
             // Also update the registered struct type with resolved field types
             std::vector<Type::FieldInfo> resolvedFields;
-            for (const auto& field : structDecl->fields) {
+            resolvedFields.reserve(structDecl->fields.size());
+for (const auto& field : structDecl->fields) {
                 resolvedFields.emplace_back(field.name.lexeme, field.type, field.isPublic);
             }
 
             // Update the struct in the registry
             auto* structType = typeRegistry.getStruct(structDecl->name.lexeme);
-            if (structType) {
+            if (structType != nullptr) {
                 structType->fields = resolvedFields;
             }
 
@@ -1540,7 +1543,7 @@ void SemanticAnalyzer::resolveUnresolvedTypes(HIR::HIRProgram& program) {
             }
 
             // Re-register method signatures with resolved types
-            if (structType) {
+            if (structType != nullptr) {
                 structType->methods.clear();  // Clear old signatures
                 for (auto& method : structDecl->methods) {
                     // Build resolved parameter types

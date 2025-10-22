@@ -37,10 +37,11 @@ std::unique_ptr<Program> Parser::parseProgram() {
 
 Token Parser::peek(size_t offset) const {
     size_t at = offset + idx;
-    if (at >= tokens.size())
+    if (at >= tokens.size()) {
         return tokens[tokens.size() - 1];
-    else
+    } else {
         return tokens[at];
+    }
 }
 
 bool Parser::isAtEnd() const {
@@ -153,7 +154,7 @@ const Type::Type* Parser::parseType() {
         }
 
         const Type::Type* parsedType = types.parseTypeName(typeStr);
-        if (parsedType) {
+        if (parsedType != nullptr) {
             return parsedType;
         }
 
@@ -189,7 +190,7 @@ std::unique_ptr<FnDecl> Parser::parseFnSignature() {
             advance();  // consume 'mut'
             Token selfToken = expect(TokenType::Self_);
             // 'mut self' - will be resolved to struct pointer type during semantic analysis
-            params.push_back(Param(selfToken.lexeme, nullptr, true, true));
+            params.emplace_back(selfToken.lexeme, nullptr, true, true);
 
             if (!check(TokenType::RParen)) {
                 expect(TokenType::Comma);
@@ -198,7 +199,7 @@ std::unique_ptr<FnDecl> Parser::parseFnSignature() {
         } else if (check(TokenType::Self_)) {
             Token selfToken = advance();
             // 'self' - will be resolved to struct pointer type during semantic analysis
-            params.push_back(Param(selfToken.lexeme, nullptr, true, false));
+            params.emplace_back(selfToken.lexeme, nullptr, true, false);
 
             if (!check(TokenType::RParen)) {
                 expect(TokenType::Comma);
@@ -237,7 +238,7 @@ std::unique_ptr<FnDecl> Parser::parseFnSignature() {
 
         const Type::Type* paramType = parseType();
 
-        params.push_back(Param(paramName.lexeme, paramType, isRef, isMutRef));
+        params.emplace_back(paramName.lexeme, paramType, isRef, isMutRef);
 
         if (!check(TokenType::RParen)) {
             expect(TokenType::Comma);
@@ -295,7 +296,7 @@ std::unique_ptr<StructDecl> Parser::parseStructDecl() {
             expect(TokenType::Colon);
             const Type::Type* fieldType = parseType();
 
-            fields.push_back(StructField(memberIsPublic, fieldName, fieldType));
+            fields.emplace_back(memberIsPublic, fieldName, fieldType);
 
             if (check(TokenType::Comma)) {
                 advance();
@@ -481,7 +482,7 @@ std::unique_ptr<Stmt> Parser::parseForStmt() {
     auto body = parseBody();
 
     // Cast Expr to Range (parseRangeExpr returns unique_ptr<Expr>)
-    auto range = std::unique_ptr<Range>(static_cast<Range*>(rangeExpr.release()));
+    auto range = std::unique_ptr<Range>(dynamic_cast<Range*>(rangeExpr.release()));
 
     return std::make_unique<ForStmt>(std::move(varNode), std::move(range), std::move(body), forToken.line, forToken.column);
 }
@@ -762,14 +763,20 @@ std::unique_ptr<Expr> Parser::parsePrimary() {
         }
 
         // Check for struct literal: StructName { ... }
-        // Use heuristic: treat as struct literal if identifier starts with uppercase
-        // This prevents false positives like "variable and something {" being parsed as struct literal
+        // Use lookahead to distinguish struct literals from other constructs
+        // Struct literals have pattern: Identifier { Identifier : Expr } or Identifier { }
         if (check(TokenType::LBrace, 1)) {
-            Token identToken = peek();
-            if (!identToken.lexeme.empty() && std::isupper(identToken.lexeme[0])) {
+            // Check for empty struct literal: Point {}
+            if (check(TokenType::RBrace, 2)) {
                 Token structName = advance();
                 return parseStructLiteral(structName);
             }
+            // Check for struct literal with fields: Point { x: 1, ... }
+            if (check(TokenType::Identifier, 2) && check(TokenType::Colon, 3)) {
+                Token structName = advance();
+                return parseStructLiteral(structName);
+            }
+            // Not a struct literal pattern, treat as variable
         }
 
         Token token = advance();
@@ -832,7 +839,8 @@ std::unique_ptr<Expr> Parser::parseArrayLiteral() {
     elements.push_back(std::move(firstExpr));
 
     while (match({TokenType::Comma})) {
-        if (check(TokenType::RSquare)) break;
+        if (check(TokenType::RSquare)) { break;
+}
         elements.push_back(parseExpression());
     }
 
@@ -852,7 +860,7 @@ std::unique_ptr<Expr> Parser::parseRangeExpr() {
     return std::make_unique<Range>(std::move(lhs), std::move(rhs), inclusive, rangeToken.line, rangeToken.column);
 }
 
-std::unique_ptr<StructLiteral> Parser::parseStructLiteral(Token structName) {
+std::unique_ptr<StructLiteral> Parser::parseStructLiteral(const Token& structName) {
     // Already consumed the struct name, now consume the opening '{'
     expect(TokenType::LBrace);
 
@@ -863,7 +871,7 @@ std::unique_ptr<StructLiteral> Parser::parseStructLiteral(Token structName) {
         expect(TokenType::Colon);
         auto fieldValue = parseExpression();
 
-        fields.push_back({fieldName, std::move(fieldValue)});
+        fields.emplace_back(fieldName, std::move(fieldValue));
 
         if (!match({TokenType::Comma})) {
             break;

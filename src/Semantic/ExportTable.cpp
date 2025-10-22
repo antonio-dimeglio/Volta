@@ -10,7 +10,7 @@ bool ExportTable::addExport(const std::string& moduleName, const std::string& sy
     if (exports.contains(symbolName)) {
         return false;
     }
-    exports.insert(std::move(symbolName));
+    exports.insert(symbolName);
     return true;
 }
 

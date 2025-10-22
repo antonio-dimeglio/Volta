@@ -5,7 +5,8 @@ std::string FnCall::toString() const {
     std::ostringstream oss;
     oss << "FnCall(" << name << "(";
     for (size_t i = 0; i < args.size(); ++i) {
-        if (i > 0) oss << ", ";
+        if (i > 0) { oss << ", ";
+}
         oss << args[i]->toString();
     }
     oss << "))";
@@ -47,7 +48,8 @@ std::string ArrayLiteral::toString() const {
     } else {
         oss << "[";
         for (size_t i = 0; i < elements.size(); ++i) {
-            if (i > 0) oss << ", ";
+            if (i > 0) { oss << ", ";
+}
             oss << elements[i]->toString();
         }
         oss << "]";
@@ -83,7 +85,8 @@ std::string StructLiteral::toString() const {
     std::ostringstream oss;
     oss << structName.lexeme << " { ";
     for (size_t i = 0; i < fields.size(); ++i) {
-        if (i > 0) oss << ", ";
+        if (i > 0) { oss << ", ";
+}
         oss << fields[i].first.lexeme << ": " << fields[i].second->toString();
     }
     oss << " }";
@@ -98,7 +101,8 @@ std::string StaticMethodCall::toString() const {
     std::ostringstream oss;
     oss << typeName.lexeme << "::" << methodName.lexeme << "(";
     for (size_t i = 0; i < args.size(); ++i) {
-        if (i > 0) oss << ", ";
+        if (i > 0) { oss << ", ";
+}
         oss << args[i]->toString();
     }
     oss << ")";
@@ -109,7 +113,8 @@ std::string InstanceMethodCall::toString() const {
     std::ostringstream oss;
     oss << object->toString() << "." << methodName.lexeme << "(";
     for (size_t i = 0; i < args.size(); ++i) {
-        if (i > 0) oss << ", ";
+        if (i > 0) { oss << ", ";
+}
         oss << args[i]->toString();
     }
     oss << ")";
@@ -141,9 +146,10 @@ std::string StructField::toString() const {
 std::string VarDecl::toString() const {
     std::ostringstream oss;
     oss << "VarDecl(";
-    if (mutable_) oss << "mut ";
+    if (mutable_) { oss << "mut ";
+}
     oss << name.lexeme;
-    if (typeAnnotation) {
+    if (typeAnnotation != nullptr) {
         oss << ": " << typeAnnotation->toString();
     }
     if (initValue) {
@@ -157,7 +163,8 @@ std::string FnDecl::toString() const {
     std::ostringstream oss;
     oss << "FnDecl(" << name << "(";
     for (size_t i = 0; i < params.size(); ++i) {
-        if (i > 0) oss << ", ";
+        if (i > 0) { oss << ", ";
+}
         oss << params[i].toString();
     }
     oss << ") -> " << returnType->toString() << ")";
@@ -168,7 +175,8 @@ std::string StructDecl::toString() const {
     std::ostringstream oss;
     oss << "Struct(" << name.lexeme << ")\n";
     for (size_t i = 0; i < fields.size(); i++) {
-        if (i > 0) oss << ", ";
+        if (i > 0) { oss << ", ";
+}
         oss << fields[i].toString();
     }
     if (!methods.empty()) {
@@ -226,7 +234,8 @@ std::string ImportStmt::toString() const {
     if (!importedItems.empty()) {
         oss << ", {";
         for (size_t i = 0; i < importedItems.size(); ++i) {
-            if (i > 0) oss << ", ";
+            if (i > 0) { oss << ", ";
+}
             oss << importedItems[i];
         }
         oss << "}";

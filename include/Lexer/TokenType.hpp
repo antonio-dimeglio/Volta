@@ -99,6 +99,6 @@ inline std::string tokenTypeToString(TokenType type) {
 #define X(name) case TokenType::name: return std::string(#name);
         TOKEN_TYPES(X)
 #undef X
-        default: return std::string("Unknown");
+        default: return {"Unknown"};
     }
 }

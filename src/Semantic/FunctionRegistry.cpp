@@ -15,7 +15,8 @@ void FunctionRegistry::collectFromHIR(const HIR::HIRProgram& hir, const std::str
         if (auto* fnDecl = dynamic_cast<HIR::HIRFnDecl*>(stmt.get())) {
             // Convert HIR::Param to FunctionParameter
             std::vector<FunctionParameter> funcParams;
-            for (const auto& param : fnDecl->params) {
+            funcParams.reserve(fnDecl->params.size());
+for (const auto& param : fnDecl->params) {
                 funcParams.emplace_back(param.name, param.type);
             }
             // Only register functions (extern declarations are also functions)
@@ -33,7 +34,7 @@ const GlobalFunctionSignature* FunctionRegistry::getFunction(const std::string& 
     if (it == functions.end() || it->second.empty()) {
         return nullptr;
     }
-    return &it->second[0];  // Return first overload for now
+    return it->second.data();  // Return first overload for now
 }
 
 const std::vector<GlobalFunctionSignature>& FunctionRegistry::getFunctionOverloads(const std::string& name) const {

@@ -4,6 +4,8 @@
 #include <string>
 #include <iomanip>
 #include <sstream>
+#include <utility>
+#include <utility>
 
 struct Token {
     TokenType tt;
@@ -12,7 +14,7 @@ struct Token {
     std::string lexeme;
 
     Token(TokenType tt, size_t line, size_t column, std::string lexeme) :
-        tt(tt), line(line), column(column), lexeme(lexeme) {}
+        tt(tt), line(line), column(column), lexeme(std::move(std::move(lexeme))) {}
 
     Token(TokenType tt, size_t line, size_t column) :
         tt(tt), line(line), column(column) {}

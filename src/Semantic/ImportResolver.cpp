@@ -57,7 +57,7 @@ std::string join(const std::unordered_set<std::string>& items, const std::string
     std::ostringstream oss;
     bool first = true;
     for (const auto& item : items) {
-        if (!first) oss << delimiter;
+        if (!first) { oss << delimiter; }
         first = false;
         oss << item;
     }
@@ -71,9 +71,9 @@ bool validateImports(
 ) {
     bool hasErrors = false;
 
-    for (auto&[source, ast] : units) {
-        for (auto& stmt : ast->statements) {
-            if (auto* importStmt = dynamic_cast<const ImportStmt*>(stmt.get())) {
+    for (const auto&[source, ast] : units) {
+        for (const auto& stmt : ast->statements) {
+            if (const auto* importStmt = dynamic_cast<const ImportStmt*>(stmt.get())) {
                 if (!exportTable.moduleExists(importStmt->modulePath)){
                     diag.error("Module '" + importStmt->modulePath + "' not found. Did you forget to include it in the compilation?", importStmt->line, importStmt->column);
                     hasErrors = true;
@@ -118,7 +118,7 @@ ImportMap buildImportMap(const std::vector<std::pair<std::string, const Program*
     for (const auto& [moduleName, ast] : units) {
         // Walk through AST to find import statements
         for (const auto& stmt : ast->statements) {
-            if (auto* importStmt = dynamic_cast<const ImportStmt*>(stmt.get())) {
+            if (const auto* importStmt = dynamic_cast<const ImportStmt*>(stmt.get())) {
                 // Record each imported symbol
                 for (const auto& symbol : importStmt->importedItems) {
                     importMap[moduleName][symbol] = importStmt->modulePath;
@@ -140,12 +140,12 @@ static bool detectCyclesDFS(
     DiagnosticManager& diag
 ) {
     // If already fully visited, no cycle from this node
-    if (visited.count(module) > 0) {
+    if (visited.contains(module)) {
         return false;
     }
 
     // If currently visiting, we found a cycle
-    if (visiting.count(module) > 0) {
+    if (visiting.contains(module)) {
         // Find where the cycle starts in the path
         auto cycleStart = std::find(path.begin(), path.end(), module);
 
@@ -167,7 +167,7 @@ static bool detectCyclesDFS(
     path.push_back(module);
 
     // Check all modules this module imports from
-    if (importMap.count(module) > 0) {
+    if (importMap.contains(module)) {
         const auto& imports = importMap.at(module);
 
         // Build set of unique modules we import from
@@ -202,7 +202,7 @@ bool detectCircularDependencies(
 
     // Check each module in the import map
     for (const auto& [module, imports] : importMap) {
-        if (visited.count(module) == 0) {
+        if (visited.contains(module)) {
             if (detectCyclesDFS(module, importMap, visiting, visited, path, diag)) {
                 return true;  // Cycle found
             }

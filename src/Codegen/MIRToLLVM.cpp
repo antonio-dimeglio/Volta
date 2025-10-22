@@ -7,7 +7,7 @@ namespace Codegen {
 
 void MIRToLLVM::lower(const MIR::Program& program) {
     // First pass: Declare all functions (including externs) so they can be called
-    for (auto& function : program.functions) {
+    for (const auto& function : program.functions) {
         // Convert return type
         llvm::Type* retType = getLLVMType(function.returnType);
         if (function.returnType->kind == Type::TypeKind::Array) {
@@ -15,7 +15,7 @@ void MIRToLLVM::lower(const MIR::Program& program) {
         }
 
         std::vector<llvm::Type*> paramTypes;
-        for (auto& param : function.params) {
+        for (const auto& param : function.params) {
             llvm::Type* paramType = getLLVMType(param.type);
             if (param.type->kind == Type::TypeKind::Array) {
                 paramType = llvm::PointerType::getUnqual(paramType);
@@ -33,7 +33,7 @@ void MIRToLLVM::lower(const MIR::Program& program) {
     }
 
     // Second pass: Lower function bodies (skip externs which have no blocks)
-    for (auto& function : program.functions) {
+    for (const auto& function : program.functions) {
         if (!function.blocks.empty()) {
             lowerFunction(function);
         }
@@ -55,12 +55,12 @@ void MIRToLLVM::lowerFunction(const MIR::Function& function) {
         i++;
     }
 
-    for (auto& block: function.blocks) {
+    for (const auto& block: function.blocks) {
         auto* bb = llvm::BasicBlock::Create(context, block.label, currentFunction);
         blockMap[block.label] = bb;
     }
 
-    for (auto& block: function.blocks) {
+    for (const auto& block: function.blocks) {
         lowerBasicBlock(block);
     }
 }
@@ -69,7 +69,7 @@ void MIRToLLVM::lowerBasicBlock(const MIR::BasicBlock& block) {
     auto* llvmBB = blockMap[block.label];
     builder.SetInsertPoint(llvmBB);
 
-    for (auto& inst : block.instructions) {
+    for (const auto& inst : block.instructions) {
         lowerInstruction(inst);
     }
 
@@ -374,7 +374,7 @@ void MIRToLLVM::lowerInstruction(const MIR::Instruction& inst) {
 
         // === Memory Operations ===
         case Opcode::Alloca: {
-            if (!inst.result.type) {
+            if (inst.result.type == nullptr) {
                 llvm::errs() << "ERROR: Alloca has null result type!\n";
                 break;
             }
@@ -383,11 +383,11 @@ void MIRToLLVM::lowerInstruction(const MIR::Instruction& inst) {
 
             // For alloca, we need to unwrap the pointer type to get the allocated type
             if (inst.result.type->kind == Type::TypeKind::Pointer) {
-                const auto* ptrType = static_cast<const Type::PointerType*>(inst.result.type);
+                const auto* ptrType = dynamic_cast<const Type::PointerType*>(inst.result.type);
                 allocType = getLLVMType(ptrType->pointeeType);
 
                 // Debug: check if we got a valid type
-                if (!allocType) {
+                if (allocType == nullptr) {
                     llvm::errs() << "ERROR: Failed to get LLVM type for allocation of: "
                                  << ptrType->pointeeType->toString() << "\n";
                     break;
@@ -403,12 +403,12 @@ void MIRToLLVM::lowerInstruction(const MIR::Instruction& inst) {
 
             // If the result type is null, try to infer it from the pointer type
             llvm::Type* elemType = nullptr;
-            if (inst.result.type) {
+            if (inst.result.type != nullptr) {
                 elemType = getLLVMType(inst.result.type);
-            } else if (inst.operands[0].type &&
+            } else if ((inst.operands[0].type != nullptr) &&
                        inst.operands[0].type->kind == Type::TypeKind::Pointer) {
                 // Infer from pointer operand
-                const auto* ptrType = static_cast<const Type::PointerType*>(inst.operands[0].type);
+                const auto* ptrType = dynamic_cast<const Type::PointerType*>(inst.operands[0].type);
                 elemType = getLLVMType(ptrType->pointeeType);
             } else {
                 // Can't determine type - skip this load (shouldn't happen in valid MIR)
@@ -434,13 +434,13 @@ void MIRToLLVM::lowerInstruction(const MIR::Instruction& inst) {
             auto* index = getValue(inst.operands[1]);
 
             // Get the array type from the pointer
-            if (!inst.operands[0].type || inst.operands[0].type->kind != Type::TypeKind::Pointer) {
+            if ((inst.operands[0].type == nullptr) || inst.operands[0].type->kind != Type::TypeKind::Pointer) {
                 llvm::errs() << "ERROR: GEP operand is not a pointer type!\n";
                 break;
             }
 
-            const auto* ptrType = static_cast<const Type::PointerType*>(inst.operands[0].type);
-            const auto* arrayType = static_cast<const Type::ArrayType*>(ptrType->pointeeType);
+            const auto* ptrType = dynamic_cast<const Type::PointerType*>(inst.operands[0].type);
+            const auto* arrayType = dynamic_cast<const Type::ArrayType*>(ptrType->pointeeType);
             auto* llvmArrayType = getLLVMType(arrayType);
 
             // GEP indices: first 0 to dereference the pointer, then the actual index
@@ -465,21 +465,21 @@ void MIRToLLVM::lowerInstruction(const MIR::Instruction& inst) {
             }
 
             // Get the struct type
-            if (!inst.operands[0].type || inst.operands[0].type->kind != Type::TypeKind::Pointer) {
+            if ((inst.operands[0].type == nullptr) || inst.operands[0].type->kind != Type::TypeKind::Pointer) {
                 llvm::errs() << "ERROR: GetFieldPtr operand is not a pointer type!\n";
                 break;
             }
 
-            const auto* ptrType = static_cast<const Type::PointerType*>(inst.operands[0].type);
-            if (!ptrType->pointeeType || ptrType->pointeeType->kind != Type::TypeKind::Struct) {
+            const auto* ptrType = dynamic_cast<const Type::PointerType*>(inst.operands[0].type);
+            if ((ptrType->pointeeType == nullptr) || ptrType->pointeeType->kind != Type::TypeKind::Struct) {
                 llvm::errs() << "ERROR: GetFieldPtr pointer doesn't point to a struct!\n";
                 break;
             }
 
-            const auto* structType = static_cast<const Type::StructType*>(ptrType->pointeeType);
+            const auto* structType = dynamic_cast<const Type::StructType*>(ptrType->pointeeType);
             auto* llvmStructType = getLLVMType(structType);
 
-            if (!llvmStructType) {
+            if (llvmStructType == nullptr) {
                 llvm::errs() << "ERROR: Failed to get LLVM type for struct: " << structType->name << "\n";
                 break;
             }
@@ -501,7 +501,7 @@ void MIRToLLVM::lowerInstruction(const MIR::Instruction& inst) {
             std::string targetName = inst.callTarget.value();
             auto* callee = module.getFunction(targetName);
 
-            if (!callee) {
+            if (callee == nullptr) {
                 llvm::errs() << "ERROR: Function not found: " << targetName << "\n";
                 llvm::errs() << "Available functions in module:\n";
                 for (auto& fn : module) {
@@ -511,7 +511,8 @@ void MIRToLLVM::lowerInstruction(const MIR::Instruction& inst) {
             }
 
             std::vector<llvm::Value*> args;
-            for (const auto& operand : inst.operands) {
+            args.reserve(inst.operands.size());
+for (const auto& operand : inst.operands) {
                 args.push_back(getValue(operand));
             }
 
@@ -624,7 +625,7 @@ llvm::Value* MIRToLLVM::getValue(const MIR::Value& value) {
                     context, str, true  // AddNull = true
                 );
 
-                llvm::GlobalVariable* global = new llvm::GlobalVariable(
+                auto* global = new llvm::GlobalVariable(
                     module,
                     strConstant->getType(),
                     true,  // isConstant
@@ -651,14 +652,14 @@ llvm::Value* MIRToLLVM::getValue(const MIR::Value& value) {
 }
 
 llvm::Type* MIRToLLVM::getLLVMType(const Type::Type* type) {
-    if (!type) {
+    if (type == nullptr) {
         // Null type - return void type as fallback
         return llvm::Type::getVoidTy(context);
     }
 
     switch (type->kind) {
         case Type::TypeKind::Primitive: {
-            const auto* primType = static_cast<const Type::PrimitiveType*>(type);
+            const auto* primType = dynamic_cast<const Type::PrimitiveType*>(type);
             switch (primType->kind) {
                 // Signed integers
                 case Type::PrimitiveKind::I8:
@@ -701,19 +702,19 @@ llvm::Type* MIRToLLVM::getLLVMType(const Type::Type* type) {
         }
 
         case Type::TypeKind::Array: {
-            const auto* arrType = static_cast<const Type::ArrayType*>(type);
+            const auto* arrType = dynamic_cast<const Type::ArrayType*>(type);
             auto* elemType = getLLVMType(arrType->elementType);
             return llvm::ArrayType::get(elemType, arrType->size);
         }
 
         case Type::TypeKind::Pointer: {
-            const auto* ptrType = static_cast<const Type::PointerType*>(type);
+            const auto* ptrType = dynamic_cast<const Type::PointerType*>(type);
             auto* pointeeType = getLLVMType(ptrType->pointeeType);
             return llvm::PointerType::get(pointeeType, 0);
         }
 
         case Type::TypeKind::Struct: {
-            const auto* structType = static_cast<const Type::StructType*>(type);
+            const auto* structType = dynamic_cast<const Type::StructType*>(type);
 
             // Check if we've already created this struct type
             auto it = structTypeMap.find(structType->name);
@@ -723,7 +724,8 @@ llvm::Type* MIRToLLVM::getLLVMType(const Type::Type* type) {
 
             // Create LLVM struct type with field types
             std::vector<llvm::Type*> fieldTypes;
-            for (const auto& field : structType->fields) {
+            fieldTypes.reserve(structType->fields.size());
+for (const auto& field : structType->fields) {
                 fieldTypes.push_back(getLLVMType(field.type));
             }
 

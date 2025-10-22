@@ -1,5 +1,6 @@
 #include "MIR/MIR.hpp"
 #include <sstream>
+#include <utility>
 
 namespace MIR {
 
@@ -62,15 +63,15 @@ static std::string opcodeToString(Opcode opcode) {
 
 
 Value Value::makeLocal(const std::string& name, const Type::Type* type) {
-    return Value(ValueKind::Local, name, type);
+    return {ValueKind::Local, name, type};
 }
 
 Value Value::makeParam(const std::string& name, const Type::Type* type) {
-    return Value(ValueKind::Param, name, type);
+    return {ValueKind::Param, name, type};
 }
 
 Value Value::makeGlobal(const std::string& name, const Type::Type* type) {
-    return Value(ValueKind::Global, name, type);
+    return {ValueKind::Global, name, type};
 }
 
 Value Value::makeConstantInt(int64_t value, const Type::Type* type) {
@@ -115,16 +116,21 @@ std::string Value::toString() const {
         case ValueKind::Global:
             return "@" + name;
         case ValueKind::Constant:
-            if (constantNull.has_value() && constantNull.value())
+            if (constantNull.has_value() && constantNull.value()) {
                 return "null";
-            if (constantInt.has_value())
+        }
+            if (constantInt.has_value()) {
                 return std::to_string(constantInt.value());
-            if (constantBool.has_value())
+        }
+            if (constantBool.has_value()) {
                 return constantBool.value() ? "true" : "false";
-            if (constantFloat.has_value())
+        }
+            if (constantFloat.has_value()) {
                 return std::to_string(constantFloat.value());
-            if (constantString.has_value())
+        }
+            if (constantString.has_value()) {
                 return "\"" + constantString.value() + "\"";
+        }
     }
     return "";
 }
@@ -188,37 +194,43 @@ Terminator Terminator::makeCondBranch(const Value& condition,
 std::string Terminator::toString() const {
     switch (kind) {
         case TerminatorKind::Return:
-            if (operands.empty())
+            if (operands.empty()) {
                 return "ret void";
-            else
+            } else {
                 return "ret " + operands[0].toString();
+}
 
         case TerminatorKind::Branch:
-            if (!targets.empty())
+            if (!targets.empty()) {
                 return "br label %" + targets[0];
+}
             return "br <invalid>";
 
         case TerminatorKind::CondBranch:
-            if (operands.size() == 1 && targets.size() == 2)
+            if (operands.size() == 1 && targets.size() == 2) {
                 return "condbr " + operands[0].toString() +
                        ", label %" + targets[0] +
                        ", label %" + targets[1];
+}
             return "condbr <invalid>";
 
         case TerminatorKind::Switch: {
             std::string s = "switch ";
-            if (operands.empty())
+            if (operands.empty()) {
                 return "switch <invalid>";
+}
             s += operands[0].toString() + ", ";
-            if (targets.empty())
+            if (targets.empty()) {
                 return s + "<invalid>";
+}
             s += "label %" + targets[0];
             if (targets.size() > 1) {
                 s += ", [";
                 for (size_t i = 1; i + 1 < targets.size(); i += 2) {
                     s += operands[i / 2 + 1].toString() + " %" + targets[i];
-                    if (i + 2 < targets.size())
+                    if (i + 2 < targets.size()) {
                         s += ", ";
+}
                 }
                 s += "]";
             }
@@ -232,7 +244,7 @@ std::string Terminator::toString() const {
 }
 
 
-void BasicBlock::addInstruction(Instruction inst) {
+void BasicBlock::addInstruction(const Instruction& inst) {
     instructions.push_back(inst);
 }
 
@@ -240,7 +252,7 @@ void BasicBlock::setTerminator(Terminator term) {
     if (termSet) {  // Fix: was !termSet, should be termSet
         throw std::runtime_error("Tried to set terminator twice for basic block " + label);
     }
-    terminator = term;
+    terminator = std::move(term);
     termSet = true;
 }
 
@@ -248,7 +260,7 @@ std::string BasicBlock::toString() const {
     std::stringstream oss;
 
     oss << label;
-    for (auto instr : instructions) {
+    for (const auto& instr : instructions) {
         oss << instr.toString();
     }
     oss << terminator.toString();
@@ -257,7 +269,7 @@ std::string BasicBlock::toString() const {
 }
 
 
-void Function::addBlock(BasicBlock block) {
+void Function::addBlock(const BasicBlock& block) {
     blocks.push_back(block);
 }
 
@@ -299,7 +311,7 @@ std::string Function::toString() const {
     return ss.str();
 }
 
-void Program::addFunction(Function func) {
+void Program::addFunction(const Function& func) {
     functions.push_back(func);
 }
 
@@ -315,7 +327,7 @@ Function* Program::getFunction(const std::string& name) {
 std::string Program::toString() const {
     std::stringstream oss;
 
-    for (auto func : functions) {
+    for (const auto& func : functions) {
         oss << func.toString();
         oss << "\n";
     }

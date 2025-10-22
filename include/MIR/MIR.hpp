@@ -2,6 +2,8 @@
 
 #include "Type/Type.hpp"
 #include <string>
+#include <utility>
+#include <utility>
 #include <vector>
 #include <memory>
 #include <optional>
@@ -25,7 +27,7 @@ enum class ValueKind {
 struct Value {
     ValueKind kind;
     std::string name;           // e.g., "result", "temp1", "0" for constants
-    const Type::Type* type;     // Type from TypeRegistry
+    const Type::Type* type{};     // Type from TypeRegistry
 
     // For constants: the actual value
     std::optional<int64_t> constantInt;
@@ -36,7 +38,7 @@ struct Value {
 
     Value() = default;
     Value(ValueKind k, std::string n, const Type::Type* t)
-        : kind(k), name(n), type(t) {}
+        : kind(k), name(std::move(std::move(n))), type(t) {}
 
     // Factory methods for creating different value types
     static Value makeLocal(const std::string& name, const Type::Type* type);
@@ -49,10 +51,10 @@ struct Value {
     static Value makeConstantNull(const Type::Type* ptrType);
 
     // Get string representation: "%result", "@main", "42", etc.
-    std::string toString() const;
+    [[nodiscard]] std::string toString() const;
 
-    bool isConstant() const { return kind == ValueKind::Constant; }
-    bool isLocal() const { return kind == ValueKind::Local; }
+    [[nodiscard]] bool isConstant() const { return kind == ValueKind::Constant; }
+    [[nodiscard]] bool isLocal() const { return kind == ValueKind::Local; }
 };
 
 // Instructions are operations that produce values.
@@ -149,10 +151,10 @@ struct Instruction {
 
     Instruction() = default;
     Instruction(Opcode op, Value res, std::vector<Value> ops)
-        : opcode(op), result(res), operands(std::move(ops)) {}
+        : opcode(op), result(std::move(std::move(res))), operands(std::move(ops)) {}
 
     // Get string representation: "%result = iadd %a, %b"
-    std::string toString() const;
+    [[nodiscard]] std::string toString() const;
 };
 
 // Terminators end basic blocks and transfer control.
@@ -182,7 +184,7 @@ struct Terminator {
                                       const std::string& falseTarget);
 
     // Get string representation: "ret %value", "br label %block1", etc.
-    std::string toString() const;
+    [[nodiscard]] std::string toString() const;
 };
 
 // A basic block is a sequence of instructions with a single entry point (start)
@@ -197,16 +199,16 @@ struct BasicBlock {
     explicit BasicBlock(std::string lbl) : label(std::move(lbl)) {}
 
     // Add an instruction to this block
-    void addInstruction(Instruction inst);
+    void addInstruction(const Instruction& inst);
 
     // Set the terminator (should only be called once per block)
     void setTerminator(Terminator term);
 
     // Check if this block has a terminator
-    bool hasTerminator() const { return termSet; }
+    [[nodiscard]] bool hasTerminator() const { return termSet; }
 
     // Get string representation of the entire block
-    std::string toString() const;
+    [[nodiscard]] std::string toString() const;
 private:
     bool termSet = false;
 };
@@ -225,13 +227,13 @@ struct Function {
         : name(std::move(n)), params(std::move(p)), returnType(ret) {}
 
     // Add a basic block to this function
-    void addBlock(BasicBlock block);
+    void addBlock(const BasicBlock& block);
 
     // Get a block by label (returns nullptr if not found)
     BasicBlock* getBlock(const std::string& label);
 
     // Get string representation of the entire function
-    std::string toString() const;
+    [[nodiscard]] std::string toString() const;
 };
 
 // The top-level MIR structure containing all functions.
@@ -240,13 +242,13 @@ struct Program {
     std::vector<Function> functions;    // All functions in the program
 
     // Add a function to the program
-    void addFunction(Function func);
+    void addFunction(const Function& func);
 
     // Get a function by name (returns nullptr if not found)
     Function* getFunction(const std::string& name);
 
     // Get string representation of the entire program
-    std::string toString() const;
+    [[nodiscard]] std::string toString() const;
 };
 
 } // namespace MIR

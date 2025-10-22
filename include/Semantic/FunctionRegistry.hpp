@@ -5,6 +5,7 @@
 #include "SymbolTable.hpp"
 #include "Type/TypeRegistry.hpp"
 #include <string>
+#include <utility>
 #include <vector>
 #include <unordered_map>
 
@@ -13,24 +14,24 @@ namespace Semantic {
 // Extended function signature with module information
 struct GlobalFunctionSignature {
     std::string name;
-    std::vector<FunctionParameter> parameters{};
+    std::vector<FunctionParameter> parameters;
     const Type::Type* return_type;
     std::string moduleName;  // Which module this function is defined in
     bool isExtern;           // Whether this is an extern function
 
-    GlobalFunctionSignature(const std::string& name,
+    GlobalFunctionSignature(std::string  name,
                            const std::vector<FunctionParameter>& params,
                            const Type::Type* returnType,
-                           const std::string& moduleName,
+                           std::string  moduleName,
                            bool isExtern = false)
-        : name(name), parameters(params), return_type(returnType), moduleName(moduleName), isExtern(isExtern) {}
+        : name(std::move(name)), parameters(params), return_type(returnType), moduleName(std::move(moduleName)), isExtern(isExtern) {}
 };
 
 // Registry of all functions across all modules
 class FunctionRegistry {
 private:
     // Map: function name -> list of signatures (handles overloading in future)
-    std::unordered_map<std::string, std::vector<GlobalFunctionSignature>> functions{};
+    std::unordered_map<std::string, std::vector<GlobalFunctionSignature>> functions;
 
 public:
     // Add a function signature to the registry

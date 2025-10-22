@@ -18,6 +18,7 @@
 #include <sstream>
 #include <iostream>
 #include <algorithm>
+#include <utility>
 
 namespace fs = std::filesystem;
 
@@ -26,8 +27,8 @@ static std::string readFileToString(const std::string& path) {
     std::ifstream file(path, std::ios::in | std::ios::binary);
     if (!file)
         throw std::runtime_error("Failed to open file: " + path);
-    return std::string((std::istreambuf_iterator<char>(file)),
-                       std::istreambuf_iterator<char>());
+    return {(std::istreambuf_iterator<char>(file)),
+                       std::istreambuf_iterator<char>()};
 }
 
 static bool fileExists(const std::string& filepath) {
@@ -35,8 +36,8 @@ static bool fileExists(const std::string& filepath) {
 }
 
 
-CompilerDriver::CompilerDriver(const CompilerOptions& opts)
-    : opts(opts), diag(), typeRegistry() {}
+CompilerDriver::CompilerDriver(CompilerOptions  opts)
+    : opts(std::move(opts)), diag(), typeRegistry() {}
 
 
 int CompilerDriver::compile() {
@@ -219,7 +220,7 @@ bool CompilerDriver::parseAllFiles(const std::vector<std::string>& files) {
         auto tokens = lexer.tokenize();
 
         if (diag.hasErrors()) {
-            diag.printAll(std::cerr, file.c_str());
+            diag.printAll(std::cerr, file);
             return false;
         }
 
@@ -235,7 +236,7 @@ bool CompilerDriver::parseAllFiles(const std::vector<std::string>& files) {
         auto ast = parser.parseProgram();
 
         if (diag.hasErrors()) {
-            diag.printAll(std::cerr, file.c_str());
+            diag.printAll(std::cerr, file);
             return false;
         }
 
@@ -272,7 +273,7 @@ bool CompilerDriver::resolveImports(Semantic::ExportTable& exportTable) {
     std::vector<std::pair<std::string, const Program*>> unitPairs;
     for (const auto& unit : units) {
         std::string moduleName = Semantic::fileToModule(unit.sourceFile);
-        unitPairs.push_back({moduleName, unit.ast.get()});
+        unitPairs.emplace_back(moduleName, unit.ast.get());
     }
 
     if (!Semantic::validateImports(unitPairs, exportTable, diag)) {
@@ -363,7 +364,7 @@ std::vector<std::unique_ptr<Semantic::SemanticAnalyzer>> CompilerDriver::perform
         analyzer->analyzeProgram(unit.hir);
 
         if (diag.hasErrors()) {
-            diag.printAll(std::cerr, unit.sourceFile.c_str());
+            diag.printAll(std::cerr, unit.sourceFile);
             return {};  // Return empty vector on error
         }
 
@@ -384,7 +385,7 @@ bool CompilerDriver::lowerToMIR(const std::vector<std::unique_ptr<Semantic::Sema
         unit.mir = mirLowering.lower(unit.hir);
 
         if (diag.hasErrors()) {
-            diag.printAll(std::cerr, unit.sourceFile.c_str());
+            diag.printAll(std::cerr, unit.sourceFile);
             return false;
         }
 

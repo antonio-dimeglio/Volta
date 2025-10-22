@@ -47,10 +47,10 @@ public:
     void setInsertionPoint(const std::string& blockLabel);
 
     // Get the current block label (useful for creating branch targets)
-    std::string getCurrentBlockLabel() const;
+    [[nodiscard]] std::string getCurrentBlockLabel() const;
 
     // Check if the current block has a terminator
-    bool currentBlockTerminated() const;
+    [[nodiscard]] bool currentBlockTerminated() const;
 
     // Generate a fresh SSA value name: %0, %1, %2, etc.
     Value createTemporary(const Type::Type* type);
@@ -158,10 +158,10 @@ public:
 
     // Look up a variable by name
     // Returns the associated MIR value
-    Value getVariable(const std::string& name) const;
+    [[nodiscard]] Value getVariable(const std::string& name) const;
 
     // Check if a variable exists
-    bool hasVariable(const std::string& name) const;
+    [[nodiscard]] bool hasVariable(const std::string& name) const;
 
     // Clear the symbol table (useful between functions)
     void clearSymbolTable();
@@ -170,7 +170,7 @@ public:
     Program& getProgram() { return program; }
 
     // Get the current function being built
-    Function* getCurrentFunction() const { return currentFunction; }
+    [[nodiscard]] Function* getCurrentFunction() const { return currentFunction; }
 };
 
 } // namespace MIR

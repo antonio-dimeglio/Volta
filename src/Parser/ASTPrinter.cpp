@@ -13,12 +13,12 @@ class ASTPrinterVisitor : public RecursiveASTVisitor {
     int indentLevel = 0;
     const int indentSize = 2;
 
-    std::string getIndent() const {
-        return std::string(indentLevel * indentSize, ' ');
+    [[nodiscard]] std::string getIndent() const {
+        return std::string(static_cast<size_t>(indentLevel * indentSize), ' ');
     }
 
     void printType(const Type::Type* type) {
-        if (type) {
+        if (type != nullptr) {
             out << type->toString();
         } else {
             out << "<no type>";
@@ -40,10 +40,11 @@ public:
     // Statement visitors
     void visitVarDecl(VarDecl& node) override {
         out << getIndent() << "VarDecl: ";
-        if (node.mutable_) out << "mut ";
+        if (node.mutable_) { out << "mut ";
+}
         out << node.name.lexeme;
 
-        if (node.typeAnnotation) {
+        if (node.typeAnnotation != nullptr) {
             out << " : ";
             printType(node.typeAnnotation);
         }
@@ -57,7 +58,8 @@ public:
         out << getIndent() << "FnDecl: " << node.name << "(";
 
         for (size_t i = 0; i < node.params.size(); ++i) {
-            if (i > 0) out << ", ";
+            if (i > 0) { out << ", ";
+}
             out << node.params[i].toString();
         }
 
@@ -77,13 +79,15 @@ public:
 
     void visitStructDecl(StructDecl& node) override {
         out << getIndent();
-        if (node.isPublic) out << "pub ";
+        if (node.isPublic) { out << "pub ";
+}
         out << "struct " << node.name.lexeme << " {\n";
 
         indentLevel++;
         for (const auto& field : node.fields) {
             out << getIndent();
-            if (field.isPublic) out << "pub ";
+            if (field.isPublic) { out << "pub ";
+}
             out << field.name.lexeme << ": ";
             printType(field.type);
             out << "\n";
@@ -92,10 +96,12 @@ public:
         // Print methods
         for (const auto& method : node.methods) {
             out << "\n" << getIndent();
-            if (method->isPublic) out << "pub ";
+            if (method->isPublic) { out << "pub ";
+}
             out << "fn " << method->name << "(";
             for (size_t i = 0; i < method->params.size(); i++) {
-                if (i > 0) out << ", ";
+                if (i > 0) { out << ", ";
+}
                 out << method->params[i].name << ": ";
                 printType(method->params[i].type);
             }
@@ -200,7 +206,8 @@ public:
         for (auto& fn : node.declarations) {
             out << getIndent() << "ExternFnDecl: " << fn->name << "(";
             for (size_t i = 0; i < fn->params.size(); ++i) {
-                if (i > 0) out << ", ";
+                if (i > 0) { out << ", ";
+}
                 out << fn->params[i].toString();
             }
 
@@ -218,7 +225,8 @@ public:
         if (!node.importedItems.empty()) {
             out << " {";
             for (size_t i = 0; i < node.importedItems.size(); ++i) {
-                if (i > 0) out << ", ";
+                if (i > 0) { out << ", ";
+}
                 out << node.importedItems[i];
             }
             out << "}";
@@ -228,72 +236,76 @@ public:
 };
 
 std::string ASTPrinterVisitor::exprToString(const Expr* expr) {
-    if (auto* fnCall = dynamic_cast<const FnCall*>(expr)) {
+    if (const auto* fnCall = dynamic_cast<const FnCall*>(expr)) {
         std::ostringstream oss;
         oss << fnCall->name << "(";
         for (size_t i = 0; i < fnCall->args.size(); ++i) {
-            if (i > 0) oss << ", ";
+            if (i > 0) { oss << ", ";
+}
             oss << exprToString(fnCall->args[i].get());
         }
         oss << ")";
         return oss.str();
-    } else if (auto* binExpr = dynamic_cast<const BinaryExpr*>(expr)) {
+    } else if (const auto* binExpr = dynamic_cast<const BinaryExpr*>(expr)) {
         std::ostringstream oss;
         oss << "(" << exprToString(binExpr->lhs.get())
             << " " << tokenTypeToString(binExpr->op)
             << " " << exprToString(binExpr->rhs.get()) << ")";
         return oss.str();
-    } else if (auto* unExpr = dynamic_cast<const UnaryExpr*>(expr)) {
+    } else if (const auto* unExpr = dynamic_cast<const UnaryExpr*>(expr)) {
         std::ostringstream oss;
         oss << "(" << tokenTypeToString(unExpr->op) << " " << exprToString(unExpr->operand.get()) << ")";
         return oss.str();
-    } else if (auto* lit = dynamic_cast<const Literal*>(expr)) {
+    } else if (const auto* lit = dynamic_cast<const Literal*>(expr)) {
         return lit->token.lexeme;
-    } else if (auto* var = dynamic_cast<const Variable*>(expr)) {
+    } else if (const auto* var = dynamic_cast<const Variable*>(expr)) {
         return var->token.lexeme;
-    } else if (auto* assign = dynamic_cast<const Assignment*>(expr)) {
+    } else if (const auto* assign = dynamic_cast<const Assignment*>(expr)) {
         return exprToString(assign->lhs.get()) + " = " + exprToString(assign->value.get());
-    } else if (auto* group = dynamic_cast<const GroupingExpr*>(expr)) {
+    } else if (const auto* group = dynamic_cast<const GroupingExpr*>(expr)) {
         return "(" + exprToString(group->expr.get()) + ")";
-    } else if (auto* arr = dynamic_cast<const ArrayLiteral*>(expr)) {
+    } else if (const auto* arr = dynamic_cast<const ArrayLiteral*>(expr)) {
         std::ostringstream oss;
         if (arr->repeat_value) {
             oss << "[" << exprToString(arr->repeat_value.get()) << "; " << *arr->repeat_count << "]";
         } else {
             oss << "[";
             for (size_t i = 0; i < arr->elements.size(); ++i) {
-                if (i > 0) oss << ", ";
+                if (i > 0) { oss << ", ";
+}
                 oss << exprToString(arr->elements[i].get());
             }
             oss << "]";
         }
         return oss.str();
-    } else if (auto* idx = dynamic_cast<const IndexExpr*>(expr)) {
+    } else if (const auto* idx = dynamic_cast<const IndexExpr*>(expr)) {
         return exprToString(idx->array.get()) + "[" + exprToString(idx->index.get()) + "]";
-    } else if (auto* compAssign = dynamic_cast<const CompoundAssign*>(expr)) {
+    } else if (const auto* compAssign = dynamic_cast<const CompoundAssign*>(expr)) {
         return compAssign->var->token.lexeme + " " + tokenTypeToString(compAssign->op) + " " + exprToString(compAssign->value.get());
-    } else if (auto* inc = dynamic_cast<const Increment*>(expr)) {
+    } else if (const auto* inc = dynamic_cast<const Increment*>(expr)) {
         return inc->var->token.lexeme + "++";
-    } else if (auto* dec = dynamic_cast<const Decrement*>(expr)) {
+    } else if (const auto* dec = dynamic_cast<const Decrement*>(expr)) {
         return dec->var->token.lexeme + "--";
-    } else if (auto* range = dynamic_cast<const Range*>(expr)) {
+    } else if (const auto* range = dynamic_cast<const Range*>(expr)) {
         return rangeToString(range);
-    } else if (auto* addrOf = dynamic_cast<const AddrOf*>(expr)) {
+    } else if (const auto* addrOf = dynamic_cast<const AddrOf*>(expr)) {
         return "ptr " + exprToString(addrOf->operand.get());
-    } else if (auto* staticCall = dynamic_cast<const StaticMethodCall*>(expr)) {
+    } else if (const auto* staticCall = dynamic_cast<const StaticMethodCall*>(expr)) {
         std::ostringstream oss;
         oss << staticCall->typeName.lexeme << "::" << staticCall->methodName.lexeme << "(";
         for (size_t i = 0; i < staticCall->args.size(); ++i) {
-            if (i > 0) oss << ", ";
+            if (i > 0) { oss << ", ";
+}
             oss << exprToString(staticCall->args[i].get());
         }
         oss << ")";
         return oss.str();
-    } else if (auto* instanceCall = dynamic_cast<const InstanceMethodCall*>(expr)) {
+    } else if (const auto* instanceCall = dynamic_cast<const InstanceMethodCall*>(expr)) {
         std::ostringstream oss;
         oss << exprToString(instanceCall->object.get()) << "." << instanceCall->methodName.lexeme << "(";
         for (size_t i = 0; i < instanceCall->args.size(); ++i) {
-            if (i > 0) oss << ", ";
+            if (i > 0) { oss << ", ";
+}
             oss << exprToString(instanceCall->args[i].get());
         }
         oss << ")";
@@ -315,12 +327,12 @@ std::string exprToStringForHIR(const Expr* expr);
 void printHIRNodeHelper(const HIR::HIRStmt* stmt, std::ostream& os, int indent) {
     std::string indentStr(indent * 2, ' ');
 
-    if (auto* hirRet = dynamic_cast<const HIR::HIRReturnStmt*>(stmt)) {
+    if (const auto* hirRet = dynamic_cast<const HIR::HIRReturnStmt*>(stmt)) {
         os << indentStr << "HIRReturn";
         if (hirRet->value) {
             os << ": " << exprToStringForHIR(hirRet->value.get());
         }
-    } else if (auto* hirIf = dynamic_cast<const HIR::HIRIfStmt*>(stmt)) {
+    } else if (const auto* hirIf = dynamic_cast<const HIR::HIRIfStmt*>(stmt)) {
         os << indentStr << "HIRIf: " << exprToStringForHIR(hirIf->condition.get()) << "\n";
         os << indentStr << "Then:\n";
         for (const auto& s : hirIf->thenBody) {
@@ -334,7 +346,7 @@ void printHIRNodeHelper(const HIR::HIRStmt* stmt, std::ostream& os, int indent) 
                 os << "\n";
             }
         }
-    } else if (auto* hirWhile = dynamic_cast<const HIR::HIRWhileStmt*>(stmt)) {
+    } else if (const auto* hirWhile = dynamic_cast<const HIR::HIRWhileStmt*>(stmt)) {
         os << indentStr << "HIRWhile: " << exprToStringForHIR(hirWhile->condition.get()) << "\n";
         os << indentStr << "{\n";
         for (const auto& s : hirWhile->body) {
@@ -345,7 +357,7 @@ void printHIRNodeHelper(const HIR::HIRStmt* stmt, std::ostream& os, int indent) 
             os << indentStr << "  [increment: " << exprToStringForHIR(hirWhile->increment.get()) << "]\n";
         }
         os << indentStr << "}";
-    } else if (auto* hirBlock = dynamic_cast<const HIR::HIRBlockStmt*>(stmt)) {
+    } else if (const auto* hirBlock = dynamic_cast<const HIR::HIRBlockStmt*>(stmt)) {
         os << indentStr << "HIRBlock:\n";
         os << indentStr << "{\n";
         for (const auto& s : hirBlock->statements) {
@@ -353,22 +365,23 @@ void printHIRNodeHelper(const HIR::HIRStmt* stmt, std::ostream& os, int indent) 
             os << "\n";
         }
         os << indentStr << "}";
-    } else if (auto* hirExpr = dynamic_cast<const HIR::HIRExprStmt*>(stmt)) {
+    } else if (const auto* hirExpr = dynamic_cast<const HIR::HIRExprStmt*>(stmt)) {
         os << indentStr << "HIRExprStmt: " << exprToStringForHIR(hirExpr->expr.get());
-    } else if (auto* hirVarDecl = dynamic_cast<const HIR::HIRVarDecl*>(stmt)) {
+    } else if (const auto* hirVarDecl = dynamic_cast<const HIR::HIRVarDecl*>(stmt)) {
         os << indentStr << "HIRVarDecl: " << hirVarDecl->name.lexeme;
-        if (hirVarDecl->typeAnnotation) {
+        if (hirVarDecl->typeAnnotation != nullptr) {
             os << " : " << hirVarDecl->typeAnnotation->toString();
         }
         os << " = " << exprToStringForHIR(hirVarDecl->initValue.get());
-    } else if (auto* hirFnDecl = dynamic_cast<const HIR::HIRFnDecl*>(stmt)) {
+    } else if (const auto* hirFnDecl = dynamic_cast<const HIR::HIRFnDecl*>(stmt)) {
         os << indentStr << "HIRFnDecl: " << hirFnDecl->name << "(";
         for (size_t i = 0; i < hirFnDecl->params.size(); i++) {
-            if (i > 0) os << ", ";
+            if (i > 0) { os << ", ";
+}
             os << hirFnDecl->params[i].name << ": " << hirFnDecl->params[i].type->toString();
         }
         os << ") -> ";
-        if (hirFnDecl->returnType) {
+        if (hirFnDecl->returnType != nullptr) {
             os << hirFnDecl->returnType->toString();
         } else {
             os << "void";
@@ -379,21 +392,22 @@ void printHIRNodeHelper(const HIR::HIRStmt* stmt, std::ostream& os, int indent) 
             os << "\n";
         }
         os << indentStr << "}";
-    } else if (auto* hirExternBlock = dynamic_cast<const HIR::HIRExternBlock*>(stmt)) {
+    } else if (const auto* hirExternBlock = dynamic_cast<const HIR::HIRExternBlock*>(stmt)) {
         os << indentStr << "HIRExternBlock:\n";
         for (const auto& fn : hirExternBlock->declarations) {
             printHIRNodeHelper(fn.get(), os, indent + 1);
             os << "\n";
         }
-    } else if (auto* hirImport = dynamic_cast<const HIR::HIRImportStmt*>(stmt)) {
+    } else if (const auto* hirImport = dynamic_cast<const HIR::HIRImportStmt*>(stmt)) {
         os << indentStr << "HIRImport from " << hirImport->modulePath << ": ";
         for (size_t i = 0; i < hirImport->symbols.size(); i++) {
-            if (i > 0) os << ", ";
+            if (i > 0) { os << ", ";
+}
             os << hirImport->symbols[i];
         }
-    } else if (dynamic_cast<const HIR::HIRBreakStmt*>(stmt)) {
+    } else if (dynamic_cast<const HIR::HIRBreakStmt*>(stmt) != nullptr) {
         os << indentStr << "HIRBreak";
-    } else if (dynamic_cast<const HIR::HIRContinueStmt*>(stmt)) {
+    } else if (dynamic_cast<const HIR::HIRContinueStmt*>(stmt) != nullptr) {
         os << indentStr << "HIRContinue";
     } else {
         os << indentStr << "Unknown HIR node";
@@ -402,49 +416,51 @@ void printHIRNodeHelper(const HIR::HIRStmt* stmt, std::ostream& os, int indent) 
 
 // Standalone expression printer for HIR (copy of the one in ASTPrinterVisitor)
 std::string exprToStringForHIR(const Expr* expr) {
-    if (auto* fnCall = dynamic_cast<const FnCall*>(expr)) {
+    if (const auto* fnCall = dynamic_cast<const FnCall*>(expr)) {
         std::ostringstream oss;
         oss << fnCall->name << "(";
         for (size_t i = 0; i < fnCall->args.size(); ++i) {
-            if (i > 0) oss << ", ";
+            if (i > 0) { oss << ", ";
+}
             oss << exprToStringForHIR(fnCall->args[i].get());
         }
         oss << ")";
         return oss.str();
-    } else if (auto* binExpr = dynamic_cast<const BinaryExpr*>(expr)) {
+    } else if (const auto* binExpr = dynamic_cast<const BinaryExpr*>(expr)) {
         std::ostringstream oss;
         oss << "(" << exprToStringForHIR(binExpr->lhs.get())
             << " " << tokenTypeToString(binExpr->op)
             << " " << exprToStringForHIR(binExpr->rhs.get()) << ")";
         return oss.str();
-    } else if (auto* unExpr = dynamic_cast<const UnaryExpr*>(expr)) {
+    } else if (const auto* unExpr = dynamic_cast<const UnaryExpr*>(expr)) {
         std::ostringstream oss;
         oss << "(" << tokenTypeToString(unExpr->op) << " " << exprToStringForHIR(unExpr->operand.get()) << ")";
         return oss.str();
-    } else if (auto* lit = dynamic_cast<const Literal*>(expr)) {
+    } else if (const auto* lit = dynamic_cast<const Literal*>(expr)) {
         return lit->token.lexeme;
-    } else if (auto* var = dynamic_cast<const Variable*>(expr)) {
+    } else if (const auto* var = dynamic_cast<const Variable*>(expr)) {
         return var->token.lexeme;
-    } else if (auto* assign = dynamic_cast<const Assignment*>(expr)) {
+    } else if (const auto* assign = dynamic_cast<const Assignment*>(expr)) {
         return exprToStringForHIR(assign->lhs.get()) + " = " + exprToStringForHIR(assign->value.get());
-    } else if (auto* group = dynamic_cast<const GroupingExpr*>(expr)) {
+    } else if (const auto* group = dynamic_cast<const GroupingExpr*>(expr)) {
         return "(" + exprToStringForHIR(group->expr.get()) + ")";
-    } else if (auto* arr = dynamic_cast<const ArrayLiteral*>(expr)) {
+    } else if (const auto* arr = dynamic_cast<const ArrayLiteral*>(expr)) {
         std::ostringstream oss;
         if (arr->repeat_value) {
             oss << "[" << exprToStringForHIR(arr->repeat_value.get()) << "; " << *arr->repeat_count << "]";
         } else {
             oss << "[";
             for (size_t i = 0; i < arr->elements.size(); ++i) {
-                if (i > 0) oss << ", ";
+                if (i > 0) { oss << ", ";
+}
                 oss << exprToStringForHIR(arr->elements[i].get());
             }
             oss << "]";
         }
         return oss.str();
-    } else if (auto* idx = dynamic_cast<const IndexExpr*>(expr)) {
+    } else if (const auto* idx = dynamic_cast<const IndexExpr*>(expr)) {
         return exprToStringForHIR(idx->array.get()) + "[" + exprToStringForHIR(idx->index.get()) + "]";
-    } else if (auto* addrOf = dynamic_cast<const AddrOf*>(expr)) {
+    } else if (const auto* addrOf = dynamic_cast<const AddrOf*>(expr)) {
         return "ptr " + exprToStringForHIR(addrOf->operand.get());
     }
 

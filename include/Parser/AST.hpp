@@ -1,6 +1,8 @@
 #pragma once
 
 #include <string>
+#include <utility>
+#include <utility>
 #include <vector>
 #include <memory>
 #include <optional>
@@ -46,10 +48,10 @@ struct Stmt : ASTNode {
 
 struct FnCall : Expr {
     std::string name;
-    std::vector<std::unique_ptr<Expr>> args{};
+    std::vector<std::unique_ptr<Expr>> args;
 
-    FnCall(const std::string& name, std::vector<std::unique_ptr<Expr>> args, int line = 0, int column = 0)
-        : Expr(line, column), name(name), args(std::move(args)) {}
+    FnCall(std::string  name, std::vector<std::unique_ptr<Expr>> args, int line = 0, int column = 0)
+        : Expr(line, column), name(std::move(name)), args(std::move(args)) {}
 
     [[nodiscard]] std::string toString() const override;
 
@@ -66,10 +68,10 @@ struct FnCall : Expr {
 struct StaticMethodCall : Expr {
     Token typeName;       // The type name (e.g., "Point")
     Token methodName;     // The method name (e.g., "new")
-    std::vector<std::unique_ptr<Expr>> args{};
+    std::vector<std::unique_ptr<Expr>> args;
 
     StaticMethodCall(Token type, Token method, std::vector<std::unique_ptr<Expr>> args, int line = 0, int column = 0)
-        : Expr(line, column), typeName(type), methodName(method), args(std::move(args)) {}
+        : Expr(line, column), typeName(std::move(std::move(type))), methodName(std::move(std::move(method))), args(std::move(args)) {}
 
     [[nodiscard]] std::string toString() const override;
 
@@ -84,12 +86,12 @@ struct StaticMethodCall : Expr {
 
 // Instance method call: object.method(args) - when method has parentheses
 struct InstanceMethodCall : Expr {
-    std::unique_ptr<Expr> object{};     // The object expression
+    std::unique_ptr<Expr> object;     // The object expression
     Token methodName;                 // The method name
-    std::vector<std::unique_ptr<Expr>> args{};
+    std::vector<std::unique_ptr<Expr>> args;
 
     InstanceMethodCall(std::unique_ptr<Expr> obj, Token method, std::vector<std::unique_ptr<Expr>> args, int line = 0, int column = 0)
-        : Expr(line, column), object(std::move(obj)), methodName(method), args(std::move(args)) {}
+        : Expr(line, column), object(std::move(obj)), methodName(std::move(std::move(method))), args(std::move(args)) {}
 
     [[nodiscard]] std::string toString() const override;
 
@@ -103,8 +105,8 @@ struct InstanceMethodCall : Expr {
 };
 
 struct BinaryExpr : Expr {
-    std::unique_ptr<Expr> lhs{};
-    std::unique_ptr<Expr> rhs{};
+    std::unique_ptr<Expr> lhs;
+    std::unique_ptr<Expr> rhs;
     TokenType op;
 
     BinaryExpr(std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs, TokenType op, int line = 0, int column = 0)
@@ -122,7 +124,7 @@ struct BinaryExpr : Expr {
 };
 
 struct UnaryExpr : Expr {
-    std::unique_ptr<Expr> operand{};
+    std::unique_ptr<Expr> operand;
     TokenType op;
 
     UnaryExpr(std::unique_ptr<Expr> operand, TokenType op, int line = 0, int column = 0)
@@ -172,8 +174,8 @@ struct Variable : Expr {
 };
 
 struct Assignment : Expr {
-    std::unique_ptr<Expr> lhs{};
-    std::unique_ptr<Expr> value{};
+    std::unique_ptr<Expr> lhs;
+    std::unique_ptr<Expr> value;
 
     Assignment(std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> value, int line = 0, int column = 0)
         : Expr(line, column), lhs(std::move(lhs)), value(std::move(value)) {}
@@ -190,7 +192,7 @@ struct Assignment : Expr {
 };
 
 struct GroupingExpr : Expr {
-    std::unique_ptr<Expr> expr{};
+    std::unique_ptr<Expr> expr;
 
     explicit GroupingExpr(std::unique_ptr<Expr> expr, int line = 0, int column = 0)
         : Expr(line, column), expr(std::move(expr)) {}
@@ -207,15 +209,15 @@ struct GroupingExpr : Expr {
 };
 
 struct ArrayLiteral : Expr {
-    std::vector<std::unique_ptr<Expr>> elements{};
-    std::unique_ptr<Expr> repeat_value{};
+    std::vector<std::unique_ptr<Expr>> elements;
+    std::unique_ptr<Expr> repeat_value;
     std::optional<int> repeat_count;
-    std::vector<int> array_dimensions{};
+    std::vector<int> array_dimensions;
     explicit ArrayLiteral(std::vector<std::unique_ptr<Expr>> elements, int line = 0, int column = 0)
-        : Expr(line, column), elements(std::move(elements)), repeat_value(nullptr), repeat_count(std::nullopt), array_dimensions() {}
+        : Expr(line, column), elements(std::move(elements)), repeat_value(nullptr), repeat_count(std::nullopt) {}
 
     ArrayLiteral(std::unique_ptr<Expr> repeat_value, int repeat_count, int line = 0, int column = 0)
-        : Expr(line, column), elements(), repeat_value(std::move(repeat_value)), repeat_count(repeat_count), array_dimensions() {}
+        : Expr(line, column),  repeat_value(std::move(repeat_value)), repeat_count(repeat_count) {}
 
     [[nodiscard]] std::string toString() const override;
 
@@ -229,8 +231,8 @@ struct ArrayLiteral : Expr {
 };
 
 struct IndexExpr : Expr {
-    std::unique_ptr<Expr> array{};
-    std::unique_ptr<Expr> index{};
+    std::unique_ptr<Expr> array;
+    std::unique_ptr<Expr> index;
 
     IndexExpr(std::unique_ptr<Expr> array, std::unique_ptr<Expr> index, int line = 0, int column = 0)
         : Expr(line, column), array(std::move(array)), index(std::move(index)) {}
@@ -247,7 +249,7 @@ struct IndexExpr : Expr {
 };
 
 struct AddrOf : Expr {
-    std::unique_ptr<Expr> operand{};
+    std::unique_ptr<Expr> operand;
     AddrOf(std::unique_ptr<Expr> operand, size_t line = 0, size_t column = 0) 
         : Expr(line, column), operand(std::move(operand)) {}
 
@@ -263,8 +265,8 @@ struct AddrOf : Expr {
 };
 
 struct CompoundAssign : Expr {
-    std::unique_ptr<Variable> var{};
-    std::unique_ptr<Expr> value{};
+    std::unique_ptr<Variable> var;
+    std::unique_ptr<Expr> value;
     TokenType op;
 
     CompoundAssign(std::unique_ptr<Variable> var, std::unique_ptr<Expr> value, TokenType op, int line = 0, int column = 0)
@@ -282,7 +284,7 @@ struct CompoundAssign : Expr {
 };
 
 struct Increment : Expr {
-    std::unique_ptr<Variable> var{};
+    std::unique_ptr<Variable> var;
 
     explicit Increment(std::unique_ptr<Variable> var, int line = 0, int column = 0)
         : Expr(line, column), var(std::move(var)) {}
@@ -299,7 +301,7 @@ struct Increment : Expr {
 };
 
 struct Decrement : Expr {
-    std::unique_ptr<Variable> var{};
+    std::unique_ptr<Variable> var;
 
     explicit Decrement(std::unique_ptr<Variable> var, int line = 0, int column = 0)
         : Expr(line, column), var(std::move(var)) {}
@@ -316,8 +318,8 @@ struct Decrement : Expr {
 };
 
 struct Range : Expr {
-    std::unique_ptr<Expr> from{};
-    std::unique_ptr<Expr> to{};
+    std::unique_ptr<Expr> from;
+    std::unique_ptr<Expr> to;
     bool inclusive;
 
     explicit Range(std::unique_ptr<Expr> from,  std::unique_ptr<Expr> to, bool inclusive = false, int line = 0, int column = 0)
@@ -337,12 +339,12 @@ struct Range : Expr {
 // Struct literal: Point { x: 10, y: 20 }
 struct StructLiteral : Expr {
     Token structName;  // "Point"
-    std::vector<std::pair<Token, std::unique_ptr<Expr>>> fields{};  // [(x, 10), (y, 20)]
+    std::vector<std::pair<Token, std::unique_ptr<Expr>>> fields;  // [(x, 10), (y, 20)]
     const Type::Type* resolvedType = nullptr;  // Will be set during semantic analysis
 
     StructLiteral(Token name, std::vector<std::pair<Token, std::unique_ptr<Expr>>> fields,
                   int line, int column)
-        : Expr(line, column), structName(name), fields(std::move(fields)) {}
+        : Expr(line, column), structName(std::move(std::move(name))), fields(std::move(fields)) {}
 
     [[nodiscard]] std::string toString() const override;
 
@@ -357,13 +359,13 @@ struct StructLiteral : Expr {
 
 // Field access: p.x
 struct FieldAccess : Expr {
-    std::unique_ptr<Expr> object{};  // The struct instance (could be variable, field access, etc.)
+    std::unique_ptr<Expr> object;  // The struct instance (could be variable, field access, etc.)
     Token fieldName;  // "x"
     const Type::StructType* resolvedStructType = nullptr;  // Set during semantic analysis
     int fieldIndex = -1;  // Index of field in struct (for MIR/codegen)
 
     FieldAccess(std::unique_ptr<Expr> obj, Token field, int line, int column)
-        : Expr(line, column), object(std::move(obj)), fieldName(field) {}
+        : Expr(line, column), object(std::move(obj)), fieldName(std::move(std::move(field))) {}
 
     [[nodiscard]] std::string toString() const override;
 
@@ -382,8 +384,8 @@ struct Param {
     bool isRef;
     bool isMutRef;
 
-    Param(const std::string& name, const Type::Type* type, bool isRef = false, bool isMutRef = false)
-        : name(name), type(std::move(type)), isRef(isRef), isMutRef(isMutRef) {}
+    Param(std::string  name, const Type::Type* type, bool isRef = false, bool isMutRef = false)
+        : name(std::move(name)), type(type), isRef(isRef), isMutRef(isMutRef) {}
 
     [[nodiscard]] std::string toString() const;
 };
@@ -394,7 +396,7 @@ struct StructField {
     const Type::Type* type{};
 
     StructField(bool isPub, Token name, const Type::Type* type)
-        : isPublic(isPub), name(name), type(type) {}
+        : isPublic(isPub), name(std::move(std::move(name))), type(type) {}
     [[nodiscard]] std::string toString() const;
 };
 
@@ -402,13 +404,13 @@ struct VarDecl : Stmt {
     bool mutable_;
     Token name;
     const Type::Type* typeAnnotation{};
-    std::unique_ptr<Expr> initValue{};
-    std::vector<int> array_dimensions{};
+    std::unique_ptr<Expr> initValue;
+    std::vector<int> array_dimensions;
 
     VarDecl(bool mutable_, const Token& name, const Type::Type* typeAnnotation,
             std::unique_ptr<Expr> init_value)
         : Stmt(name.line, name.column), mutable_(mutable_), name(name), typeAnnotation(typeAnnotation),
-          initValue(std::move(init_value)), array_dimensions() {}
+          initValue(std::move(init_value)) {}
 
     [[nodiscard]] std::string toString() const override;
 
@@ -419,16 +421,16 @@ struct VarDecl : Stmt {
 
 struct FnDecl : Stmt {
     std::string name;
-    std::vector<Param> params{};
+    std::vector<Param> params;
     const Type::Type* returnType{};
-    std::vector<std::unique_ptr<Stmt>> body{};
+    std::vector<std::unique_ptr<Stmt>> body;
     bool isExtern;
     bool isPublic;
 
-    FnDecl(const std::string& name, std::vector<Param> params,
+    FnDecl(std::string  name, std::vector<Param> params,
            const Type::Type* returnType, std::vector<std::unique_ptr<Stmt>> body,
            bool isExtern = false, bool isPublic = false, int line = 0, int column = 0)
-        : Stmt(line, column), name(name), params(std::move(params)), returnType(returnType),
+        : Stmt(line, column), name(std::move(name)), params(std::move(params)), returnType(returnType),
           body(std::move(body)), isExtern(isExtern), isPublic(isPublic) {}
 
     // Check if this is an instance method (has 'self' as first parameter)
@@ -451,15 +453,15 @@ struct FnDecl : Stmt {
 struct StructDecl : Stmt {
     bool isPublic;
     Token name;
-    std::vector<StructField> fields{};
-    std::vector<std::unique_ptr<FnDecl>> methods{};  // Methods defined in struct body
+    std::vector<StructField> fields;
+    std::vector<std::unique_ptr<FnDecl>> methods;  // Methods defined in struct body
 
     StructDecl(bool isPub, Token name, std::vector<StructField> fields)
-        : isPublic(isPub), name(name), fields(std::move(fields)) {}
+        : isPublic(isPub), name(std::move(std::move(name))), fields(std::move(fields)) {}
 
     StructDecl(bool isPub, Token name, std::vector<StructField> fields,
                std::vector<std::unique_ptr<FnDecl>> methods)
-        : isPublic(isPub), name(name), fields(std::move(fields)), methods(std::move(methods)) {}
+        : isPublic(isPub), name(std::move(std::move(name))), fields(std::move(fields)), methods(std::move(methods)) {}
 
     [[nodiscard]] std::string toString() const override;
 
@@ -469,7 +471,7 @@ struct StructDecl : Stmt {
 };
 
 struct ReturnStmt : Stmt {
-    std::unique_ptr<Expr> value{};
+    std::unique_ptr<Expr> value;
 
     explicit ReturnStmt(std::unique_ptr<Expr> value, int line = 0, int column = 0)
         : Stmt(line, column), value(std::move(value)) {}
@@ -482,9 +484,9 @@ struct ReturnStmt : Stmt {
 };
 
 struct IfStmt : Stmt {
-    std::unique_ptr<Expr> condition{};
-    std::vector<std::unique_ptr<Stmt>> thenBody{};
-    std::vector<std::unique_ptr<Stmt>> elseBody{};
+    std::unique_ptr<Expr> condition;
+    std::vector<std::unique_ptr<Stmt>> thenBody;
+    std::vector<std::unique_ptr<Stmt>> elseBody;
 
     IfStmt(std::unique_ptr<Expr> condition,
            std::vector<std::unique_ptr<Stmt>> thenBody,
@@ -500,7 +502,7 @@ struct IfStmt : Stmt {
 };
 
 struct ExprStmt : Stmt {
-    std::unique_ptr<Expr> expr{};
+    std::unique_ptr<Expr> expr;
 
     explicit ExprStmt(std::unique_ptr<Expr> expr, int line = 0, int column = 0)
         : Stmt(line, column), expr(std::move(expr)) {}
@@ -514,8 +516,8 @@ struct ExprStmt : Stmt {
 };
 
 struct WhileStmt : Stmt {
-    std::unique_ptr<Expr> condition{};
-    std::vector<std::unique_ptr<Stmt>> thenBody{};
+    std::unique_ptr<Expr> condition;
+    std::vector<std::unique_ptr<Stmt>> thenBody;
 
     WhileStmt(std::unique_ptr<Expr> condition, std::vector<std::unique_ptr<Stmt>> thenBody, int line = 0, int column = 0)
         : Stmt(line, column), condition(std::move(condition)), thenBody(std::move(thenBody)) {}
@@ -528,9 +530,9 @@ struct WhileStmt : Stmt {
 };
 
 struct ForStmt : Stmt {
-    std::unique_ptr<Variable> var{};
-    std::unique_ptr<Range> range{};
-    std::vector<std::unique_ptr<Stmt>> body{};
+    std::unique_ptr<Variable> var;
+    std::unique_ptr<Range> range;
+    std::vector<std::unique_ptr<Stmt>> body;
 
     ForStmt(std::unique_ptr<Variable> var, std::unique_ptr<Range> range, std::vector<std::unique_ptr<Stmt>> body, int line = 0, int column = 0)
         : Stmt(line, column), var(std::move(var)), range(std::move(range)), body(std::move(body)) {}
@@ -543,7 +545,7 @@ struct ForStmt : Stmt {
 };
 
 struct BlockStmt : Stmt {
-    std::vector<std::unique_ptr<Stmt>> statements{};
+    std::vector<std::unique_ptr<Stmt>> statements;
 
     explicit BlockStmt(std::vector<std::unique_ptr<Stmt>> statements, int line = 0, int column = 0)
         : Stmt(line, column), statements(std::move(statements)) {}
@@ -574,10 +576,10 @@ struct ContinueStmt : Stmt {
 
 struct ExternBlock : Stmt {
     std::string abi;
-    std::vector<std::unique_ptr<FnDecl>> declarations{};
+    std::vector<std::unique_ptr<FnDecl>> declarations;
 
-    ExternBlock(const std::string& abi, std::vector<std::unique_ptr<FnDecl>> declarations, int line = 0, int column = 0)
-        : Stmt(line, column), abi(abi), declarations(std::move(declarations)) {}
+    ExternBlock(std::string  abi, std::vector<std::unique_ptr<FnDecl>> declarations, int line = 0, int column = 0)
+        : Stmt(line, column), abi(std::move(abi)), declarations(std::move(declarations)) {}
 
     [[nodiscard]] std::string toString() const override;
 
@@ -588,10 +590,10 @@ struct ExternBlock : Stmt {
 
 struct ImportStmt : Stmt {
     std::string modulePath; 
-    std::vector<std::string> importedItems{};
+    std::vector<std::string> importedItems;
 
-    ImportStmt(const std::string modulePath, std::vector<std::string> importedItems, int line = 0, int column = 0)
-        : Stmt(line, column), modulePath(modulePath), importedItems(importedItems) {}
+    ImportStmt(std::string  modulePath, std::vector<std::string> importedItems, int line = 0, int column = 0)
+        : Stmt(line, column), modulePath(std::move(modulePath)), importedItems(std::move(std::move(importedItems))) {}
 
     [[nodiscard]] std::string toString() const override;
 
@@ -602,7 +604,7 @@ struct ImportStmt : Stmt {
 
 
 struct Program : ASTNode {
-    std::vector<std::unique_ptr<Stmt>> statements{};
+    std::vector<std::unique_ptr<Stmt>> statements;
 
     Program() = default;
 

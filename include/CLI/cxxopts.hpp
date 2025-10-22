@@ -798,7 +798,7 @@ inline IntegerDesc SplitInteger(const std::string &text)
   std::smatch match;
   std::regex_match(text, match, integer_matcher);
 
-  if (match.length() == 0)
+  if (match.empty())
   {
     throw_or_mimic<exceptions::incorrect_argument_type>(text);
   }
@@ -808,7 +808,7 @@ inline IntegerDesc SplitInteger(const std::string &text)
   desc.base = match[2];
   desc.value = match[3];
 
-  if (match.length(4) > 0)
+  if (!match.empty())
   {
     desc.base = match[5];
     desc.value = "0";
@@ -953,8 +953,8 @@ integer_parser(const std::string& text, T& value)
   using US = typename std::make_unsigned<T>::type;
   constexpr bool is_signed = std::numeric_limits<T>::is_signed;
 
-  const bool          negative    = int_desc.negative.length() > 0;
-  const uint8_t       base        = int_desc.base.length() > 0 ? 16 : 10;
+  const bool          negative    = !int_desc.negative.empty();
+  const uint8_t       base        = !int_desc.base.empty() ? 16 : 10;
   const std::string & value_match = int_desc.value;
 
   US result = 0;
@@ -1730,13 +1730,13 @@ CXXOPTS_DIAGNOSTIC_POP
   Iterator
   begin() const
   {
-    return Iterator(this);
+    return {this};
   }
 
   Iterator
   end() const
   {
-    return Iterator(this, true);
+    return {this, true};
   }
 
   std::size_t
@@ -2030,7 +2030,7 @@ class Options
   {
     OptionNames long_names;
     long_names.emplace_back(single_long_name);
-    add_option(group, short_name, long_names, desc, value, arg_help);
+    add_option(group, short_name, long_names, std::move(desc), value, std::move(arg_help));
   }
 
   //parse positional arguments into the given option
@@ -2605,7 +2605,7 @@ OptionParser::parse(int argc, const char* const* argv)
           }
         }
       }
-      else if (argu_desc.arg_name.length() != 0)
+      else if (!argu_desc.arg_name.empty())
       {
         const std::string& name = argu_desc.arg_name;
 
@@ -2795,7 +2795,7 @@ Options::help_one_group(const std::string& g) const
 
   for (const auto& o : group->second.options)
   {
-    if (o.l.size() &&
+    if (!o.l.empty() &&
         m_positional_set.find(o.l.front()) != m_positional_set.end() &&
         !m_show_positional)
     {
@@ -2804,7 +2804,7 @@ Options::help_one_group(const std::string& g) const
 
     auto s = format_option(o);
     longest = (std::max)(longest, stringLength(s));
-    format.push_back(std::make_pair(s, String()));
+    format.emplace_back(s, String());
   }
   longest = (std::min)(longest, OPTION_LONGEST);
 
@@ -2818,7 +2818,7 @@ Options::help_one_group(const std::string& g) const
   auto fiter = format.begin();
   for (const auto& o : group->second.options)
   {
-    if (o.l.size() &&
+    if (!o.l.empty() &&
         m_positional_set.find(o.l.front()) != m_positional_set.end() &&
         !m_show_positional)
     {

@@ -5,9 +5,10 @@ namespace MIR {
 bool MIRVerifier::verify(const Program& program) {
     hasErrors = false;
 
-    for (auto& fn : program.functions) {
-        if (!verifyFunction(fn))
+    for (const auto& fn : program.functions) {
+        if (!verifyFunction(fn)) {
             hasErrors = true;
+}
     }
 
     return !hasErrors;  // Return true if NO errors (valid program)
@@ -17,11 +18,11 @@ bool MIRVerifier::verifyFunction(const Function& function) {
     definedValues.clear();
     blockLabels.clear();
 
-    for (auto& param : function.params) {
+    for (const auto& param : function.params) {
         definedValues.insert("%" + param.name);
     }
 
-    for (auto& block : function.blocks) {
+    for (const auto& block : function.blocks) {
         blockLabels.insert(block.label);
     }
 
@@ -36,7 +37,7 @@ bool MIRVerifier::verifyFunction(const Function& function) {
 
     bool functionValid = true;
 
-    for (auto& block : function.blocks) {
+    for (const auto& block : function.blocks) {
         if (!verifyBasicBlock(block)) {
             functionValid = false;
         }
@@ -48,11 +49,11 @@ bool MIRVerifier::verifyFunction(const Function& function) {
 bool MIRVerifier::verifyBasicBlock(const BasicBlock& block) {
     bool blockValid = true;
 
-    for (auto& inst : block.instructions) {
+    for (const auto& inst : block.instructions) {
         if (!verifyInstruction(inst)) {
             blockValid = false;
         }
-        if (inst.result.name.size() != 0) {
+        if (!inst.result.name.empty()) {
             definedValues.insert("%" + inst.result.name);
         }
     }

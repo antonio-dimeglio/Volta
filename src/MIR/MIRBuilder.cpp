@@ -31,7 +31,7 @@ void MIRBuilder::createBlock(const std::string& label) {
 
 void MIRBuilder::setInsertionPoint(const std::string& blockLabel) {
     BasicBlock* bb = currentFunction->getBlock(blockLabel);
-    if (bb) {
+    if (bb != nullptr) {
         currentBlock = bb;
     } else {
         throw std::runtime_error("Failed to set insertion point. the following block doesnt exist: " + blockLabel);
@@ -39,11 +39,11 @@ void MIRBuilder::setInsertionPoint(const std::string& blockLabel) {
 }
 
 std::string MIRBuilder::getCurrentBlockLabel() const {
-    return currentBlock ? currentBlock->label : "";
+    return (currentBlock != nullptr) ? currentBlock->label : "";
 }
 
 bool MIRBuilder::currentBlockTerminated() const {
-    return currentBlock && currentBlock->hasTerminator();
+    return (currentBlock != nullptr) && currentBlock->hasTerminator();
 }
 
 Value MIRBuilder::createTemporary(const Type::Type* type) {
@@ -321,7 +321,7 @@ Value MIRBuilder::createAlloca(const Type::Type* type) {
 }
 
 Value MIRBuilder::createLoad(const Value& pointer) {
-    if (!pointer.type) {
+    if (pointer.type == nullptr) {
         // No type information - just return the pointer as-is
         return pointer;
     }
@@ -330,7 +330,7 @@ Value MIRBuilder::createLoad(const Value& pointer) {
         // Arrays are passed by reference in Volta
         return pointer;
     }
-    const auto* ptrType = static_cast<const Type::PointerType*>(pointer.type);
+    const auto* ptrType = dynamic_cast<const Type::PointerType*>(pointer.type);
     Value result = createTemporary(ptrType->pointeeType);
     Instruction instr(Opcode::Load, result, {pointer});
     currentBlock->addInstruction(instr);
@@ -343,8 +343,8 @@ void MIRBuilder::createStore(const Value& value, const Value& pointer) {
 }
 
 Value MIRBuilder::createGetElementPtr(const Value& arrayPtr, const Value& index) {
-    const auto* ptrType = static_cast<const Type::PointerType*>(arrayPtr.type);
-    const auto* arrayType = static_cast<const Type::ArrayType*>(ptrType->pointeeType);
+    const auto* ptrType = dynamic_cast<const Type::PointerType*>(arrayPtr.type);
+    const auto* arrayType = dynamic_cast<const Type::ArrayType*>(ptrType->pointeeType);
     const Type::Type* elemPtrType = typeRegistry.getPointer(arrayType->elementType);
 
     Value result = createTemporary(elemPtrType);
@@ -354,8 +354,8 @@ Value MIRBuilder::createGetElementPtr(const Value& arrayPtr, const Value& index)
 }
 
 Value MIRBuilder::createGetFieldPtr(const Value& structPtr, int fieldIndex) {
-    const auto* ptrType = static_cast<const Type::PointerType*>(structPtr.type);
-    const auto* structType = static_cast<const Type::StructType*>(ptrType->pointeeType);
+    const auto* ptrType = dynamic_cast<const Type::PointerType*>(structPtr.type);
+    const auto* structType = dynamic_cast<const Type::StructType*>(ptrType->pointeeType);
     const Type::Type* fieldType = structType->fields[fieldIndex].type;
     const Type::Type* resultType = typeRegistry.getPointer(fieldType);
 
@@ -364,7 +364,7 @@ Value MIRBuilder::createGetFieldPtr(const Value& structPtr, int fieldIndex) {
     
     Instruction inst(Opcode::GetFieldPtr, result, {structPtr, indexValue});
     
-    if (currentBlock) {
+    if (currentBlock != nullptr) {
         currentBlock->instructions.push_back(inst);
     }
 
@@ -378,7 +378,7 @@ Value MIRBuilder::createCall(const std::string& functionName,
 
     bool isVoid = false;
     if (returnType->kind == Type::TypeKind::Primitive) {
-        const auto* primType = static_cast<const Type::PrimitiveType*>(returnType);
+        const auto* primType = dynamic_cast<const Type::PrimitiveType*>(returnType);
         isVoid = (primType->kind == Type::PrimitiveKind::Void);
     }
 

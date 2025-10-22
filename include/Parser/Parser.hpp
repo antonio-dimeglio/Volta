@@ -22,16 +22,16 @@ private:
     // Token navigation helpers
 
     // Look ahead at token without consuming it
-    Token peek(size_t offset = 0) const;
+    [[nodiscard]] Token peek(size_t offset = 0) const;
 
     // Check if at end of token stream
-    bool isAtEnd() const;
+    [[nodiscard]] bool isAtEnd() const;
 
     // Consume and return current token
     Token advance();
 
     // Check if token matches type
-    bool check(TokenType type, size_t offset = 0) const;
+    [[nodiscard]] bool check(TokenType type, size_t offset = 0) const;
 
     // Consume token or report error if type doesn't match
     Token expect(TokenType expected);
@@ -40,7 +40,7 @@ private:
     bool match(const std::vector<TokenType>& types);
 
     // Check if current token starts a literal expression
-    bool isLiteralExpr() const;
+    [[nodiscard]] bool isLiteralExpr() const;
 
     // Parse type annotation (i32, f64, bool, etc.)
     const Type::Type* parseType();
@@ -126,5 +126,5 @@ private:
     std::unique_ptr<Expr> parseRangeExpr();
 
     // Parse struct literal: StructName { field: value, ... }
-    std::unique_ptr<StructLiteral> parseStructLiteral(Token structName);
+    std::unique_ptr<StructLiteral> parseStructLiteral(const Token& structName);
 };
