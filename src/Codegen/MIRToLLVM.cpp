@@ -398,6 +398,74 @@ void MIRToLLVM::lowerInstruction(const MIR::Instruction& inst) {
             valueMap["%" + inst.result.name] = result;
             break;
         }
+        case Opcode::SAlloca: {
+            // Stack allocation (escape analysis determined this is safe on stack)
+            if (inst.result.type == nullptr) {
+                llvm::errs() << "ERROR: SAlloca has null result type!\n";
+                break;
+            }
+
+            auto* allocType = getLLVMType(inst.result.type);
+
+            // For alloca, we need to unwrap the pointer type to get the allocated type
+            if (inst.result.type->kind == Type::TypeKind::Pointer) {
+                const auto* ptrType = dynamic_cast<const Type::PointerType*>(inst.result.type);
+                allocType = getLLVMType(ptrType->pointeeType);
+
+                if (allocType == nullptr) {
+                    llvm::errs() << "ERROR: Failed to get LLVM type for stack allocation of: "
+                                 << ptrType->pointeeType->toString() << "\n";
+                    break;
+                }
+            }
+
+            auto* result = builder.CreateAlloca(allocType, nullptr, inst.result.name);
+            valueMap["%" + inst.result.name] = result;
+            break;
+        }
+        case Opcode::HAlloca: {
+            // Heap allocation (escape analysis determined this must be on heap)
+            if (inst.result.type == nullptr) {
+                llvm::errs() << "ERROR: HAlloca has null result type!\n";
+                break;
+            }
+
+            // Get the type being allocated
+            llvm::Type* allocType = getLLVMType(inst.result.type);
+            const Type::Type* pointeeType = inst.result.type;
+
+            if (inst.result.type->kind == Type::TypeKind::Pointer) {
+                const auto* ptrType = dynamic_cast<const Type::PointerType*>(inst.result.type);
+                pointeeType = ptrType->pointeeType;
+                allocType = getLLVMType(pointeeType);
+
+                if (allocType == nullptr) {
+                    llvm::errs() << "ERROR: Failed to get LLVM type for heap allocation of: "
+                                 << pointeeType->toString() << "\n";
+                    break;
+                }
+            }
+
+            // Calculate size of allocation
+            auto& dataLayout = module.getDataLayout();
+            uint64_t typeSize = dataLayout.getTypeAllocSize(allocType);
+
+            // Call volta_gc_malloc(size)
+            llvm::FunctionType* mallocType = llvm::FunctionType::get(
+                llvm::PointerType::getUnqual(context),  // returns void*
+                {llvm::Type::getInt64Ty(context)},      // takes i64 size
+                false
+            );
+            llvm::FunctionCallee mallocFunc = module.getOrInsertFunction("volta_gc_malloc", mallocType);
+
+            llvm::Value* size = llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), typeSize);
+            llvm::Value* heapPtr = builder.CreateCall(mallocFunc, {size});
+
+            // Bitcast void* to the correct pointer type
+            llvm::Value* result = builder.CreateBitCast(heapPtr, llvm::PointerType::getUnqual(allocType), inst.result.name);
+            valueMap["%" + inst.result.name] = result;
+            break;
+        }
         case Opcode::Load: {
             auto* ptr = getValue(inst.operands[0]);
 
@@ -704,7 +772,12 @@ llvm::Type* MIRToLLVM::getLLVMType(const Type::Type* type) {
         case Type::TypeKind::Array: {
             const auto* arrType = dynamic_cast<const Type::ArrayType*>(type);
             auto* elemType = getLLVMType(arrType->elementType);
-            return llvm::ArrayType::get(elemType, arrType->size);
+            // Calculate total number of elements: product of all dimensions
+            uint64_t totalElements = 1;
+            for (int dim : arrType->dimensions) {
+                totalElements *= dim;
+            }
+            return llvm::ArrayType::get(elemType, totalElements);
         }
 
         case Type::TypeKind::Pointer: {

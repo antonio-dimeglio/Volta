@@ -373,7 +373,7 @@ TEST_F(MIRInstructionTest, IntFloatConversion) {
 
 TEST_F(MIRInstructionTest, GetElementPtr) {
     auto* i32Type = types.getPrimitive(PrimitiveKind::I32);
-    auto* arrayType = types.getArray(i32Type, 10);
+    auto* arrayType = types.getArray(i32Type, {10});
     auto* ptrType = types.getPointer(arrayType);
     auto* elemPtrType = types.getPointer(i32Type);
 

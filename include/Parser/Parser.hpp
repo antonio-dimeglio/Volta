@@ -42,6 +42,8 @@ private:
     // Check if current token starts a literal expression
     [[nodiscard]] bool isLiteralExpr() const;
 
+    // Utility function to parse dimension of array
+    int parsePositiveInteger();
     // Parse type annotation (i32, f64, bool, etc.)
     const Type::Type* parseType();
 

@@ -165,7 +165,7 @@ TEST(TypeSystemTest, FloatTypesNotInteger) {
 TEST(TypeSystemTest, SimpleArrayType) {
     Type::TypeRegistry registry;
     auto* i32 = registry.getPrimitive(Type::PrimitiveKind::I32);
-    auto* arrayType = registry.getArray(i32, 10);
+    auto* arrayType = registry.getArray(i32, {10});
 
     ASSERT_NE(arrayType, nullptr);
     EXPECT_EQ(arrayType->toString(), "[i32; 10]");
@@ -174,8 +174,8 @@ TEST(TypeSystemTest, SimpleArrayType) {
 TEST(TypeSystemTest, ArrayTypeEquality) {
     Type::TypeRegistry registry;
     auto* i32 = registry.getPrimitive(Type::PrimitiveKind::I32);
-    auto* arr1 = registry.getArray(i32, 10);
-    auto* arr2 = registry.getArray(i32, 10);
+    auto* arr1 = registry.getArray(i32, {10});
+    auto* arr2 = registry.getArray(i32, {10});
 
     EXPECT_TRUE(arr1->equals(arr2));
 }
@@ -183,8 +183,8 @@ TEST(TypeSystemTest, ArrayTypeEquality) {
 TEST(TypeSystemTest, ArrayTypeDifferentSizes) {
     Type::TypeRegistry registry;
     auto* i32 = registry.getPrimitive(Type::PrimitiveKind::I32);
-    auto* arr10 = registry.getArray(i32, 10);
-    auto* arr20 = registry.getArray(i32, 20);
+    auto* arr10 = registry.getArray(i32, {10});
+    auto* arr20 = registry.getArray(i32, {20});
 
     EXPECT_FALSE(arr10->equals(arr20));
 }
@@ -193,8 +193,8 @@ TEST(TypeSystemTest, ArrayTypeDifferentElements) {
     Type::TypeRegistry registry;
     auto* i32 = registry.getPrimitive(Type::PrimitiveKind::I32);
     auto* f32 = registry.getPrimitive(Type::PrimitiveKind::F32);
-    auto* arr_i32 = registry.getArray(i32, 10);
-    auto* arr_f32 = registry.getArray(f32, 10);
+    auto* arr_i32 = registry.getArray(i32, {10});
+    auto* arr_f32 = registry.getArray(f32, {10});
 
     EXPECT_FALSE(arr_i32->equals(arr_f32));
 }
@@ -202,8 +202,8 @@ TEST(TypeSystemTest, ArrayTypeDifferentElements) {
 TEST(TypeSystemTest, NestedArrayType) {
     Type::TypeRegistry registry;
     auto* i32 = registry.getPrimitive(Type::PrimitiveKind::I32);
-    auto* inner = registry.getArray(i32, 5);
-    auto* outer = registry.getArray(inner, 10);
+    auto* inner = registry.getArray(i32, {5});
+    auto* outer = registry.getArray(inner, {10});
 
     ASSERT_NE(outer, nullptr);
     EXPECT_EQ(outer->toString(), "[[i32; 5]; 10]");
@@ -395,7 +395,7 @@ TEST(TypeSystemTest, ArrayOfPointers) {
     Type::TypeRegistry registry;
     auto* i32 = registry.getPrimitive(Type::PrimitiveKind::I32);
     auto* ptr = registry.getPointer(i32);
-    auto* arr = registry.getArray(ptr, 10);
+    auto* arr = registry.getArray(ptr, {10});
 
     ASSERT_NE(arr, nullptr);
     EXPECT_EQ(arr->toString(), "[ptr i32; 10]");
@@ -404,7 +404,7 @@ TEST(TypeSystemTest, ArrayOfPointers) {
 TEST(TypeSystemTest, PointerToArray) {
     Type::TypeRegistry registry;
     auto* i32 = registry.getPrimitive(Type::PrimitiveKind::I32);
-    auto* arr = registry.getArray(i32, 10);
+    auto* arr = registry.getArray(i32, {10});
     auto* ptr = registry.getPointer(arr);
 
     ASSERT_NE(ptr, nullptr);
@@ -414,7 +414,7 @@ TEST(TypeSystemTest, PointerToArray) {
 TEST(TypeSystemTest, StructWithArrayFields) {
     Type::TypeRegistry registry;
     auto* i32 = registry.getPrimitive(Type::PrimitiveKind::I32);
-    auto* arr = registry.getArray(i32, 10);
+    auto* arr = registry.getArray(i32, {10});
 
     std::vector<Type::FieldInfo> fields = {
         Type::FieldInfo("data", arr, true),
@@ -459,8 +459,8 @@ TEST(TypeSystemTest, TypeRegistryCaching) {
     EXPECT_EQ(i32_1, i32_2);
 
     // Same array type should return same pointer
-    auto* arr1 = registry.getArray(i32_1, 10);
-    auto* arr2 = registry.getArray(i32_1, 10);
+    auto* arr1 = registry.getArray(i32_1, {10});
+    auto* arr2 = registry.getArray(i32_1, {10});
     EXPECT_EQ(arr1, arr2);
 }
 

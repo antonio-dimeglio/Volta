@@ -3,7 +3,15 @@
 
 std::string FnCall::toString() const {
     std::ostringstream oss;
-    oss << "FnCall(" << name << "(";
+    oss << "FnCall(" << name;
+    if (isGeneric()) {
+        oss << "<";
+        for (size_t i = 0; i < typeArgs.size(); ++i) {
+            oss << typeArgs[i]->toString() << (i < typeArgs.size() - 1 ? ", " : "");
+        }
+        oss << ">";
+    }
+    oss << "(";
     for (size_t i = 0; i < args.size(); ++i) {
         if (i > 0) { oss << ", ";
 }
@@ -62,7 +70,13 @@ std::string AddrOf::toString() const {
 }
 
 std::string IndexExpr::toString() const {
-    return "Index(" + array->toString() + "[" + index->toString() + "])";
+    std::string idx = ""; 
+    size_t i = 0;
+    for (auto& node : index) {
+        idx += node.get()->toString() + (i < index.size() - 1 ? ", " : "");
+        i++;
+    }
+    return "Index(" + array->toString() + "[" + idx + "])";
 }
 
 std::string CompoundAssign::toString() const {
@@ -83,10 +97,16 @@ std::string Range::toString() const {
 
 std::string StructLiteral::toString() const {
     std::ostringstream oss;
-    oss << structName.lexeme << " { ";
+    oss << structName.lexeme;
+    if (isGeneric()) {
+        oss << "<";
+        for (size_t i = 0; i < typeArgs.size(); ++i) {
+            oss << typeArgs[i]->toString() << (i < typeArgs.size() - 1 ? ", " : "");
+        }
+        oss << ">";
+    }
     for (size_t i = 0; i < fields.size(); ++i) {
-        if (i > 0) { oss << ", ";
-}
+        if (i > 0) { oss << ", "; }
         oss << fields[i].first.lexeme << ": " << fields[i].second->toString();
     }
     oss << " }";
@@ -127,6 +147,8 @@ std::string Param::toString() const {
         return "mut ref " + name + ": " + typeStr;
     } else if (isRef) {
         return "ref " + name + ": " + typeStr;
+    } else if (isMutable) {
+        return name + ": mut " + typeStr;
     } else {
         return name + ": " + typeStr;
     }
@@ -161,22 +183,37 @@ std::string VarDecl::toString() const {
 
 std::string FnDecl::toString() const {
     std::ostringstream oss;
-    oss << "FnDecl(" << name << "(";
-    for (size_t i = 0; i < params.size(); ++i) {
-        if (i > 0) { oss << ", ";
-}
-        oss << params[i].toString();
+
+
+    oss << "FnDecl(" << name << ")";
+    if (isGeneric()) {
+        oss << "<";
+        for (size_t i = 0; i < typeParamaters.size(); ++i) {
+            oss << typeParamaters[i].lexeme << (i < typeParamaters.size() - 1 ? ", " : "");
+        }
+        oss << ">";
     }
-    oss << ") -> " << returnType->toString() << ")";
+    oss << "(";
+    for (size_t i = 0; i < params.size(); ++i) {
+        if (i > 0) { oss << ", "; }
+        oss << params[i].toString();
+    }    
+    oss << ")" << " -> " << returnType->toString();
     return oss.str();
 }
 
 std::string StructDecl::toString() const {
     std::ostringstream oss;
     oss << "Struct(" << name.lexeme << ")\n";
+    if (isGeneric()) {
+        oss << "<";
+        for (size_t i = 0; i < typeParamaters.size(); ++i) {
+            oss << typeParamaters[i].lexeme << (i < typeParamaters.size() - 1 ? ", " : "");
+        }
+        oss << ">";
+    }
     for (size_t i = 0; i < fields.size(); i++) {
-        if (i > 0) { oss << ", ";
-}
+        if (i > 0) { oss << ", "; }
         oss << fields[i].toString();
     }
     if (!methods.empty()) {

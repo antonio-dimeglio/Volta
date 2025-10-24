@@ -102,7 +102,9 @@ enum class Opcode {
     Not,        // Logical NOT: %result = not %a
 
     // === Memory Operations ===
-    Alloca,     // Stack allocation: %ptr = alloca [i32; 4]
+    Alloca,     // Undecided allocation (before escape analysis): %ptr = alloca Type, size
+    SAlloca,    // Stack allocation (after escape analysis): %ptr = salloca Type, size
+    HAlloca,    // Heap allocation (after escape analysis): %ptr = halloca Type, size
     Load,       // Load from memory: %value = load %ptr
     Store,      // Store to memory: store %value, %ptr
 

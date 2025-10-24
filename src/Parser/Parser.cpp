@@ -89,36 +89,44 @@ bool Parser::isLiteralExpr() const {
            tt == TokenType::Null;
 }
 
+int Parser::parsePositiveInteger() {
+    bool isNegative = false;
+    if (match({TokenType::Minus})) {
+        isNegative = true;
+    }
+
+    Token sizeToken = expect(TokenType::Integer);
+    int size = std::stoi(sizeToken.lexeme);
+
+    if (isNegative) {
+        size = -size;
+        diag.error("Array size cannot be negative", sizeToken.line, sizeToken.column);
+        size = 1;
+    }
+
+    if (size <= 0) {
+        diag.error("Array size must be positive", sizeToken.line, sizeToken.column);
+        size = 1;
+    }
+
+    return size;
+}
+
 const Type::Type* Parser::parseType() {
-    if (check(TokenType::LSquare)) {
-        advance(); 
-
+    if (match({TokenType::LSquare})) {
         const Type::Type* elementType = parseType();
-
         expect(TokenType::Semicolon);
 
-        bool isNegative = false;
-        if (match({TokenType::Minus})) {
-            isNegative = true;
-        }
+        std::vector<int> dims;
+        dims.push_back(parsePositiveInteger()); // First dimension
 
-        Token sizeToken = expect(TokenType::Integer);
-        int size = std::stoi(sizeToken.lexeme);
-
-        if (isNegative) {
-            size = -size;
-            diag.error("Array size cannot be negative", sizeToken.line, sizeToken.column);
-            size = 1;
-        }
-
-        if (size <= 0) {
-            diag.error("Array size must be positive", sizeToken.line, sizeToken.column);
-            size = 1;
+        while (match({TokenType::Comma})) {
+            dims.push_back(parsePositiveInteger()); // Additional dimensions
         }
 
         expect(TokenType::RSquare);
 
-        return types.getArray(elementType, size);
+        return types.getArray(elementType, dims);
     }
 
     if (check(TokenType::Opaque)) {
@@ -207,30 +215,20 @@ std::unique_ptr<FnDecl> Parser::parseFnSignature() {
             continue;
         }
 
-        if (check(TokenType::Mut)) {
-            advance();
-            if (check(TokenType::Ref)) {
-                advance();
-                isRef = true;
-                isMutRef = true;
-            }
-        } else if (check(TokenType::Ref)) {
-            advance();
-            isRef = true;
-        }
-
         Token paramName = expect(TokenType::Identifier);
         expect(TokenType::Colon);
 
+        // Parse mut/ref modifiers AFTER the colon
+        bool isMutable = false;
         if (check(TokenType::Mut)) {
             advance();
+            isMutable = true;
             if (check(TokenType::Ref)) {
                 advance();
                 isRef = true;
                 isMutRef = true;
-            } else {
-                isMutRef = true;
             }
+            // else: mut without ref = mutable by-value parameter
         } else if (check(TokenType::Ref)) {
             advance();
             isRef = true;
@@ -238,7 +236,7 @@ std::unique_ptr<FnDecl> Parser::parseFnSignature() {
 
         const Type::Type* paramType = parseType();
 
-        params.emplace_back(paramName.lexeme, paramType, isRef, isMutRef);
+        params.emplace_back(paramName.lexeme, paramType, isRef, isMutRef, isMutable);
 
         if (!check(TokenType::RParen)) {
             expect(TokenType::Comma);
@@ -677,11 +675,17 @@ std::unique_ptr<Expr> Parser::parsePostfix() {
 
     while (true) {
         if (match({TokenType::LSquare})) {
-            // Array indexing: expr[index]
+            // Array indexing: expr[index] / expr[idx1, ...]
             Token lsqToken = tokens[idx - 1];
-            auto index = parseExpression();
+            std::vector<std::unique_ptr<Expr>> indices;
+            indices.push_back(parseExpression());
+            
+            while (match({TokenType::Comma})) {
+                indices.push_back(parseExpression());
+            }
+            
             expect(TokenType::RSquare);
-            expr = std::make_unique<IndexExpr>(std::move(expr), std::move(index), lsqToken.line, lsqToken.column);
+            expr = std::make_unique<IndexExpr>(std::move(expr), std::move(indices), lsqToken.line, lsqToken.column);
         } else if (match({TokenType::Dot})) {
             Token dotToken = tokens[idx - 1];
             Token memberName = expect(TokenType::Identifier);

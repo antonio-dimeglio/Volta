@@ -66,19 +66,22 @@ struct CompilerOptions {
 
         #ifdef __linux__
             fs::path exePath = fs::read_symlink("/proc/self/exe");
-            return exePath.parent_path().string();
+            // Go up one level from executable directory (e.g., build/ -> project root)
+            return exePath.parent_path().parent_path().string();
         #elif __APPLE__
             // macOS implementation
             char path[1024];
             uint32_t size = sizeof(path);
             if (_NSGetExecutablePath(path, &size) == 0) {
-                return fs::path(path).parent_path().string();
+                // Go up one level from executable directory
+                return fs::path(path).parent_path().parent_path().string();
             }
         #elif _WIN32
             // Windows implementation
             char path[MAX_PATH];
             GetModuleFileNameA(NULL, path, MAX_PATH);
-            return fs::path(path).parent_path().string();
+            // Go up one level from executable directory
+            return fs::path(path).parent_path().parent_path().string();
         #endif
 
         // 3. Fallback to compile-time path or current directory

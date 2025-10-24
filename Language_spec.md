@@ -27,7 +27,21 @@ Variables in the language are immutable by default, and are declared with one of
 ##### Pointers
 Pointers are a critical aspect of the language, as they are necessary for binding to c libraries. The language provides a unique interface for pointers, `Ptr<Type>`. Elements declared as pointers are NOT collected by GC, and users are expected to do their due diligence with them. Uninitialized ptrs are set to null, and ptrs are the only type in the language that can be rendered nullable.
 ##### Array
-Two arrays exist, one, beign a fixed size array, denoted with the type syntax `[Type; Size]` and generic, dynamically allocated homogenous array, declared with the generic syntax `Array<Type>`. Arrays are always passed by reference to functions.
+Two arrays exist, one, beign a fixed size array, denoted with the type syntax `[Type; Size]` and generic, dynamically allocated homogenous array, declared with the generic syntax `Array<Type>`. 
+Fixed size array require its size declared at compile time, and can be declared and indexed in the following fashion:
+```volta
+// 1D array
+let arr: [i32; 5] = [1, 2, 3, 4, 5];
+// All 100 elements = 42
+let arr: [i32; 100] = [42];        
+// Indexing
+let val: i32 = arr[42];
+// 2D array
+let arr: [i32; 2, 3] = [[1, 2, 3], [4, 5, 6]];
+// 3D array
+let arr: [f64; 10, 10, 10] = [1.0]; 
+let val: f64 = arr[3, 4, 5];
+```
 ##### HashMap and HashSet
 Hashmap and hashset and are declared respectively using the type syntax `{KeyType:ValueType}` and `{ValueType}`.
 ##### Composite types (Structs)
@@ -140,8 +154,102 @@ let id = h.get_id();            // OK - calls instance method
 ```
 
 Note: Generic structs will be supported in a future version.
-##### Functions 
-Functions are defined with syntax `fn fn_name(arg1: type, arg2: type, varargs) -> Type {}`. Arguments can either be passed by value or by reference. eg `arg1: type` is by value `arg2: ref type` is by reference and `arg3: const ref type` is a constant reference. of course passing references to values that are immutable will give an error.
+##### Functions
+
+Functions are defined with syntax `fn fn_name(arg1: type, arg2: type) -> Type {}`.
+
+**Parameter Passing Modes:**
+
+Volta supports four parameter passing modes for all types:
+
+1. **By Constant Value** (default): `param: Type`
+   - Creates an immutable copy of the argument
+   - Modifications inside the function are not allowed (immutable)
+   - For primitives (i32, f64, bool): efficient, passed in registers
+   - For arrays and structs: creates a deep copy (can be expensive for large types)
+
+2. **By Mutable Value**: `param: mut Type`
+   - Creates a mutable copy of the argument
+   - Modifications inside the function do not affect the caller (it's a copy)
+   - Useful when you need to modify a parameter locally without affecting the original
+
+3. **By Immutable Reference**: `param: ref Type`
+   - Passes a reference to the original value
+   - More efficient for large types (no copy)
+   - Cannot modify the value inside the function
+   - Compiler enforces immutability
+
+4. **By Mutable Reference**: `param: mut ref Type`
+   - Passes a reference to the original value
+   - Can modify the value, changes affect the caller
+   - Requires the caller to pass a mutable variable (`let mut`)
+
+**Examples:**
+
+```volta
+// 1. Pass by immutable value - copy semantics, cannot modify
+fn read_array(arr: [i32; 3]) -> i32 {
+    // arr[0] = 999;  // ERROR: cannot modify immutable parameter
+    return arr[0] + arr[1] + arr[2];
+}
+
+let data = [1, 2, 3];
+read_array(data);  // data is copied, original unchanged
+
+// 2. Pass by mutable value - copy semantics, can modify copy
+fn modify_array(arr: mut [i32; 3]) -> i32 {
+    arr[0] = 999;  // Modifies the local copy only
+    return arr[0];
+}
+
+let original = [1, 2, 3];
+modify_array(original);  // original[0] is still 1
+
+// 3. Pass by immutable reference - no copy, read-only
+fn sum_array(arr: ref [i32; 100]) -> i32 {
+    let total = 0;
+    for i in 0..100 {
+        total += arr[i];  // Can read
+    }
+    // arr[0] = 999;  // ERROR: cannot modify immutable reference
+    return total;
+}
+
+sum_array(ref data);  // No copy made, efficient
+
+// 4. Pass by mutable reference - no copy, can modify original
+fn zero_array(arr: mut ref [i32; 100]) {
+    for i in 0..100 {
+        arr[i] = 0;  // Modifies the original array
+    }
+}
+
+let mut data = [1, 2, 3];
+zero_array(mut ref data);  // data is now all zeros
+
+// Same applies to structs
+struct Point { pub x: f64, pub y: f64 }
+
+fn distance(p1: ref Point, p2: ref Point) -> f64 {
+    // Read-only access, efficient (no copy)
+    let dx = p2.x - p1.x;
+    let dy = p2.y - p1.y;
+    return sqrt(dx*dx + dy*dy);
+}
+
+fn translate(p: mut ref Point, dx: f64, dy: f64) {
+    p.x += dx;  // Modifies the original struct
+    p.y += dy;
+}
+```
+
+**Important Notes:**
+
+- All four modes work for all types (primitives, arrays, structs)
+- By-value copies can be expensive for large types - consider using references for efficiency
+- Mutable references (`mut ref`) require the caller to pass a mutable variable (`let mut`)
+- Immutable references prevent any modification, enforced at compile time
+- The compiler uses allocation analysis to decide stack vs heap allocation based on escape analysis
 ## Syntax
 ##### If
 If statement are written as `if cond1 and cond2 or cond3 and notcond4 {} else if cond5 {} else {}`
@@ -220,15 +328,123 @@ fn find_even(numbers: &[i32]) -> Option<i32> {
 ```
 
 ### FFI
+
 FFI calls require extern blocks, which specify (and wrap) c functions:
 ```
 extern "C" {
-    fn strlen(s: Ptr<u8>) -> usize
-    fn malloc(size: usize) -> Ptr<opaque>
+    fn strlen(s: ptr<u8>) -> usize
+    fn malloc(size: usize) -> ptr<opaque>
 }
 ```
 Note the usage of the opaque keyword, which is just a fancy way of declaring a void pointer, for which the size is system specific.
-char* is a Ptr<u8>, while numeric types can be directly translated with the supported Volta types. Conversion from utf8 string to C strings can be done by performing `my_string.to_c_str()` calls. The language also supports the use of the `addrof` keyword to obtain the address of a variable, in order to pass it to C definitiions.
+char* is a ptr<u8>, while numeric types can be directly translated with the supported Volta types. Conversion from utf8 string to C strings can be done by performing `my_string.to_c_str()` calls. The language also supports the use of the `addrof` keyword to obtain the address of a variable, in order to pass it to C definitiions.
+
+#### Struct Layout Compatibility
+
+When a Volta struct matches a C struct layout exactly (same field types, same order), pointers can be passed directly to C functions without conversion overhead. Volta generates LLVM struct types that are binary-compatible with C structs.
+
+Example:
+```volta
+// C side: typedef struct { char* data; size_t size; } MyStruct;
+
+// Volta side: Must match C layout exactly
+pub struct MyStruct {
+    data: ptr<i8>,    // char* in C
+    size: u64         // size_t in C (on 64-bit systems)
+}
+
+extern "C" {
+    fn process_struct(s: ptr<MyStruct>) -> void;
+}
+
+fn main() -> i32 {
+    let s = MyStruct { data: null, size: 0 };
+    process_struct(addrof(s));  // Direct pointer passing, no conversion
+    return 0;
+}
+```
+
+The Volta struct and C struct must have:
+- Same field types
+- Same field order
+- Same sizes (ptr<i8> = char*, u64 = size_t on 64-bit, etc.)
+
+When these conditions are met, Volta pointers and C pointers are fully interchangeable.
+
+#### GC and Persistent Pointers
+
+**Warning**: Volta uses garbage collection (Boehm GC). If C code stores pointers to GC-allocated Volta objects, you must ensure proper lifetime management:
+
+**Safe Usage** (Temporary pointers):
+```volta
+extern "C" {
+    fn process_data(data: ptr<i8>, len: u64) -> i32;
+}
+
+fn safe_ffi() -> i32 {
+    let s = String.from_cstr("Hello");
+    // Safe: C function uses the pointer temporarily and doesn't store it
+    return process_data(s.to_cstr(), s.length());
+}
+```
+
+**Unsafe Usage** (Persistent storage):
+```volta
+extern "C" {
+    fn store_string_globally(s: ptr<i8>) -> void;  // C stores this pointer!
+}
+
+fn unsafe_ffi() {
+    let s = String.from_cstr("Hello");
+    store_string_globally(s.to_cstr());  // DANGER: GC may collect s later!
+    // If s gets garbage collected, the C pointer becomes invalid
+}
+```
+
+**Solutions for Persistent Storage**:
+
+1. **Deep Copy with Manual Allocation**: If C needs to store the data permanently, allocate with malloc (not GC) and document that C must free() the memory:
+
+```volta
+extern "C" {
+    fn malloc(size: u64) -> ptr<opaque>;
+    fn memcpy(dst: ptr<opaque>, src: ptr<opaque>, n: u64) -> ptr<opaque>;
+    fn store_string_globally(s: ptr<i8>) -> void;
+}
+
+fn safe_persistent_ffi() {
+    let s = String.from_cstr("Hello");
+
+    // Allocate non-GC memory
+    let persistent_copy = malloc(s.byte_length() + 1);
+    memcpy(persistent_copy, s.to_cstr(), s.byte_length() + 1);
+
+    // Now C owns this memory and must free() it when done
+    store_string_globally(persistent_copy);
+}
+```
+
+2. **Keep References Alive**: Ensure the Volta object remains reachable for the entire duration that C holds the pointer:
+
+```volta
+// Global or long-lived variable prevents GC
+let global_string = String.from_cstr("Persistent");
+
+extern "C" {
+    fn use_string_pointer(s: ptr<i8>) -> void;
+}
+
+fn main() -> i32 {
+    // Safe: global_string won't be collected
+    use_string_pointer(global_string.to_cstr());
+    return 0;
+}
+```
+
+**Summary**:
+- Temporary C usage (function doesn't store pointer): Safe
+- Persistent C storage (function stores pointer): Must deep copy or ensure lifetime
+- When in doubt, use manual allocation (malloc/free) for C-owned data
 
 ### Modules and Imports
 

@@ -16,13 +16,17 @@ MIR::Program HIRToMIR::lower(const HIR::HIRProgram& hirProgram) {
     for (const auto& topLvlStmt : hirProgram.statements) {
         // Handle function declarations
         if (auto* fnDecl = dynamic_cast<HIR::HIRFnDecl*>(topLvlStmt.get())) {
+            // Register function parameters for call site lookup
+            functionParams[fnDecl->name] = &(fnDecl->params);
+
             // Convert parameters
             std::vector<Value> params;
             for (auto& par : fnDecl->params) {
-                // Structs and arrays are always passed by reference (pointer)
+                // Structs, arrays, and ref/mut ref parameters are passed by reference (pointer)
                 const Type::Type* paramType = par.type;
                 if (paramType->kind == Type::TypeKind::Struct ||
-                    paramType->kind == Type::TypeKind::Array) {
+                    paramType->kind == Type::TypeKind::Array ||
+                    par.isRef || par.isMutRef) {
                     paramType = typeRegistry.getPointer(paramType);
                 }
                 params.push_back(Value::makeParam(par.name, paramType));
@@ -44,15 +48,20 @@ MIR::Program HIRToMIR::lower(const HIR::HIRProgram& hirProgram) {
                 auto& param = params[i];
                 auto& paramDecl = fnDecl->params[i];
 
-                // For mut ref parameters of primitive types, we need to allocate space
-                // But for arrays/structs, they're already passed as pointers, so just use them directly
-                if (paramDecl.isMutRef &&
-                    paramDecl.type->kind != Type::TypeKind::Array &&
-                    paramDecl.type->kind != Type::TypeKind::Struct) {
+                // ref and mut ref parameters: already pointers, use them directly in varPointers
+                if (paramDecl.isRef || paramDecl.isMutRef) {
+                    varPointers[param.name] = param;
+                }
+                // mut value parameters: need stack space for local mutation
+                else if (paramDecl.isMutable &&
+                         paramDecl.type->kind != Type::TypeKind::Array &&
+                         paramDecl.type->kind != Type::TypeKind::Struct) {
                     Value ptr = builder.createAlloca(param.type);
                     builder.createStore(param, ptr);
                     varPointers[param.name] = ptr;
-                } else {
+                }
+                // Immutable parameters: track value directly
+                else {
                     builder.setVariable(param.name, param);
                 }
             }
@@ -200,7 +209,8 @@ void HIRToMIR::visitFnDecl(::FnDecl& fnDecl) {
         auto& param = params[i];
         auto& paramDecl = fnDecl.params[i];
 
-        if (paramDecl.isMutRef) {
+        if (paramDecl.isMutRef || paramDecl.isMutable) {
+            // Create stack slot for mutable parameters (both mut ref and mut value)
             Value ptr = builder.createAlloca(param.type);
             builder.createStore(param, ptr);
             varPointers[param.name] = ptr;
@@ -500,16 +510,19 @@ void HIRToMIR::lowerHIRStmt(HIR::HIRStmt& stmt) {
             ? hirVarDecl->typeAnnotation
             : getExprType(hirVarDecl->initValue.get());
 
-        // For structs, always use varPointers (even for immutable) to avoid auto-loading
+        // For structs and arrays, always use varPointers (even for immutable) to avoid auto-loading
         // Immutability is enforced at semantic analysis level
-        if (hirVarDecl->mutable_ || varType->kind == Type::TypeKind::Struct) {
-            // For structs (which are heap pointers), allocate a pointer-sized slot
+        if (hirVarDecl->mutable_ ||
+            varType->kind == Type::TypeKind::Struct ||
+            varType->kind == Type::TypeKind::Array) {
+            // For structs/arrays (which are heap pointers), allocate a pointer-sized slot
             // For primitives, allocate value-sized slot
             const Type::Type* storageType = varType;
-            if (varType->kind == Type::TypeKind::Struct) {
-                // Struct variables store pointers to heap-allocated structs
+            if (varType->kind == Type::TypeKind::Struct ||
+                varType->kind == Type::TypeKind::Array) {
+                // Struct/array variables store pointers to heap-allocated data
                 storageType = typeRegistry.getPointer(varType);
-                // initVal is already a pointer from visitStructLiteral
+                // initVal is already a pointer from visitStructLiteral/visitArrayLiteral
             }
 
             Value ptr = builder.createAlloca(storageType);
@@ -643,9 +656,10 @@ Value HIRToMIR::visitVariable(::Variable& var) {
             return ptr;
         }
 
-        // For arrays, don't load - they are manipulated by reference
+        // For arrays, load the heap pointer from the stack slot
+        // (varPointers stores ptr-to-ptr for heap-allocated arrays)
         if (varType->kind == Type::TypeKind::Array) {
-            return ptr;  // Return the pointer, not the loaded value
+            return builder.createLoad(ptr);  // Load the array heap pointer
         }
 
         return builder.createLoad(ptr);
@@ -759,20 +773,53 @@ Value HIRToMIR::visitFnCall(::FnCall& call) {
     // Try to look up the function to get parameter types
     Function* func = builder.getProgram().getFunction(call.name);
 
+    // Look up HIR params to check for ref/mut ref
+    const std::vector<HIR::Param>* hirParams = nullptr;
+    auto paramIt = functionParams.find(call.name);
+    if (paramIt != functionParams.end()) {
+        hirParams = paramIt->second;
+    }
+
     // Lower all arguments
     std::vector<Value> args;
     for (size_t i = 0; i < call.args.size(); i++) {
-        Value arg = lowerExpr(*call.args[i]);
+        // Check if this parameter expects a reference
+        bool expectsRef = false;
+        if (hirParams != nullptr && i < hirParams->size()) {
+            const auto& paramDecl = (*hirParams)[i];
+            expectsRef = paramDecl.isRef || paramDecl.isMutRef;
+        }
+
+        Value arg;
+        if (expectsRef) {
+            // For ref/mut ref parameters: pass the address, not the value
+            // Check if argument is a variable
+            if (auto* varExpr = dynamic_cast<Variable*>(call.args[i].get())) {
+                // Pass the pointer from varPointers if it exists, otherwise error
+                if (varPointers.count(varExpr->token.lexeme) != 0U) {
+                    arg = varPointers[varExpr->token.lexeme];
+                } else {
+                    // Immutable variable - need to create a temporary to take its address
+                    Value val = builder.getVariable(varExpr->token.lexeme);
+                    Value tempPtr = builder.createAlloca(val.type);
+                    builder.createStore(val, tempPtr);
+                    arg = tempPtr;
+                }
+            } else {
+                // For other expressions passed to ref, evaluate and store in temp
+                Value val = lowerExpr(*call.args[i]);
+                Value tempPtr = builder.createAlloca(val.type);
+                builder.createStore(val, tempPtr);
+                arg = tempPtr;
+            }
+        } else {
+            // Normal pass-by-value: lower the expression
+            arg = lowerExpr(*call.args[i]);
+        }
 
         // If we found the function, convert arguments to match parameter types
         if ((func != nullptr) && i < func->params.size()) {
             const Type::Type* paramType = func->params[i].type;
-
-            // Structs and arrays are passed as pointers
-            // - Structs: already correct from visitStructLiteral (returns heap pointer)
-            // - Arrays: already correct from visitArrayLiteral (returns stack pointer)
-            // - Array/struct variables: already pointers from visitVariable
-            // Just convert primitive types if needed
             if (arg.type != paramType) {
                 arg = convertValue(arg, paramType);
             }
@@ -853,9 +900,23 @@ Value HIRToMIR::visitGroupingExpr(::GroupingExpr& expr) {
     return lowerExpr(*expr.expr);
 }
 
+// Helper: Recursively flatten nested array literals into a linear list of values
+void HIRToMIR::flattenArrayLiteral(::ArrayLiteral& lit, std::vector<Value>& flatValues) {
+    for (auto& elem : lit.elements) {
+        if (auto* innerArray = dynamic_cast<ArrayLiteral*>(elem.get())) {
+            // Recursively flatten nested arrays
+            flattenArrayLiteral(*innerArray, flatValues);
+        } else {
+            // Base element - lower and add to flat list
+            flatValues.push_back(lowerExpr(*elem));
+        }
+    }
+}
+
 Value HIRToMIR::visitArrayLiteral(::ArrayLiteral& lit) {
     // Get array type
     const Type::Type* arrayType = getExprType(&lit);
+    const auto* arrType = dynamic_cast<const Type::ArrayType*>(arrayType);
 
     // Allocate space on the GC heap for the array (like structs)
     size_t arrayByteSize = getTypeSize(arrayType);
@@ -870,37 +931,128 @@ Value HIRToMIR::visitArrayLiteral(::ArrayLiteral& lit) {
     Value arrayPtr = heapPtr;  // MIR doesn't need explicit casting, types are tracked separately
     arrayPtr.type = typeRegistry.getPointer(arrayType);
 
-    // Store each element
-    for (size_t i = 0; i < lit.elements.size(); i++) {
-        Value elemValue = lowerExpr(*lit.elements[i]);
+    // Handle repeat syntax: [value; count]
+    if (lit.repeat_value && lit.repeat_count) {
+        Value repeatValue = lowerExpr(*lit.repeat_value);
 
-        // For structs (heap pointers), store the pointers directly
-        // No need to load - arrays of structs are arrays of pointers
+        for (int i = 0; i < *lit.repeat_count; i++) {
+            Value indexVal = builder.createConstantInt(static_cast<int64_t>(i),
+                                                         typeRegistry.getPrimitive(Type::PrimitiveKind::I64));
+            Value elemPtr = builder.createGetElementPtr(arrayPtr, indexVal);
+            builder.createStore(repeatValue, elemPtr);
+        }
+    } else {
+        // Handle regular array literal
+        // For multi-dimensional arrays, we need to flatten the nested structure
 
-        Value indexVal = builder.createConstantInt(static_cast<int64_t>(i),
-                                                     typeRegistry.getPrimitive(Type::PrimitiveKind::I64));
-        Value elemPtr = builder.createGetElementPtr(arrayPtr, indexVal);
-        builder.createStore(elemValue, elemPtr);
+        // Check if this is a multi-dimensional array (nested array literals)
+        bool isMultiDimensional = !lit.elements.empty() &&
+                                  dynamic_cast<ArrayLiteral*>(lit.elements[0].get()) != nullptr;
+
+        if (isMultiDimensional) {
+            // Flatten nested array literals into linear storage
+            std::vector<Value> flatValues;
+            flattenArrayLiteral(lit, flatValues);
+
+            // Store each flattened element in row-major order
+            for (size_t i = 0; i < flatValues.size(); i++) {
+                Value indexVal = builder.createConstantInt(static_cast<int64_t>(i),
+                                                             typeRegistry.getPrimitive(Type::PrimitiveKind::I64));
+                Value elemPtr = builder.createGetElementPtr(arrayPtr, indexVal);
+                builder.createStore(flatValues[i], elemPtr);
+            }
+        } else {
+            // 1D array - store each element normally
+            for (size_t i = 0; i < lit.elements.size(); i++) {
+                Value elemValue = lowerExpr(*lit.elements[i]);
+
+                Value indexVal = builder.createConstantInt(static_cast<int64_t>(i),
+                                                             typeRegistry.getPrimitive(Type::PrimitiveKind::I64));
+                Value elemPtr = builder.createGetElementPtr(arrayPtr, indexVal);
+                builder.createStore(elemValue, elemPtr);
+            }
+        }
     }
 
     return arrayPtr;
 }
 
 Value HIRToMIR::visitIndexExpr(::IndexExpr& expr) {
-    // Lower the array expression and index
-    Value arrayVal = lowerExpr(*expr.array);
-    Value indexVal = lowerExpr(*expr.index);
+    Value arrayPtr = lowerExpr(*expr.array);
 
-    // Get element pointer and load
-    Value elemPtr = builder.createGetElementPtr(arrayVal, indexVal);
-    return builder.createLoad(elemPtr);
+    // Get the original array type (before indexing)
+    const Type::Type* arrayType = exprTypes[expr.array.get()];
+    const auto* arrType = dynamic_cast<const Type::ArrayType*>(arrayType);
+
+    // Calculate flattened offset: i0*(D1*D2*...) + i1*(D2*D3*...) + ...
+    Value offset = calculateFlattenedOffset(expr.index, arrType->dimensions);
+
+    // Get pointer to element at calculated offset
+    Value elemPtr = builder.createGetElementPtr(arrayPtr, offset);
+
+    // Determine if full or partial indexing
+    bool isFullIndexing = (expr.index.size() == arrType->dimensions.size());
+
+    if (isFullIndexing) {
+        // Full indexing: load the element
+        return builder.createLoad(elemPtr);
+    } else {
+        // Partial indexing: return the pointer (type system knows it's a sub-array)
+        return elemPtr;
+    }
 }
 
 // Helper: Get pointer to array element without loading
 Value HIRToMIR::getIndexExprPtr(::IndexExpr& expr) {
-    Value arrayVal = lowerExpr(*expr.array);
-    Value indexVal = lowerExpr(*expr.index);
-    return builder.createGetElementPtr(arrayVal, indexVal);
+    Value arrayPtr = lowerExpr(*expr.array);
+
+    // Get the original array type
+    const Type::Type* arrayType = exprTypes[expr.array.get()];
+    const auto* arrType = dynamic_cast<const Type::ArrayType*>(arrayType);
+
+    // Calculate flattened offset
+    Value offset = calculateFlattenedOffset(expr.index, arrType->dimensions);
+
+    // Return pointer at offset
+    return builder.createGetElementPtr(arrayPtr, offset);
+}
+
+// Helper: Calculate flattened offset for multi-dimensional array indexing
+Value HIRToMIR::calculateFlattenedOffset(
+    const std::vector<std::unique_ptr<Expr>>& indices,
+    const std::vector<int>& dimensions) {
+
+    // Start with 0
+    Value totalOffset = builder.createConstantInt(0, typeRegistry.getPrimitive(Type::PrimitiveKind::I64));
+
+    for (size_t i = 0; i < indices.size(); i++) {
+        Value idx = lowerExpr(*indices[i]);
+
+        // Convert index to i64 if needed (indices might be i32 from loops)
+        const Type::Type* i64Type = typeRegistry.getPrimitive(Type::PrimitiveKind::I64);
+        if (idx.type != i64Type) {
+            idx = convertValue(idx, i64Type);
+        }
+
+        // Calculate stride: product of all dimensions after this one
+        int stride = 1;
+        for (size_t j = i + 1; j < dimensions.size(); j++) {
+            stride *= dimensions[j];
+        }
+
+        if (stride > 1) {
+            // Multiply index by stride and add to total offset
+            Value strideVal = builder.createConstantInt(static_cast<int64_t>(stride),
+                                                        typeRegistry.getPrimitive(Type::PrimitiveKind::I64));
+            Value contribution = builder.createIMul(idx, strideVal);
+            totalOffset = builder.createIAdd(totalOffset, contribution);
+        } else {
+            // Last dimension, stride is 1, just add the index
+            totalOffset = builder.createIAdd(totalOffset, idx);
+        }
+    }
+
+    return totalOffset;
 }
 
 Value HIRToMIR::getFieldAccessPtr(::FieldAccess& expr) {
@@ -1229,7 +1381,12 @@ size_t HIRToMIR::getTypeSize(const Type::Type* type) {
 
         case Type::TypeKind::Array: {
             const auto* arrayType = dynamic_cast<const Type::ArrayType*>(type);
-            return getTypeSize(arrayType->elementType) * arrayType->size;
+            // Calculate total number of elements: product of all dimensions
+            size_t totalElements = 1;
+            for (int dim : arrayType->dimensions) {
+                totalElements *= dim;
+            }
+            return getTypeSize(arrayType->elementType) * totalElements;
         }
 
         case Type::TypeKind::Generic:

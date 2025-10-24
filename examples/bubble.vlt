@@ -1,4 +1,4 @@
-fn bubble_sort(arr: mut [i32; 10]) -> [i32; 10] {
+fn bubble_sort(arr: [i32; 10]) -> void {
     for i in 0..10 {
         for j in 0..9 {
             if arr[j] > arr[j + 1] {
@@ -8,12 +8,14 @@ fn bubble_sort(arr: mut [i32; 10]) -> [i32; 10] {
             }
         }
     }
-    return arr;
+    let s: String = "Hello!";
+    
 }
 
 
 fn main() -> i32 {
     let mut x: [i32; 10] = [3, 2, 7, 0, 9, 9, 10, 250, 4, 10];
     bubble_sort(x);
+
     return 0;
 }

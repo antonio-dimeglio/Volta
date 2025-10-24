@@ -1,6 +1,13 @@
 import examples.math_lib.{add, multiply};
 
+struct Test {
+
+}
+
 fn main() -> i32 {
     let result: i32 = add(10, 20);
+    let test := Test {};
+    multiply(3, test);
+
     return result;
 }

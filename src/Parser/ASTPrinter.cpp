@@ -55,7 +55,15 @@ public:
     }
 
     void visitFnDecl(FnDecl& node) override {
-        out << getIndent() << "FnDecl: " << node.name << "(";
+        out << getIndent() << "FnDecl: " << node.name;
+        if (node.isGeneric()) {
+            out << "<";
+            for (size_t i = 0; i < node.typeParamaters.size(); ++i) {
+                out << node.typeParamaters[i].lexeme << (i < node.typeParamaters.size() - 1 ? ", " : "");
+            }
+            out << ">";
+        }
+        out << "(";
 
         for (size_t i = 0; i < node.params.size(); ++i) {
             if (i > 0) { out << ", ";
@@ -79,15 +87,21 @@ public:
 
     void visitStructDecl(StructDecl& node) override {
         out << getIndent();
-        if (node.isPublic) { out << "pub ";
-}
-        out << "struct " << node.name.lexeme << " {\n";
+        if (node.isPublic) { out << "pub "; }
+        out << "struct " << node.name.lexeme;
+        if (node.isGeneric()) {
+            out << "<";
+            for (size_t i = 0; i < node.typeParamaters.size(); ++i) {
+                out << node.typeParamaters[i].lexeme << (i < node.typeParamaters.size() - 1 ? ", " : "");
+            }
+            out << ">";
+        }
+        out << " {\n";
 
         indentLevel++;
         for (const auto& field : node.fields) {
             out << getIndent();
-            if (field.isPublic) { out << "pub ";
-}
+            if (field.isPublic) { out << "pub "; }
             out << field.name.lexeme << ": ";
             printType(field.type);
             out << "\n";
@@ -238,7 +252,15 @@ public:
 std::string ASTPrinterVisitor::exprToString(const Expr* expr) {
     if (const auto* fnCall = dynamic_cast<const FnCall*>(expr)) {
         std::ostringstream oss;
-        oss << fnCall->name << "(";
+        oss << fnCall->name;
+        if (fnCall->isGeneric()) {
+            oss << "<";
+            for (size_t i = 0; i < fnCall->typeArgs.size(); ++i) {
+                oss << fnCall->typeArgs[i]->toString() << (i < fnCall->typeArgs.size() - 1 ? ", " : "");
+            }
+            oss << ">";
+        }
+        oss << "(";
         for (size_t i = 0; i < fnCall->args.size(); ++i) {
             if (i > 0) { oss << ", ";
 }
@@ -278,8 +300,15 @@ std::string ASTPrinterVisitor::exprToString(const Expr* expr) {
             oss << "]";
         }
         return oss.str();
-    } else if (const auto* idx = dynamic_cast<const IndexExpr*>(expr)) {
-        return exprToString(idx->array.get()) + "[" + exprToString(idx->index.get()) + "]";
+    } else if (const auto* idxExpr = dynamic_cast<const IndexExpr*>(expr)) {
+        std::ostringstream oss;
+        oss << exprToString(idxExpr->array.get()) << "[";
+        for (size_t i = 0; i < idxExpr->index.size(); ++i) {
+            if (i > 0) { oss << ", "; }
+            oss << exprToString(idxExpr->index[i].get());
+        }
+        oss << "]";
+        return oss.str();
     } else if (const auto* compAssign = dynamic_cast<const CompoundAssign*>(expr)) {
         return compAssign->var->token.lexeme + " " + tokenTypeToString(compAssign->op) + " " + exprToString(compAssign->value.get());
     } else if (const auto* inc = dynamic_cast<const Increment*>(expr)) {
@@ -378,7 +407,16 @@ void printHIRNodeHelper(const HIR::HIRStmt* stmt, std::ostream& os, int indent) 
         for (size_t i = 0; i < hirFnDecl->params.size(); i++) {
             if (i > 0) { os << ", ";
 }
-            os << hirFnDecl->params[i].name << ": " << hirFnDecl->params[i].type->toString();
+            const auto& param = hirFnDecl->params[i];
+            if (param.isMutRef) {
+                os << "mut ref " << param.name << ": " << param.type->toString();
+            } else if (param.isRef) {
+                os << "ref " << param.name << ": " << param.type->toString();
+            } else if (param.isMutable) {
+                os << param.name << ": mut " << param.type->toString();
+            } else {
+                os << param.name << ": " << param.type->toString();
+            }
         }
         os << ") -> ";
         if (hirFnDecl->returnType != nullptr) {
@@ -418,7 +456,15 @@ void printHIRNodeHelper(const HIR::HIRStmt* stmt, std::ostream& os, int indent) 
 std::string exprToStringForHIR(const Expr* expr) {
     if (const auto* fnCall = dynamic_cast<const FnCall*>(expr)) {
         std::ostringstream oss;
-        oss << fnCall->name << "(";
+        oss << fnCall->name;
+        if (fnCall->isGeneric()) {
+            oss << "<";
+            for (size_t i = 0; i < fnCall->typeArgs.size(); ++i) {
+                oss << fnCall->typeArgs[i]->toString() << (i < fnCall->typeArgs.size() - 1 ? ", " : "");
+            }
+            oss << ">";
+        }
+        oss << "(";
         for (size_t i = 0; i < fnCall->args.size(); ++i) {
             if (i > 0) { oss << ", ";
 }
@@ -459,7 +505,14 @@ std::string exprToStringForHIR(const Expr* expr) {
         }
         return oss.str();
     } else if (const auto* idx = dynamic_cast<const IndexExpr*>(expr)) {
-        return exprToStringForHIR(idx->array.get()) + "[" + exprToStringForHIR(idx->index.get()) + "]";
+        std::ostringstream oss;
+        oss << exprToStringForHIR(idx->array.get()) << "[";
+        for (size_t i = 0; i < idx->index.size(); ++i) {
+            if (i > 0) { oss << ", "; }
+            oss << exprToStringForHIR(idx->index[i].get());
+        }
+        oss << "]";
+        return oss.str();
     } else if (const auto* addrOf = dynamic_cast<const AddrOf*>(expr)) {
         return "ptr " + exprToStringForHIR(addrOf->operand.get());
     }

@@ -1,4 +1,5 @@
 #include "MIR/MIRBuilder.hpp"
+#include "MIR/EscapeAnalysis.hpp"
 #include <iostream>
 
 namespace MIR {
@@ -19,6 +20,17 @@ void MIRBuilder::createFunction(const std::string& name,
 }
 
 void MIRBuilder::finishFunction() {
+    if (currentFunction != nullptr) {
+        // Run escape analysis on the function
+        EscapeInfo escapeInfo(64);  // 64-byte stack size threshold
+        EscapeAnalyzer analyzer(escapeInfo);
+        analyzer.analyze(*currentFunction);
+
+        // Transform Alloca -> SAlloca/HAlloca based on escape analysis
+        AllocationTransformer transformer(escapeInfo);
+        transformer.transform(*currentFunction);
+    }
+
     currentFunction = nullptr;
     currentBlock = nullptr;
 }

@@ -11,6 +11,8 @@ cmake_install.cmake
 compile_commands.json
 CTestTestfile.cmake
 _deps/
+cmake-build-debug/
+build-cmake/
 
 # Compiled Object files
 *.o

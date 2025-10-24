@@ -1,0 +1,75 @@
+fn main() -> i32 {
+    // ========== 1D Arrays ==========
+
+    // Explicit initialization
+    let arr1d_explicit: [i32; 5] = [10, 20, 30, 40, 50];
+
+    // Fill initialization
+    let arr1d_fill: [i32; 100] = [0];
+
+    // Access elements
+    let elem1: i32 = arr1d_explicit[2];  // Should be 30
+
+
+    // ========== 2D Arrays ==========
+
+    // Explicit initialization with nested literals
+    let arr2d_explicit: [i32; 2, 3] = [[1, 2, 3],
+                                        [4, 5, 6]];
+
+    // Fill initialization
+    let arr2d_fill: [i32; 3, 4] = [0];
+
+    // Full indexing (single element)
+    let elem2: i32 = arr2d_explicit[1, 2];  // Should be 6
+
+    // Partial indexing (returns 1D array)
+    let row: [i32; 3] = arr2d_explicit[0];  // Should be [1, 2, 3]
+    let row_elem: i32 = row[1];              // Should be 2
+
+
+    // ========== 3D Arrays ==========
+
+    // Explicit initialization with nested literals
+    let arr3d_explicit: [i32; 2, 2, 3] = [[[1, 2, 3], [4, 5, 6]],
+                                          [[7, 8, 9], [10, 11, 12]]];
+
+    // Fill initialization
+    let arr3d_fill: [i32; 4, 3, 2] = [42];
+
+    // Full indexing (single element)
+    let elem3: i32 = arr3d_explicit[1, 1, 2];  // Should be 12
+
+    // Partial indexing (returns 2D array)
+    let plane: [i32; 2, 3] = arr3d_explicit[0];  // Should be [[1,2,3], [4,5,6]]
+    let plane_elem: i32 = plane[1, 1];           // Should be 5
+
+    // Partial indexing (returns 1D array)
+    let line: [i32; 3] = arr3d_explicit[1, 0];   // Should be [7, 8, 9]
+    let line_elem: i32 = line[2];                 // Should be 9
+
+
+    // ========== Mutable Arrays ==========
+
+    let mut arr_mut: [i32; 2, 2] = [[1, 2],
+                                     [3, 4]];
+
+    // Note: Assignment not yet implemented in parser
+    // arr_mut[0, 1] = 99;
+
+
+    // ========== Large Arrays ==========
+
+    // Large 1D array
+    let large1d: [i32; 1000] = [7];
+
+    // Large 2D array
+    let large2d: [f64; 100, 100] = [0.0];
+
+    // Large 3D array
+    let large3d: [i32; 10, 10, 10] = [1];
+
+
+    // Return a test value
+    return arr2d_explicit[1, 2];  // Should return 6
+}

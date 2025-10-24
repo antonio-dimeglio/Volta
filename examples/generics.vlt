@@ -1,0 +1,55 @@
+// Example file to test generic parsing and printing
+
+// Generic function that swaps two values
+fn swap<T>(a: mut ref T, b: mut ref T) -> void {
+    let temp: T = a;
+    a = b;
+    b = temp;
+}
+
+// Generic function that returns the first element
+fn first<T>(arr: [T]) -> T {
+    return arr[0];
+}
+
+// Generic struct with one type parameter
+struct Box<T> {
+    value: T
+}
+
+// Generic struct with multiple type parameters
+struct Pair<T, U> {
+    pub first: T,
+    pub second: U
+}
+
+// Generic struct with methods
+struct Container<T> {
+    pub data: T,
+    pub count: i32
+
+    pub fn new(value: T) -> Container<T> {
+        return Container<T> { data: value, count: 1 };
+    }
+
+    pub fn get(self) -> T {
+        return self.data;
+    }
+}
+
+fn main() -> i32 {
+    // Test generic function calls
+    let x: i32 = 5;
+    let y: i32 = 10;
+    swap<i32>(x, y);
+
+    // Test generic struct instantiation
+    let box_int: Box<i32> = Box<i32> { value: 42 };
+    let pair: Pair<i32, f64> = Pair<i32, f64> { first: 1, second: 3.14 };
+
+    // Test generic struct with methods
+    let container: Container<i32> = Container<i32>::new(100);
+    let val: i32 = container.get();
+
+    return 0;
+}

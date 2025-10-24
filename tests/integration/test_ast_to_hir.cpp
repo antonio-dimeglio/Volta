@@ -376,7 +376,8 @@ fn main() -> i32 {
 
     auto* arrayType = dynamic_cast<const Type::ArrayType*>(varDecl->typeAnnotation);
     ASSERT_NE(arrayType, nullptr);
-    EXPECT_EQ(arrayType->size, 5);
+    ASSERT_EQ(arrayType->dimensions.size(), 1);
+    EXPECT_EQ(arrayType->dimensions[0], 5);
 }
 
 TEST_F(ASTToHIRTest, ArrayIndexingLowering) {

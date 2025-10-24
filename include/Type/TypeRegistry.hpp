@@ -13,16 +13,20 @@ namespace Type {
 // Hash function for array types (based on element type + size)
 struct ArrayTypeKey {
     const Type* elementType;
-    int size;
+    std::vector<int> dimensions;
 
     bool operator==(const ArrayTypeKey& other) const {
-        return elementType == other.elementType && size == other.size;
+        return elementType == other.elementType && dimensions == other.dimensions;
     }
 };
 
 struct ArrayTypeHash {
     size_t operator()(const ArrayTypeKey& key) const {
-        return std::hash<const Type*>{}(key.elementType) ^ (std::hash<int>{}(key.size) << 1);
+        size_t hash = std::hash<const Type*>{}(key.elementType);
+        for (int dim : key.dimensions) {
+            hash ^= std::hash<int>{}(dim) << 1;
+        }
+        return hash;
     }
 };
 
@@ -64,7 +68,7 @@ public:
     const PrimitiveType* getPrimitive(PrimitiveKind kind);
 
     // Get or create an array type of the specific format
-    const ArrayType* getArray(const Type* elementType, int size);
+    const ArrayType* getArray(const Type* elementType, std::vector<int> dimensions);
 
     // Get or creates a generic type
     const GenericType* getGeneric(const std::string& name, const std::vector<const Type*>& typeParams);

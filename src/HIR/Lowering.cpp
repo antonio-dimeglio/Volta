@@ -69,7 +69,7 @@ std::unique_ptr<HIR::HIRStmt> HIRLowering::lowerFnDecl(FnDecl& decl) {
     std::vector<HIR::Param> hirParams;
     hirParams.reserve(decl.params.size());
 for (auto& param : decl.params) {
-        hirParams.emplace_back(param.name, param.type, param.isRef, param.isMutRef);
+        hirParams.emplace_back(param.name, param.type, param.isRef, param.isMutRef, param.isMutable);
     }
 
     // Lower function body
@@ -470,9 +470,19 @@ for (auto& arg : call->args) {
             group->column
         );
     } else if (auto* arrLit = dynamic_cast<ArrayLiteral*>(expr)) {
+        // Handle repeat syntax: [value; count]
+        if (arrLit->repeat_value && arrLit->repeat_count) {
+            return std::make_unique<ArrayLiteral>(
+                cloneExpr(arrLit->repeat_value.get()),
+                *arrLit->repeat_count,
+                arrLit->line,
+                arrLit->column
+            );
+        }
+        // Handle regular array: [e1, e2, e3, ...]
         std::vector<std::unique_ptr<Expr>> clonedElems;
         clonedElems.reserve(arrLit->elements.size());
-for (auto& elem : arrLit->elements) {
+        for (auto& elem : arrLit->elements) {
             clonedElems.push_back(cloneExpr(elem.get()));
         }
         return std::make_unique<ArrayLiteral>(
@@ -481,9 +491,13 @@ for (auto& elem : arrLit->elements) {
             arrLit->column
         );
     } else if (auto* idx = dynamic_cast<IndexExpr*>(expr)) {
+        std::vector<std::unique_ptr<Expr>> clonedIndices;
+        for (const auto& indexExpr : idx->index) {
+            clonedIndices.push_back(cloneExpr(indexExpr.get()));
+        }
         return std::make_unique<IndexExpr>(
             cloneExpr(idx->array.get()),
-            cloneExpr(idx->index.get()),
+            std::move(clonedIndices),
             idx->line,
             idx->column
         );

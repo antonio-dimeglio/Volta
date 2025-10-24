@@ -48,10 +48,14 @@ struct Stmt : ASTNode {
 
 struct FnCall : Expr {
     std::string name;
+    std::vector<const Type::Type*> typeArgs;
     std::vector<std::unique_ptr<Expr>> args;
+    
+    FnCall(std::string name, std::vector<const Type::Type*> typeArgs, std::vector<std::unique_ptr<Expr>> args, int line = 0, int column = 0)
+        : Expr(line, column), name(std::move(name)), typeArgs(std::move(typeArgs)), args(std::move(args)) {}
 
-    FnCall(std::string  name, std::vector<std::unique_ptr<Expr>> args, int line = 0, int column = 0)
-        : Expr(line, column), name(std::move(name)), args(std::move(args)) {}
+    bool isGeneric() const { return !typeArgs.empty(); }
+    size_t getTypeParamCount() const { return typeArgs.size(); }
 
     [[nodiscard]] std::string toString() const override;
 
@@ -232,9 +236,9 @@ struct ArrayLiteral : Expr {
 
 struct IndexExpr : Expr {
     std::unique_ptr<Expr> array;
-    std::unique_ptr<Expr> index;
+    std::vector<std::unique_ptr<Expr>> index;
 
-    IndexExpr(std::unique_ptr<Expr> array, std::unique_ptr<Expr> index, int line = 0, int column = 0)
+    IndexExpr(std::unique_ptr<Expr> array, std::vector<std::unique_ptr<Expr>> index, int line = 0, int column = 0)
         : Expr(line, column), array(std::move(array)), index(std::move(index)) {}
 
     [[nodiscard]] std::string toString() const override;
@@ -339,12 +343,16 @@ struct Range : Expr {
 // Struct literal: Point { x: 10, y: 20 }
 struct StructLiteral : Expr {
     Token structName;  // "Point"
+    std::vector<const Type::Type*> typeArgs;
     std::vector<std::pair<Token, std::unique_ptr<Expr>>> fields;  // [(x, 10), (y, 20)]
     const Type::Type* resolvedType = nullptr;  // Will be set during semantic analysis
 
-    StructLiteral(Token name, std::vector<std::pair<Token, std::unique_ptr<Expr>>> fields,
+    StructLiteral(Token name, std::vector<const Type::Type*> typeArgs, std::vector<std::pair<Token, std::unique_ptr<Expr>>> fields,
                   int line, int column)
-        : Expr(line, column), structName(std::move(std::move(name))), fields(std::move(fields)) {}
+        : Expr(line, column), structName(std::move(std::move(name))), typeArgs(std::move(typeArgs)), fields(std::move(fields)) {}
+        
+    bool isGeneric() const { return !typeArgs.empty(); }
+    size_t getTypeParamCount() const { return typeArgs.size(); }
 
     [[nodiscard]] std::string toString() const override;
 
@@ -383,9 +391,10 @@ struct Param {
     const Type::Type* type{};
     bool isRef;
     bool isMutRef;
+    bool isMutable;  // For mutable by-value parameters
 
-    Param(std::string  name, const Type::Type* type, bool isRef = false, bool isMutRef = false)
-        : name(std::move(name)), type(type), isRef(isRef), isMutRef(isMutRef) {}
+    Param(std::string  name, const Type::Type* type, bool isRef = false, bool isMutRef = false, bool isMutable = false)
+        : name(std::move(name)), type(type), isRef(isRef), isMutRef(isMutRef), isMutable(isMutable) {}
 
     [[nodiscard]] std::string toString() const;
 };
@@ -421,16 +430,17 @@ struct VarDecl : Stmt {
 
 struct FnDecl : Stmt {
     std::string name;
+    std::vector<Token> typeParamaters; // Generic type "placeholder" names like "T" or "U"
     std::vector<Param> params;
     const Type::Type* returnType{};
     std::vector<std::unique_ptr<Stmt>> body;
     bool isExtern;
     bool isPublic;
 
-    FnDecl(std::string  name, std::vector<Param> params,
+    FnDecl(std::string  name, std::vector<Token> typeParamaters, std::vector<Param> params,
            const Type::Type* returnType, std::vector<std::unique_ptr<Stmt>> body,
            bool isExtern = false, bool isPublic = false, int line = 0, int column = 0)
-        : Stmt(line, column), name(std::move(name)), params(std::move(params)), returnType(returnType),
+        : Stmt(line, column), name(std::move(name)), typeParamaters(std::move(typeParamaters)), params(std::move(params)), returnType(returnType),
           body(std::move(body)), isExtern(isExtern), isPublic(isPublic) {}
 
     // Check if this is an instance method (has 'self' as first parameter)
@@ -445,6 +455,9 @@ struct FnDecl : Stmt {
 
     [[nodiscard]] std::string toString() const override;
 
+    bool isGeneric() const { return !typeParamaters.empty(); }
+    size_t getTypeParamCount() const { return typeParamaters.size(); }
+
     void accept(StmtVisitor& v) override {
         v.visitFnDecl(*this);
     }
@@ -453,15 +466,17 @@ struct FnDecl : Stmt {
 struct StructDecl : Stmt {
     bool isPublic;
     Token name;
+    std::vector<Token> typeParamaters; // Generic type "placeholder" names like "T" or "U"
     std::vector<StructField> fields;
     std::vector<std::unique_ptr<FnDecl>> methods;  // Methods defined in struct body
 
-    StructDecl(bool isPub, Token name, std::vector<StructField> fields)
-        : isPublic(isPub), name(std::move(std::move(name))), fields(std::move(fields)) {}
-
-    StructDecl(bool isPub, Token name, std::vector<StructField> fields,
+    StructDecl(bool isPub, Token name, std::vector<Token> typeParamaters, std::vector<StructField> fields,
                std::vector<std::unique_ptr<FnDecl>> methods)
-        : isPublic(isPub), name(std::move(std::move(name))), fields(std::move(fields)), methods(std::move(methods)) {}
+        : isPublic(isPub), name(std::move(std::move(name))), typeParamaters(std::move(typeParamaters)), fields(std::move(fields)), methods(std::move(methods)) {}
+
+
+    bool isGeneric() const { return !typeParamaters.empty(); }
+    size_t getTypeParamCount() const { return typeParamaters.size(); }
 
     [[nodiscard]] std::string toString() const override;
 

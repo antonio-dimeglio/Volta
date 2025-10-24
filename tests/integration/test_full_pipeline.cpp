@@ -24,7 +24,7 @@ protected:
     DiagnosticManager diag;
     std::unique_ptr<llvm::LLVMContext> llvmContext;
 
-    FullPipelineTest() : diag(false) {
+    FullPipelineTest() : diag(true) {
         llvmContext = std::make_unique<llvm::LLVMContext>();
     }
 
@@ -33,6 +33,7 @@ protected:
         Lexer lexer(source, diag);
         auto tokens = lexer.tokenize();
         if (diag.hasErrors()) {
+            std::cerr << "LEXER ERROR" << std::endl;
             return nullptr;
         }
 
@@ -40,6 +41,7 @@ protected:
         Parser parser(tokens, types, diag);
         auto ast = parser.parseProgram();
         if (!ast || diag.hasErrors()) {
+            std::cerr << "PARSER ERROR" << std::endl;
             return nullptr;
         }
 
@@ -47,6 +49,7 @@ protected:
         HIRLowering hirLowering(types);
         auto hir = hirLowering.lower(*ast);
         if (diag.hasErrors()) {
+            std::cerr << "HIR LOWERING ERROR" << std::endl;
             return nullptr;
         }
 
@@ -54,6 +57,7 @@ protected:
         Semantic::SemanticAnalyzer analyzer(types, diag);
         analyzer.analyzeProgram(hir);
         if (diag.hasErrors()) {
+            std::cerr << "SEMANTIC ANALYSIS ERROR" << std::endl;
             return nullptr;
         }
 
@@ -61,24 +65,33 @@ protected:
         MIR::HIRToMIR mirLowering(types, diag, analyzer.getExprTypes());
         auto mir = mirLowering.lower(hir);
         if (diag.hasErrors()) {
+            std::cerr << "MIR LOWERING ERROR" << std::endl;
             return nullptr;
         }
 
         // Phase 6: MIR Verification (optional but recommended)
         MIR::MIRVerifier verifier(diag);
         if (!verifier.verify(mir)) {
+            std::cerr << "MIR VERIFICATION ERROR" << std::endl;
             return nullptr;
         }
 
         // Phase 7: LLVM IR Codegen
         auto module = std::make_unique<llvm::Module>(moduleName, *llvmContext);
         Codegen::MIRToLLVM codegen(*llvmContext, *module, types);
-        codegen.lower(mir);
+        try {
+            codegen.lower(mir);
+        } catch (const std::exception& e) {
+            std::cerr << "LLVM CODEGEN EXCEPTION: " << e.what() << std::endl;
+            return nullptr;
+        }
 
         // Phase 8: LLVM IR Verification
         std::string error;
         llvm::raw_string_ostream errorStream(error);
         if (llvm::verifyModule(*module, &errorStream)) {
+            errorStream.flush();
+            std::cerr << "LLVM IR VERIFICATION ERROR: " << error << std::endl;
             diag.error("LLVM IR verification failed: " + error, 0, 0);
             return nullptr;
         }

@@ -29,14 +29,14 @@ const PrimitiveType* TypeRegistry::getPrimitive(PrimitiveKind kind) {
     return primitiveCache.at(kind);
 }
 
-const ArrayType* TypeRegistry::getArray(const Type* elementType, int size) {
-    ArrayTypeKey const key{elementType, size};
+const ArrayType* TypeRegistry::getArray(const Type* elementType, std::vector<int> dimensions) {
+    ArrayTypeKey const key{elementType, dimensions};
     auto it = arrayCache.find(key);
     if (it != arrayCache.end()) {
         return it->second;
     }
 
-    auto arrayType = std::make_unique<ArrayType>(elementType, size);
+    auto arrayType = std::make_unique<ArrayType>(elementType, dimensions);
     ArrayType* ptr = arrayType.get();
     ownedTypes.push_back(std::move(arrayType));
     arrayCache[key] = ptr;

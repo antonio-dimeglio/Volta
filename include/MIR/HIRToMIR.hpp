@@ -25,6 +25,9 @@ private:
     // Immutable variables are inlined directly
     std::unordered_map<std::string, Value> varPointers;
 
+    // Function signature map: function name -> HIR params (for ref parameter detection)
+    std::unordered_map<std::string, const std::vector<HIR::Param>*> functionParams;
+
     // Track whether we're in a loop (for break/continue)
     struct LoopContext {
         std::string breakLabel;
@@ -91,6 +94,13 @@ private:
 
     // Helper: Get pointer to struct field without loading (for assignment)
     Value getFieldAccessPtr(::FieldAccess& expr);
+
+    // Helper: Calculate flattened offset for multi-dimensional array indexing
+    Value calculateFlattenedOffset(const std::vector<std::unique_ptr<Expr>>& indices,
+                                    const std::vector<int>& dimensions);
+
+    // Helper: Recursively flatten nested array literals into a linear list of values
+    void flattenArrayLiteral(::ArrayLiteral& lit, std::vector<Value>& flatValues);
 
     // Get the type of an expression from the type map
     const Type::Type* getExprType(const Expr* expr) const;

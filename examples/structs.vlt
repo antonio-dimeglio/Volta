@@ -1,9 +1,9 @@
 struct Point {
     pub x: f32,
-    pub y: f32
+    pub y: f32,
 
     pub fn new(x: f32, y: f32) -> Point {
-        return Point {x, y};
+        return Point {x: x, y: y};
     }
 }
 

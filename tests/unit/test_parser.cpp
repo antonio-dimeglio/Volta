@@ -126,7 +126,7 @@ fn add(a: i32, b: i32) -> i32 {
 
 TEST_F(ParserTest, FunctionWithReferenceParameter) {
     std::string source = R"(
-fn modify(ref x: i32) -> i32 {
+fn modify(x: ref i32) -> i32 {
     return x;
 }
 )";
@@ -135,7 +135,7 @@ fn modify(ref x: i32) -> i32 {
 
 TEST_F(ParserTest, FunctionWithMutableReferenceParameter) {
     std::string source = R"(
-fn modify(mut ref x: i32) {
+fn modify(x: mut ref i32) {
     x = x + 1;
 }
 )";

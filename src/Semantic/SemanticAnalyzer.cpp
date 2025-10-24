@@ -271,7 +271,10 @@ void SemanticAnalyzer::visitVarDecl(HIR::HIRVarDecl& node) {
         varType = node.typeAnnotation;
 
         if (node.initValue) {
+            // Set expected type for top-down type inference
+            expectedType = varType;
             const Type::Type* initType = node.initValue->accept(*this);
+            expectedType = nullptr; // Reset after use
 
             // Try to coerce integer literals to the variable type
             if (tryCoerceIntegerLiteral(node.initValue.get(), varType)) {
@@ -292,6 +295,9 @@ void SemanticAnalyzer::visitVarDecl(HIR::HIRVarDecl& node) {
         return;
     }
 
+    // Set the type annotation on the node so later passes can use it
+    node.typeAnnotation = varType;
+
     if (!symbolTable.define(node.name.lexeme, varType, node.mutable_)) {
         diag.error("Variable '" + node.name.lexeme + "' already defined", node.line, node.column);
     }
@@ -311,7 +317,8 @@ void SemanticAnalyzer::visitFnDecl(HIR::HIRFnDecl& node) {
     currentFunctionName = node.name;
 
     for (const auto& param : node.params) {
-        bool isMut = param.isMutRef;
+        // Parameter is mutable if it's either mut ref or mut (by-value)
+        bool isMut = param.isMutRef || param.isMutable;
         if (!symbolTable.define(param.name, param.type, isMut)) {
             diag.error("Duplicate parameter name: " + param.name, node.line, node.column);
         }
@@ -513,6 +520,15 @@ const Type::Type* SemanticAnalyzer::visitAssignment(Assignment& node) {
     }
     // Check if LHS is an array index expression
     else if (auto* indexNode = dynamic_cast<IndexExpr*>(node.lhs.get())) {
+        // Check mutability of the base array variable
+        if (auto* baseVar = dynamic_cast<Variable*>(indexNode->array.get())) {
+            const Symbol* sym = symbolTable.lookup(baseVar->token.lexeme);
+            if (sym && !sym->is_mut) {
+                diag.error("Cannot modify immutable array: " + baseVar->token.lexeme,
+                          node.line, node.column);
+            }
+        }
+
         // Type check the index expression
         const Type::Type* lhsType = indexNode->accept(*this);
         const Type::Type* valueType = node.value->accept(*this);
@@ -526,6 +542,15 @@ const Type::Type* SemanticAnalyzer::visitAssignment(Assignment& node) {
     }
     // Check if LHS is a struct field access expression
     else if (auto* fieldAccess = dynamic_cast<FieldAccess*>(node.lhs.get())) {
+        // Check mutability of the base struct variable
+        if (auto* baseVar = dynamic_cast<Variable*>(fieldAccess->object.get())) {
+            const Symbol* sym = symbolTable.lookup(baseVar->token.lexeme);
+            if (sym && !sym->is_mut) {
+                diag.error("Cannot modify immutable struct: " + baseVar->token.lexeme,
+                          node.line, node.column);
+            }
+        }
+
         // Type check the field access
         const Type::Type* lhsType = fieldAccess->accept(*this);
         const Type::Type* valueType = node.value->accept(*this);
@@ -725,6 +750,15 @@ const Type::Type* SemanticAnalyzer::visitFnCall(FnCall& node) {
 }
 
 const Type::Type* SemanticAnalyzer::visitArrayLiteral(ArrayLiteral& node) {
+    // Handle repeat syntax: [value; count]
+    if (node.repeat_value && node.repeat_count) {
+        const Type::Type* elementType = node.repeat_value->accept(*this);
+        const Type::Type* arrayType = typeRegistry.getArray(elementType, {*node.repeat_count});
+        exprTypes[&node] = arrayType;
+        return arrayType;
+    }
+
+    // Handle regular array literal: [e1, e2, e3, ...]
     if (node.elements.empty()) {
         diag.error("Cannot infer type of empty array", node.line, node.column);
         const Type::Type* type = errorType();
@@ -732,8 +766,44 @@ const Type::Type* SemanticAnalyzer::visitArrayLiteral(ArrayLiteral& node) {
         return type;
     }
 
+    // Special case: Fill initialization [value] with expected type
+    // If we have exactly 1 element and an expected array type, treat as fill
+    if (node.elements.size() == 1 && expectedType != nullptr && expectedType->kind == Type::TypeKind::Array) {
+        const auto* expectedArrayType = dynamic_cast<const Type::ArrayType*>(expectedType);
+
+        // Calculate total size from expected dimensions
+        int totalSize = 1;
+        for (int dim : expectedArrayType->dimensions) {
+            totalSize *= dim;
+        }
+
+        // Type check the single value
+        const Type::Type* valueType = node.elements[0]->accept(*this);
+
+        // Verify value type matches expected element type
+        if (!isImplicitlyConvertible(valueType, expectedArrayType->elementType)) {
+            diag.error("Fill value type " + valueType->toString() +
+                      " does not match expected element type " + expectedArrayType->elementType->toString(),
+                      node.line, node.column);
+            const Type::Type* type = errorType();
+            exprTypes[&node] = type;
+            return type;
+        }
+
+        // Convert to repeat syntax: [value; totalSize]
+        node.repeat_value = std::move(node.elements[0]);
+        node.repeat_count = totalSize;
+        node.elements.clear();
+
+        // Return the expected array type
+        exprTypes[&node] = expectedType;
+        return expectedType;
+    }
+
+    // Type check first element to determine element type
     const Type::Type* elementType = node.elements[0]->accept(*this);
 
+    // Check all elements have the same type
     for (size_t i = 1; i < node.elements.size(); i++) {
         const Type::Type* elemType = node.elements[i]->accept(*this);
         if (elemType != elementType) {
@@ -744,7 +814,23 @@ const Type::Type* SemanticAnalyzer::visitArrayLiteral(ArrayLiteral& node) {
         }
     }
 
-    const Type::Type* arrayType = typeRegistry.getArray(elementType, node.elements.size());
+    // Build dimensions vector
+    std::vector<int> dimensions;
+    dimensions.push_back(static_cast<int>(node.elements.size())); // Outermost dimension
+
+    // If elements are arrays themselves, extract their dimensions (nested array)
+    if (elementType->kind == Type::TypeKind::Array) {
+        const auto* innerArrayType = dynamic_cast<const Type::ArrayType*>(elementType);
+        // Append inner dimensions: [outer, inner_dim0, inner_dim1, ...]
+        dimensions.insert(dimensions.end(),
+                         innerArrayType->dimensions.begin(),
+                         innerArrayType->dimensions.end());
+
+        // The actual element type is the innermost element type
+        elementType = innerArrayType->elementType;
+    }
+
+    const Type::Type* arrayType = typeRegistry.getArray(elementType, dimensions);
     exprTypes[&node] = arrayType;
     return arrayType;
 }
@@ -759,50 +845,76 @@ const Type::Type* SemanticAnalyzer::visitIndexExpr(IndexExpr& node) {
         return type;
     }
 
-    const Type::Type* indexType = node.index->accept(*this);
-    if (!isIntegerType(indexType)) {
-        diag.error("Array index must be integer type", node.line, node.column);
-    }
-
     const auto* arrType = dynamic_cast<const Type::ArrayType*>(arrayType);
 
-    // Compile-time bounds checking for literal indices
-    int64_t literalIndex = -1;
-    bool isLiteral = false;
+    // Type check all indices - must be integers
+    for (size_t i = 0; i < node.index.size(); i++) {
+        const Type::Type* indexType = node.index[i]->accept(*this);
+        if (!isIntegerType(indexType)) {
+            diag.error("Array index must be integer type", node.line, node.column);
+        }
+    }
 
-    // Check for direct integer literal
-    if (auto* lit = dynamic_cast<Literal*>(node.index.get())) {
-        if (lit->token.tt == TokenType::Integer) {
-            try {
-                literalIndex = std::stoll(lit->token.lexeme);
-                isLiteral = true;
-            } catch (const std::out_of_range&) {
-                // Literal is too large to fit in int64_t, will definitely be out of bounds
-                diag.error("Array index literal is out of range", node.line, node.column);
-                const Type::Type* type = errorType();
-                exprTypes[&node] = type;
-                return type;
+    // Check if we have too many indices
+    if (node.index.size() > arrType->dimensions.size()) {
+        diag.error("Too many indices for array (got " + std::to_string(node.index.size()) +
+                  ", expected at most " + std::to_string(arrType->dimensions.size()) + ")",
+                  node.line, node.column);
+        const Type::Type* type = errorType();
+        exprTypes[&node] = type;
+        return type;
+    }
+
+    // Compile-time bounds checking for literal indices
+    for (size_t i = 0; i < node.index.size(); i++) {
+        if (auto* lit = dynamic_cast<Literal*>(node.index[i].get())) {
+            if (lit->token.tt == TokenType::Integer) {
+                try {
+                    int64_t literalIndex = std::stoll(lit->token.lexeme);
+                    if (literalIndex < 0 || literalIndex >= static_cast<int64_t>(arrType->dimensions[i])) {
+                        diag.error("Array index " + std::to_string(literalIndex) +
+                                  " at dimension " + std::to_string(i) +
+                                  " is out of bounds for array dimension of size " + std::to_string(arrType->dimensions[i]),
+                                  node.line, node.column);
+                    }
+                } catch (const std::out_of_range&) {
+                    diag.error("Array index literal is out of range", node.line, node.column);
+                }
             }
         }
     }
 
-    // Perform bounds check if we have a literal index
-    if (isLiteral) {
-        if (literalIndex < 0 || literalIndex >= static_cast<int64_t>(arrType->size)) {
-            diag.error("Array index " + std::to_string(literalIndex) +
-                      " is out of bounds for array of size " + std::to_string(arrType->size),
-                      node.line, node.column);
-            const Type::Type* type = errorType();
-            exprTypes[&node] = type;
-            return type;
-        }
+    // Determine result type based on number of indices provided
+    const Type::Type* resultType = nullptr;
+
+    if (node.index.size() == arrType->dimensions.size()) {
+        // Full indexing - returns element type
+        resultType = arrType->elementType;
+    } else {
+        // Partial indexing - returns sub-array with remaining dimensions
+        std::vector<int> remainingDims(arrType->dimensions.begin() + node.index.size(),
+                                       arrType->dimensions.end());
+        resultType = typeRegistry.getArray(arrType->elementType, remainingDims);
     }
 
-    exprTypes[&node] = arrType->elementType;
-    return arrType->elementType;
+    exprTypes[&node] = resultType;
+    return resultType;
 }
 
 const Type::Type* SemanticAnalyzer::visitAddrOf(AddrOf& node) {
+    // Check if operand is addressable (must be a variable, field access, or index expression)
+    // Cannot take address of literals or temporary values
+    bool isAddressable = dynamic_cast<Variable*>(node.operand.get()) != nullptr ||
+                         dynamic_cast<FieldAccess*>(node.operand.get()) != nullptr ||
+                         dynamic_cast<IndexExpr*>(node.operand.get()) != nullptr;
+
+    if (!isAddressable) {
+        diag.error("Cannot take address of temporary value or literal", node.line, node.column);
+        const Type::Type* errorType = typeRegistry.getPrimitive(Type::PrimitiveKind::Void);
+        exprTypes[&node] = typeRegistry.getPointer(errorType);
+        return typeRegistry.getPointer(errorType);
+    }
+
     const Type::Type* operandType = node.operand->accept(*this);
     const Type::Type* ptrType = typeRegistry.getPointer(operandType);
     exprTypes[&node] = ptrType;
@@ -1633,7 +1745,7 @@ const Type::Type* SemanticAnalyzer::resolveType(const Type::Type* type) {
         const auto* arrayType = dynamic_cast<const Type::ArrayType*>(type);
         const Type::Type* resolvedElement = resolveType(arrayType->elementType);
         if (resolvedElement != arrayType->elementType) {
-            return typeRegistry.getArray(resolvedElement, arrayType->size);
+            return typeRegistry.getArray(resolvedElement, arrayType->dimensions);
         }
     }
 

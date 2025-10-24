@@ -25,6 +25,9 @@ private:
     // Type map: stores computed type for each expression
     std::unordered_map<const Expr*, const Type::Type*> exprTypes;
 
+    // Expected type context for top-down type inference (e.g., for array fill initialization)
+    const Type::Type* expectedType = nullptr;
+
 public:
     SemanticAnalyzer(Type::TypeRegistry& types, DiagnosticManager& diag);
 

@@ -120,9 +120,10 @@ struct Param {
     const Type::Type* type;
     bool isRef;
     bool isMutRef;
+    bool isMutable;  // For mutable by-value parameters
 
-    Param(std::string n, const Type::Type* t, bool ref = false, bool mutRef = false)
-        : name(std::move(std::move(n))), type(t), isRef(ref), isMutRef(mutRef) {}
+    Param(std::string n, const Type::Type* t, bool ref = false, bool mutRef = false, bool mut = false)
+        : name(std::move(std::move(n))), type(t), isRef(ref), isMutRef(mutRef), isMutable(mut) {}
 };
 
 struct HIRFnDecl : HIRStmt {

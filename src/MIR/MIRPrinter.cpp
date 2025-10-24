@@ -146,6 +146,8 @@ std::string MIRPrinter::opcodeToString(Opcode opcode) const {
         case Opcode::Or: return "or";
         case Opcode::Not: return "not";
         case Opcode::Alloca: return "alloca";
+        case Opcode::SAlloca: return "salloca";
+        case Opcode::HAlloca: return "halloca";
         case Opcode::Load: return "load";
         case Opcode::Store: return "store";
         case Opcode::GetElementPtr: return "getelementptr";

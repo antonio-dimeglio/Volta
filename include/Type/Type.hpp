@@ -73,18 +73,24 @@ struct PrimitiveType : Type {
 
 struct ArrayType : Type {
     const Type* elementType;
-    int size;
+    std::vector<int> dimensions;
 
-    ArrayType(const Type* elementType, int size)
-        : Type(TypeKind::Array), elementType(elementType), size(size) {}
+    ArrayType(const Type* elementType, std::vector<int> dimensions)
+        : Type(TypeKind::Array), elementType(elementType), dimensions(dimensions) {}
 
     [[nodiscard]] std::string toString() const override {
-        return "[" + elementType->toString() + "; " + std::to_string(size) + "]";
+        std::string strDims = "";
+        size_t i = 0;
+        for (int dim : dimensions) {
+            strDims += std::to_string(dim) + (i < dimensions.size() - 1 ? ", " : "");
+            i++;
+        }
+        return "[" + elementType->toString() + "; " + strDims + "]";
     }
 
     bool equals(const Type* other) const override {
         if (const auto* arr = dynamic_cast<const ArrayType*>(other)) {
-            return size == arr->size && elementType->equals(arr->elementType);
+            return dimensions == arr->dimensions && elementType->equals(arr->elementType);
         }
         return false;
     }

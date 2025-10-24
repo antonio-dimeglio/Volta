@@ -411,7 +411,7 @@ fn main() -> i32 {
 
 TEST_F(SemanticAnalyzerTest, CannotPassImmutableAsReference) {
     std::string source = R"(
-fn modify(mut ref x: i32) {
+fn modify(x: mut ref i32) {
     x = 100;
 }
 
@@ -426,7 +426,7 @@ fn main() -> i32 {
 
 TEST_F(SemanticAnalyzerTest, CanPassMutableAsReference) {
     std::string source = R"(
-fn modify(mut ref x: i32) {
+fn modify(x: mut ref i32) {
     x = 100;
 }
 
@@ -441,7 +441,7 @@ fn main() -> i32 {
 
 TEST_F(SemanticAnalyzerTest, CanPassImmutableAsConstRef) {
     std::string source = R"(
-fn read_only(ref x: i32) -> i32 {
+fn read_only(x: ref i32) -> i32 {
     return x;
 }
 

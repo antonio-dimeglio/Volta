@@ -57,7 +57,9 @@ void RecursiveASTVisitor::visitArrayLiteral(ArrayLiteral& node) {
 
 void RecursiveASTVisitor::visitIndexExpr(IndexExpr& node) {
     traverseExpr(node.array.get());
-    traverseExpr(node.index.get());
+    for (auto& idx : node.index) {
+        traverseExpr(idx.get());   
+    }
 }
 
 void RecursiveASTVisitor::visitAddrOf(AddrOf& node) {
