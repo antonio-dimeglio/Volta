@@ -12,9 +12,9 @@ ifeq ($(UNAME_S),Darwin)
     NPROC := sysctl -n hw.ncpu
 endif
 
-# Compiler settings
-CXX := g++
-CC := gcc
+# Compiler settings (auto-detect or override with CXX=clang++ make)
+CXX := $(shell which g++ 2>/dev/null || which clang++ 2>/dev/null)
+CC := $(shell which gcc 2>/dev/null || which clang 2>/dev/null)
 CXXFLAGS := -std=c++20 -Wall -Wextra -pedantic -fexceptions -Wno-unused-parameter -Wno-unused-variable
 CFLAGS := -std=c11 -Wall -Wextra -pedantic
 LDFLAGS :=
