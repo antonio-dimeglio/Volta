@@ -332,17 +332,24 @@ bool CompilerDriver::lowerToHIR() {
 }
 
 std::vector<std::unique_ptr<Semantic::SemanticAnalyzer>> CompilerDriver::performSemanticAnalysis(Semantic::FunctionRegistry& functionRegistry) {
+    // Phase 0: Register generic templates from AST (before HIR processing)
+    std::cout << "  Phase 0: Registering generic templates from all modules\n";
+    for (const auto& unit : units) {
+        Semantic::SemanticAnalyzer tempAnalyzer(typeRegistry, diag, &genericRegistry);
+        tempAnalyzer.registerGenericTemplates(*unit.ast);
+    }
+
     // Phase 1: Register all struct types from all modules
     std::cout << "  Phase 1: Registering struct types across all modules\n";
     for (const auto& unit : units) {
-        Semantic::SemanticAnalyzer tempAnalyzer(typeRegistry, diag);
+        Semantic::SemanticAnalyzer tempAnalyzer(typeRegistry, diag, &genericRegistry);
         tempAnalyzer.registerStructTypes(unit.hir);
     }
 
     // Phase 2: Resolve all types in all modules (this updates method signatures)
     std::cout << "  Phase 2: Resolving types across all modules\n";
     for (auto& unit : units) {
-        Semantic::SemanticAnalyzer tempAnalyzer(typeRegistry, diag);
+        Semantic::SemanticAnalyzer tempAnalyzer(typeRegistry, diag, &genericRegistry);
         tempAnalyzer.resolveUnresolvedTypes(unit.hir);
     }
 
@@ -359,7 +366,7 @@ std::vector<std::unique_ptr<Semantic::SemanticAnalyzer>> CompilerDriver::perform
         std::string moduleName = Semantic::fileToModule(unit.sourceFile);
         std::cout << "  Analyzing: " << moduleName << "\n";
 
-        auto analyzer = std::make_unique<Semantic::SemanticAnalyzer>(typeRegistry, diag);
+        auto analyzer = std::make_unique<Semantic::SemanticAnalyzer>(typeRegistry, diag, &genericRegistry);
         analyzer->setFunctionRegistry(&functionRegistry);
         analyzer->analyzeProgram(unit.hir);
 
@@ -382,7 +389,7 @@ bool CompilerDriver::lowerToMIR(const std::vector<std::unique_ptr<Semantic::Sema
         std::cout << "  Lowering: " << moduleName << "\n";
 
         MIR::HIRToMIR mirLowering(typeRegistry, diag, analyzer->getExprTypes());
-        unit.mir = mirLowering.lower(unit.hir);
+        unit.mir = mirLowering.lower(unit.hir, analyzer->getMonomorphizedFunctions());
 
         if (diag.hasErrors()) {
             diag.printAll(std::cerr, unit.sourceFile);

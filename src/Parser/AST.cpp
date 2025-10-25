@@ -38,7 +38,17 @@ std::string Literal::toString() const {
 }
 
 std::string Variable::toString() const {
-    return "Var(" + token.lexeme + ")";
+    std::ostringstream oss;
+    oss << "Var(" << token.lexeme;
+    if (!typeArgs.empty()) {
+        oss << "<";
+        for (size_t i = 0; i < typeArgs.size(); ++i) {
+            oss << typeArgs[i]->toString() << (i < typeArgs.size() - 1 ? ", " : "");
+        }
+        oss << ">";
+    }
+    oss << ")";
+    return oss.str();
 }
 
 std::string Assignment::toString() const {
@@ -67,6 +77,10 @@ std::string ArrayLiteral::toString() const {
 
 std::string AddrOf::toString() const {
     return "addrof " + operand->toString();
+}
+
+std::string SizeOf::toString() const {
+    return "sizeof<" + (type ? type->toString() : "unknown") + ">";
 }
 
 std::string IndexExpr::toString() const {
@@ -119,7 +133,15 @@ std::string FieldAccess::toString() const {
 
 std::string StaticMethodCall::toString() const {
     std::ostringstream oss;
-    oss << typeName.lexeme << "::" << methodName.lexeme << "(";
+    oss << typeName.lexeme;
+    if (!typeArgs.empty()) {
+        oss << "<";
+        for (size_t i = 0; i < typeArgs.size(); ++i) {
+            oss << typeArgs[i]->toString() << (i < typeArgs.size() - 1 ? ", " : "");
+        }
+        oss << ">";
+    }
+    oss << "." << methodName.lexeme << "(";
     for (size_t i = 0; i < args.size(); ++i) {
         if (i > 0) { oss << ", ";
 }

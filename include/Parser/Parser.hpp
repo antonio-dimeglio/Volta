@@ -46,6 +46,10 @@ private:
     int parsePositiveInteger();
     // Parse type annotation (i32, f64, bool, etc.)
     const Type::Type* parseType();
+    // Parse generic type annotation
+    std::vector<const Type::Type*> parseTypeArguments();
+    // Parse generic type placeholders
+    std::vector<Token> parseTypeParameters();
 
     // Parse function definition (with body)
     std::unique_ptr<Stmt> parseFnDef();
@@ -116,9 +120,6 @@ private:
     // Parse postfix operators (++, --, array indexing)
     std::unique_ptr<Expr> parsePostfix();
 
-    // Parse function call with arguments
-    std::unique_ptr<Expr> parseFunctionCall();
-
     // Parse primary expressions (literals, variables, grouping)
     std::unique_ptr<Expr> parsePrimary();
 
@@ -128,5 +129,5 @@ private:
     std::unique_ptr<Expr> parseRangeExpr();
 
     // Parse struct literal: StructName { field: value, ... }
-    std::unique_ptr<StructLiteral> parseStructLiteral(const Token& structName);
+    std::unique_ptr<StructLiteral> parseStructLiteral(const Token& structName, std::vector<const Type::Type*> typeArgs);
 };

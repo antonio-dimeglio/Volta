@@ -33,6 +33,7 @@ private:
     size_t errorCount = 0;
     size_t warningCount = 0;
     bool useColor = true;
+    bool suppressErrors = false;
 
 public:
     DiagnosticManager(bool useColor = true) : useColor(useColor) {}
@@ -51,4 +52,8 @@ public:
 
     void printAll(std::ostream& os = std::cerr, const std::string& filename = "") const;
     void clear();
+
+    // For speculative parsing: temporarily suppress error reporting
+    void setSuppressErrors(bool suppress) { suppressErrors = suppress; }
+    [[nodiscard]] bool isSuppressingErrors() const { return suppressErrors; }
 };

@@ -15,6 +15,7 @@ struct GroupingExpr;
 struct ArrayLiteral;
 struct IndexExpr;
 struct AddrOf;
+struct SizeOf;
 struct CompoundAssign;
 struct Increment;
 struct Decrement;
@@ -57,6 +58,7 @@ public:
     virtual ReturnType visitArrayLiteral(ArrayLiteral& node) = 0;
     virtual ReturnType visitIndexExpr(IndexExpr& node) = 0;
     virtual ReturnType visitAddrOf(AddrOf& node) = 0;
+    virtual ReturnType visitSizeOf(SizeOf& node) = 0;
     virtual ReturnType visitCompoundAssign(CompoundAssign& node) = 0;
     virtual ReturnType visitIncrement(Increment& node) = 0;
     virtual ReturnType visitDecrement(Decrement& node) = 0;
@@ -97,6 +99,7 @@ public:
     void visitArrayLiteral(ArrayLiteral& node) override;
     void visitIndexExpr(IndexExpr& node) override;
     void visitAddrOf(AddrOf& node) override;
+    void visitSizeOf(SizeOf& node) override;
     void visitCompoundAssign(CompoundAssign& node) override;
     void visitIncrement(Increment& node) override;
     void visitDecrement(Decrement& node) override;

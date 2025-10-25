@@ -397,15 +397,19 @@ std::unique_ptr<Expr> HIRLowering::desugarExpr(Expr& expr) {
             const auto* structType = typeRegistry.getStruct(varNode->token.lexeme);
 
             if (structType != nullptr) {
-                // DESUGAR: Transform Point.new() => StaticMethodCall("Point", "new", [...])
+                // DESUGAR: Transform Point.new() or Container<i32>.new() => StaticMethodCall
                 std::vector<std::unique_ptr<Expr>> clonedArgs;
                 clonedArgs.reserve(instanceCall->args.size());
 for (auto& arg : instanceCall->args) {
                     clonedArgs.push_back(cloneExpr(arg.get()));
                 }
 
+                // Copy type arguments from the Variable node (for generic types like Container<i32>)
+                std::vector<const Type::Type*> typeArgs = varNode->typeArgs;
+
                 return std::make_unique<StaticMethodCall>(
                     varNode->token,           // type name token
+                    std::move(typeArgs),      // type arguments for generic types
                     instanceCall->methodName, // method name token
                     std::move(clonedArgs),
                     instanceCall->line,
@@ -428,7 +432,8 @@ static std::unique_ptr<Expr> cloneExpr(Expr* expr) {
     if (auto* lit = dynamic_cast<Literal*>(expr)) {
         return std::make_unique<Literal>(lit->token);
     } else if (auto* var = dynamic_cast<Variable*>(expr)) {
-        return std::make_unique<Variable>(var->token);
+        std::vector<const Type::Type*> clonedTypeArgs = var->typeArgs;
+        return std::make_unique<Variable>(var->token, std::move(clonedTypeArgs));
     } else if (auto* bin = dynamic_cast<BinaryExpr*>(expr)) {
         return std::make_unique<BinaryExpr>(
             cloneExpr(bin->lhs.get()),
@@ -450,8 +455,11 @@ static std::unique_ptr<Expr> cloneExpr(Expr* expr) {
 for (auto& arg : call->args) {
             clonedArgs.push_back(cloneExpr(arg.get()));
         }
+        // Clone type arguments as well
+        std::vector<const Type::Type*> clonedTypeArgs = call->typeArgs;
         return std::make_unique<FnCall>(
             call->name,
+            std::move(clonedTypeArgs),
             std::move(clonedArgs),
             call->line,
             call->column
@@ -513,8 +521,11 @@ for (auto& arg : call->args) {
 for (auto& [fieldName, fieldValue] : structLit->fields) {
             clonedFields.emplace_back(fieldName, cloneExpr(fieldValue.get()));
         }
+        // Clone type arguments as well
+        std::vector<const Type::Type*> clonedTypeArgs = structLit->typeArgs;
         return std::make_unique<StructLiteral>(
             structLit->structName,
+            std::move(clonedTypeArgs),
             std::move(clonedFields),
             structLit->line,
             structLit->column
@@ -532,8 +543,10 @@ for (auto& [fieldName, fieldValue] : structLit->fields) {
 for (auto& arg : staticCall->args) {
             clonedArgs.push_back(cloneExpr(arg.get()));
         }
+        std::vector<const Type::Type*> clonedTypeArgs = staticCall->typeArgs;
         return std::make_unique<StaticMethodCall>(
             staticCall->typeName,
+            std::move(clonedTypeArgs),
             staticCall->methodName,
             std::move(clonedArgs),
             staticCall->line,

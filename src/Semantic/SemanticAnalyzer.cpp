@@ -1,13 +1,32 @@
 #include "../../include/Semantic/SemanticAnalyzer.hpp"
 #include "../../include/Parser/AST.hpp"
+#include "../../include/Semantic/TypeSubstitution.hpp"
+#include "../../include/HIR/Lowering.hpp"
 #include <iostream>
 #include <climits>
 #include <set>
 
 namespace Semantic {
 
-SemanticAnalyzer::SemanticAnalyzer(Type::TypeRegistry& types, DiagnosticManager& diag)
-    : typeRegistry(types),  diag(diag) {
+SemanticAnalyzer::SemanticAnalyzer(Type::TypeRegistry& types, DiagnosticManager& diag, Volta::GenericRegistry* genRegistry)
+    : typeRegistry(types),  diag(diag), externalGenericRegistry(genRegistry) {
+}
+
+void SemanticAnalyzer::registerGenericTemplates(const Program& ast) {
+    // Scan AST for generic functions and structs and register them
+    for (const auto& stmt : ast.statements) {
+        if (auto* fnDecl = dynamic_cast<FnDecl*>(stmt.get())) {
+            if (!fnDecl->typeParamaters.empty()) {
+                // This is a generic function - register it
+                registerGenericFunction(fnDecl);
+            }
+        } else if (auto* structDecl = dynamic_cast<StructDecl*>(stmt.get())) {
+            if (!structDecl->typeParamaters.empty()) {
+                // This is a generic struct - register it
+                registerGenericStruct(structDecl);
+            }
+        }
+    }
 }
 
 void SemanticAnalyzer::analyzeProgram(const HIR::HIRProgram& program) {
@@ -20,8 +39,26 @@ void SemanticAnalyzer::analyzeProgram(const HIR::HIRProgram& program) {
     // Phase 3: Collect function signatures
     collectFunctionSignatures(program);
 
-    // Phase 4: Analyze all statements
+    // Phase 4: Analyze all statements (skip generic templates)
     for (const auto& stmt : program.statements) {
+        // Skip generic function/struct templates - they will be analyzed when monomorphized
+        if (auto* fnDecl = dynamic_cast<HIR::HIRFnDecl*>(stmt.get())) {
+            bool isGeneric = false;
+            if (fnDecl->returnType->kind == Type::TypeKind::Unresolved ||
+                fnDecl->returnType->kind == Type::TypeKind::Generic) {
+                isGeneric = true;
+            }
+            for (const auto& param : fnDecl->params) {
+                if (param.type->kind == Type::TypeKind::Unresolved ||
+                    param.type->kind == Type::TypeKind::Generic) {
+                    isGeneric = true;
+                    break;
+                }
+            }
+            if (isGeneric) {
+                continue;  // Skip generic templates
+            }
+        }
         stmt->accept(*this);
     }
 }
@@ -594,6 +631,77 @@ const Type::Type* SemanticAnalyzer::visitAssignment(Assignment& node) {
 }
 
 const Type::Type* SemanticAnalyzer::visitFnCall(FnCall& node) {
+    // Check if this is the sizeof<T>() compiler builtin
+    if (node.name == "sizeof" && node.typeArgs.size() == 1 && node.args.empty()) {
+        // This is sizeof<T>() - replace with a constant
+        const Type::Type* sizeType = resolveType(node.typeArgs[0]);
+        size_t size = getTypeSize(sizeType);
+
+        // Store the result type
+        const Type::Type* u64Type = typeRegistry.getPrimitive(Type::PrimitiveKind::U64);
+        exprTypes[&node] = u64Type;
+
+        // Store the size value for MIR lowering to use
+        sizeofValues[&node] = size;
+
+        return u64Type;
+    }
+
+    // Check if this is a generic function call
+    if (!node.typeArgs.empty()) {
+        // Resolve type arguments (they may be unresolved from parsing)
+        std::vector<const Type::Type*> resolvedTypeArgs;
+        for (const auto* typeArg : node.typeArgs) {
+            resolvedTypeArgs.push_back(resolveType(typeArg));
+        }
+        node.typeArgs = resolvedTypeArgs;
+
+        // Check if it's a registered generic function
+        if (getGenericRegistry().isGenericFunction(node.name)) {
+            // Store original name before monomorphization
+            std::string originalName = node.name;
+
+            // Monomorphize the function
+            auto monomorphed = monomorphizeFunction(originalName, node.typeArgs, node.line, node.column);
+            if (!monomorphed) {
+                // Already monomorphized - look up the existing name
+                std::string monomorphName = getGenericRegistry().findMonomorphName(originalName, node.typeArgs, true);
+                if (monomorphName.empty()) {
+                    // This shouldn't happen - monomorphizeFunction should have created it
+                    diag.error("Failed to find or create monomorphized function", node.line, node.column);
+                    const Type::Type* type = errorType();
+                    exprTypes[&node] = type;
+                    return type;
+                }
+                // Update to use existing monomorph
+                node.name = monomorphName;
+            } else {
+                // New monomorph created - update name
+                node.name = monomorphed->name;
+            }
+
+            // Analyze the monomorphized function now if not already done
+            const FunctionSignature* monomorphSig = symbolTable.lookupFunction(node.name);
+            if (monomorphSig == nullptr) {
+                // Register the function signature so it can be called
+                // Note: Full body analysis will happen when the monomorphized function is lowered to HIR
+                std::vector<FunctionParameter> params;
+                for (const auto& p : monomorphed->params) {
+                    params.emplace_back(p.name, p.type, p.isRef, p.isMutRef);
+                }
+
+                FunctionSignature fnSig(params, monomorphed->returnType, monomorphed->isExtern);
+                symbolTable.addFunction(node.name, fnSig);
+            }
+        } else {
+            diag.error("Function '" + node.name + "' is not a generic function but was called with type arguments",
+                      node.line, node.column);
+            const Type::Type* type = errorType();
+            exprTypes[&node] = type;
+            return type;
+        }
+    }
+
     const FunctionSignature* sig = symbolTable.lookupFunction(node.name);
 
     // If not found locally, check the function registry (for cross-module calls)
@@ -921,6 +1029,17 @@ const Type::Type* SemanticAnalyzer::visitAddrOf(AddrOf& node) {
     return ptrType;
 }
 
+const Type::Type* SemanticAnalyzer::visitSizeOf(SizeOf& node) {
+    // sizeof<T>() is a compiler builtin that is replaced with a constant
+    // The type has already been parsed and stored in node.type
+    // We just return u64 as the type - the actual replacement with a constant
+    // happens during MIR lowering or we can do it here
+
+    const Type::Type* u64Type = typeRegistry.getPrimitive(Type::PrimitiveKind::U64);
+    exprTypes[&node] = u64Type;
+    return u64Type;
+}
+
 void SemanticAnalyzer::visitExternBlock(HIR::HIRExternBlock& node) {
     // No-op: functions already registered in first pass
 }
@@ -972,10 +1091,43 @@ const Type::Type* SemanticAnalyzer::visitRange(Range& node) {
 }
 
 const Type::Type* SemanticAnalyzer::visitStructLiteral(StructLiteral& node) {
-    // 1. Look up the struct type by name
-    auto* structType = typeRegistry.getStruct(node.structName.lexeme);
+    // Check if this is a generic struct instantiation
+    std::string structName = node.structName.lexeme;
+    if (!node.typeArgs.empty()) {
+        // Resolve type arguments (they may be unresolved from parsing)
+        std::vector<const Type::Type*> resolvedTypeArgs;
+        for (const auto* typeArg : node.typeArgs) {
+            resolvedTypeArgs.push_back(resolveType(typeArg));
+        }
+        node.typeArgs = resolvedTypeArgs;
+
+        // Check if it's a registered generic struct
+        if (getGenericRegistry().isGenericStruct(structName)) {
+            // Monomorphize the struct
+            auto* monomorphedType = monomorphizeStruct(structName, node.typeArgs,
+                                                       node.structName.line, node.structName.column);
+            if (monomorphedType == nullptr) {
+                // Error was already reported
+                const Type::Type* type = errorType();
+                exprTypes[&node] = type;
+                return type;
+            }
+
+            // Update the struct name to use the monomorphized version
+            structName = monomorphedType->name;
+        } else {
+            diag.error("Struct '" + structName + "' is not a generic struct but was instantiated with type arguments",
+                      node.structName.line, node.structName.column);
+            const Type::Type* type = errorType();
+            exprTypes[&node] = type;
+            return type;
+        }
+    }
+
+    // 1. Look up the struct type by name (either original or monomorphized)
+    auto* structType = typeRegistry.getStruct(structName);
     if (structType == nullptr) {
-        diag.error("Unknown struct type: " + node.structName.lexeme,
+        diag.error("Unknown struct type: " + structName,
                    node.structName.line, node.structName.column);
         const Type::Type* type = errorType();
         exprTypes[&node] = type;
@@ -1004,7 +1156,7 @@ const Type::Type* SemanticAnalyzer::visitStructLiteral(StructLiteral& node) {
     // Check for extra fields
     for (const auto& providedField : providedFields) {
         if (requiredFields.find(providedField) == requiredFields.end()) {
-            diag.error("Unknown field '" + providedField + "' in struct '" + node.structName.lexeme + "'",
+            diag.error("Unknown field '" + providedField + "' in struct '" + structName + "'",
                        node.structName.line, node.structName.column);
         }
     }
@@ -1265,7 +1417,20 @@ const Type::Type* SemanticAnalyzer::visitInstanceMethodCall(InstanceMethodCall& 
 void SemanticAnalyzer::collectFunctionSignatures(const HIR::HIRProgram& program) {
     for (const auto& stmt : program.statements) {
         if (auto* fnDecl = dynamic_cast<HIR::HIRFnDecl*>(stmt.get())) {
-            registerFunction(*fnDecl);
+            // Skip generic function templates (they have unresolved types)
+            bool isGeneric = false;
+            if (fnDecl->returnType->kind == Type::TypeKind::Unresolved) {
+                isGeneric = true;
+            }
+            for (const auto& param : fnDecl->params) {
+                if (param.type->kind == Type::TypeKind::Unresolved) {
+                    isGeneric = true;
+                    break;
+                }
+            }
+            if (!isGeneric) {
+                registerFunction(*fnDecl);
+            }
         } else if (auto* externBlock = dynamic_cast<HIR::HIRExternBlock*>(stmt.get())) {
             for (const auto& fn : externBlock->declarations) {
                 registerFunction(*fn);
@@ -1340,6 +1505,36 @@ bool SemanticAnalyzer::isFloatType(const Type::Type* type) {
            prim->kind == Type::PrimitiveKind::F64;
 }
 
+bool SemanticAnalyzer::containsGenericType(const Type::Type* type) {
+    if (!type) { return false; }
+
+    // In HIR, type parameters might be Unresolved (like "T") or Generic (like "Box<T>")
+    if (type->kind == Type::TypeKind::Unresolved) {
+        const auto* unresolvedType = dynamic_cast<const Type::UnresolvedType*>(type);
+        // Simple heuristic: single capital letter is likely a type parameter
+        if (unresolvedType->name.length() == 1 && std::isupper(unresolvedType->name[0])) {
+            return true;
+        }
+    }
+
+    // Check if this type itself is a generic type parameter
+    if (type->kind == Type::TypeKind::Generic) {
+        const auto* genType = dynamic_cast<const Type::GenericType*>(type);
+        // If it has no type parameters, it's a bare type parameter like T
+        if (genType->typeParams.empty()) {
+            return true;
+        }
+        // Otherwise check the type parameters recursively (e.g., Box<T>)
+        for (const auto* param : genType->typeParams) {
+            if (containsGenericType(param)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 int SemanticAnalyzer::getTypeBitWidth(const Type::Type* type) {
     if (type->kind != Type::TypeKind::Primitive) { return 0;
 }
@@ -1364,6 +1559,67 @@ int SemanticAnalyzer::getTypeBitWidth(const Type::Type* type) {
         default:
             return 0;
     }
+}
+
+size_t SemanticAnalyzer::getTypeSize(const Type::Type* type) {
+    if (type == nullptr) { return 0; }
+
+    switch (type->kind) {
+        case Type::TypeKind::Primitive: {
+            const auto* primType = dynamic_cast<const Type::PrimitiveType*>(type);
+            switch (primType->kind) {
+                case Type::PrimitiveKind::I8:
+                case Type::PrimitiveKind::U8:
+                case Type::PrimitiveKind::Bool:
+                    return 1;
+                case Type::PrimitiveKind::I16:
+                case Type::PrimitiveKind::U16:
+                    return 2;
+                case Type::PrimitiveKind::I32:
+                case Type::PrimitiveKind::U32:
+                case Type::PrimitiveKind::F32:
+                    return 4;
+                case Type::PrimitiveKind::I64:
+                case Type::PrimitiveKind::U64:
+                case Type::PrimitiveKind::F64:
+                    return 8;
+                case Type::PrimitiveKind::String:
+                    return 8;  // Pointer to string data
+                case Type::PrimitiveKind::Void:
+                    return 0;
+            }
+            break;
+        }
+        case Type::TypeKind::Pointer:
+            return 8;  // 64-bit pointers
+
+        case Type::TypeKind::Struct: {
+            const auto* structType = dynamic_cast<const Type::StructType*>(type);
+            size_t total = 0;
+            for (const auto& field : structType->fields) {
+                // TODO: Add proper alignment/padding calculation
+                total += getTypeSize(field.type);
+            }
+            return total;
+        }
+
+        case Type::TypeKind::Array: {
+            const auto* arrayType = dynamic_cast<const Type::ArrayType*>(type);
+            // Calculate total number of elements: product of all dimensions
+            size_t totalElements = 1;
+            for (int dim : arrayType->dimensions) {
+                totalElements *= dim;
+            }
+            return getTypeSize(arrayType->elementType) * totalElements;
+        }
+
+        case Type::TypeKind::Generic:
+        case Type::TypeKind::Opaque:
+        case Type::TypeKind::Unresolved:
+            return 0;  // Unknown size
+    }
+
+    return 0;
 }
 
 bool SemanticAnalyzer::areTypesEqual(const Type::Type* a, const Type::Type* b) {
@@ -1538,6 +1794,20 @@ void SemanticAnalyzer::registerStructTypes(const HIR::HIRProgram& program) {
     // First pass: register all struct types in the type registry
     for (const auto& stmt : program.statements) {
         if (auto* structDecl = dynamic_cast<HIR::HIRStructDecl*>(stmt.get())) {
+            // Skip generic struct templates (they have unresolved or generic type parameters)
+            bool isGeneric = false;
+            for (const auto& field : structDecl->fields) {
+                if (field.type->kind == Type::TypeKind::Unresolved ||
+                    field.type->kind == Type::TypeKind::Generic) {
+                    isGeneric = true;
+                    break;
+                }
+            }
+            if (isGeneric) {
+                // Generic structs are handled by monomorphization, skip HIR registration
+                continue;
+            }
+
             // Check if already registered as a COMPLETE struct
             // A struct is complete if it has been registered with its full definition
             // (not just as a stub from pre-registration phase)
@@ -1608,6 +1878,23 @@ void SemanticAnalyzer::resolveUnresolvedTypes(HIR::HIRProgram& program) {
     // Second pass: resolve all unresolved types to their actual types
     for (auto& stmt : program.statements) {
         if (auto* fnDecl = dynamic_cast<HIR::HIRFnDecl*>(stmt.get())) {
+            // Skip generic function templates (they have unresolved or generic types that are type parameters)
+            bool isGeneric = false;
+            if (fnDecl->returnType->kind == Type::TypeKind::Unresolved ||
+                fnDecl->returnType->kind == Type::TypeKind::Generic) {
+                isGeneric = true;
+            }
+            for (const auto& param : fnDecl->params) {
+                if (param.type->kind == Type::TypeKind::Unresolved ||
+                    param.type->kind == Type::TypeKind::Generic) {
+                    isGeneric = true;
+                    break;
+                }
+            }
+            if (isGeneric) {
+                continue;  // Skip generic templates
+            }
+
             // Resolve return type
             fnDecl->returnType = resolveType(fnDecl->returnType);
 
@@ -1622,16 +1909,36 @@ void SemanticAnalyzer::resolveUnresolvedTypes(HIR::HIRProgram& program) {
             // Resolve variable type
             varDecl->typeAnnotation = resolveType(varDecl->typeAnnotation);
         } else if (auto* structDecl = dynamic_cast<HIR::HIRStructDecl*>(stmt.get())) {
+            // Skip generic struct templates (they have type parameters that appear as Generic types in fields)
+            // Do NOT skip structs with Unresolved field types - those just need resolution
+            bool isGeneric = false;
+            for (const auto& field : structDecl->fields) {
+                if (containsGenericType(field.type)) {
+                    // This field contains a type parameter like T, U - skip this struct
+                    isGeneric = true;
+                    break;
+                }
+            }
+            if (isGeneric) {
+                continue;  // Skip generic templates
+            }
+
             // Resolve field types in struct declaration
             for (auto& field : structDecl->fields) {
                 field.type = resolveType(field.type);
             }
 
             // Also update the registered struct type with resolved field types
+            // IMPORTANT: Struct-typed fields are stored as pointers (all structs are heap-allocated)
             std::vector<Type::FieldInfo> resolvedFields;
             resolvedFields.reserve(structDecl->fields.size());
-for (const auto& field : structDecl->fields) {
-                resolvedFields.emplace_back(field.name.lexeme, field.type, field.isPublic);
+            for (const auto& field : structDecl->fields) {
+                const Type::Type* fieldType = field.type;
+                // Convert struct types to pointers (all structs are heap-allocated in Volta)
+                if (fieldType->kind == Type::TypeKind::Struct) {
+                    fieldType = typeRegistry.getPointer(fieldType);
+                }
+                resolvedFields.emplace_back(field.name.lexeme, fieldType, field.isPublic);
             }
 
             // Update the struct in the registry
@@ -1725,6 +2032,31 @@ const Type::Type* SemanticAnalyzer::resolveType(const Type::Type* type) {
     if (type == nullptr) { return nullptr;
 }
 
+    // If it's a generic type, monomorphize it
+    if (type->kind == Type::TypeKind::Generic) {
+        const auto* genericType = dynamic_cast<const Type::GenericType*>(type);
+
+        // Resolve type parameters first (they might be unresolved)
+        std::vector<const Type::Type*> resolvedTypeParams;
+        for (const auto* typeParam : genericType->typeParams) {
+            resolvedTypeParams.push_back(resolveType(typeParam));
+        }
+
+        // Check if this is a generic struct
+        if (getGenericRegistry().isGenericStruct(genericType->name)) {
+            // Monomorphize the struct
+            auto* monomorphedType = monomorphizeStruct(genericType->name, resolvedTypeParams, 0, 0);
+            if (monomorphedType) {
+                return monomorphedType;
+            }
+            return errorType();
+        }
+
+        // Generic function types aren't supported in type positions
+        diag.error("Generic functions cannot be used as types: " + genericType->name, 0, 0);
+        return errorType();
+    }
+
     // If it's an unresolved type, look it up in the type registry
     if (type->kind == Type::TypeKind::Unresolved) {
         const auto* unresolvedType = dynamic_cast<const Type::UnresolvedType*>(type);
@@ -1777,6 +2109,204 @@ const Type::Type* SemanticAnalyzer::resolveType(const Type::Type* type) {
 
     // Already resolved or primitive type
     return type;
+}
+
+// ============================================================================
+// Generic Support
+// ============================================================================
+
+void SemanticAnalyzer::validateTypeParameters(const std::vector<Token>& typeParams, int line, int column) {
+    std::set<std::string> seenParams;
+
+    for (const auto& param : typeParams) {
+        // Check for duplicates
+        if (seenParams.count(param.lexeme) > 0) {
+            diag.error("Duplicate type parameter '" + param.lexeme + "'", param.line, param.column);
+        }
+        seenParams.insert(param.lexeme);
+
+        // TODO: Check for shadowing of local variables (requires scope context)
+        // For now, we'll just validate uniqueness
+    }
+}
+
+void SemanticAnalyzer::registerGenericFunction(FnDecl* fn) {
+    if (!fn->isGeneric()) {
+        return;  // Not a generic function
+    }
+
+    validateTypeParameters(fn->typeParamaters, fn->line, fn->column);
+    getGenericRegistry().registerGenericFunction(fn->name, fn->typeParamaters, fn);
+}
+
+void SemanticAnalyzer::registerGenericStruct(StructDecl* structDecl) {
+    if (!structDecl->isGeneric()) {
+        return;  // Not a generic struct
+    }
+
+    validateTypeParameters(structDecl->typeParamaters, structDecl->name.line, structDecl->name.column);
+    getGenericRegistry().registerGenericStruct(structDecl->name.lexeme, structDecl->typeParamaters, structDecl);
+}
+
+FnDecl* SemanticAnalyzer::monomorphizeFunction(
+    const std::string& genericName,
+    const std::vector<const Type::Type*>& typeArgs,
+    int callSiteLine,
+    int callSiteColumn
+) {
+    // Get generic definition
+    auto* genericDef = getGenericRegistry().getGenericFunction(genericName);
+    if (!genericDef) {
+        diag.error("Unknown generic function '" + genericName + "'", callSiteLine, callSiteColumn);
+        return nullptr;
+    }
+
+    // Validate type argument count
+    if (typeArgs.size() != genericDef->typeParams.size()) {
+        diag.error(
+            "Generic function '" + genericName + "' expects " +
+            std::to_string(genericDef->typeParams.size()) + " type argument(s), got " +
+            std::to_string(typeArgs.size()),
+            callSiteLine,
+            callSiteColumn
+        );
+        return nullptr;
+    }
+
+    // Check if already monomorphized
+    if (getGenericRegistry().hasMonomorphInstance(genericName, typeArgs, true)) {
+        // Already exists, don't create again
+        return nullptr;
+    }
+
+    // Generate monomorph name
+    std::string monomorphName = getGenericRegistry().getOrCreateMonomorphName(genericName, typeArgs, true);
+
+    // DEBUG: Print monomorphization info
+    std::cout << "    [Monomorphizing function '" << genericName << "' with types: ";
+    for (size_t i = 0; i < typeArgs.size(); ++i) {
+        std::cout << typeArgs[i]->toString();
+        if (i < typeArgs.size() - 1) std::cout << ", ";
+    }
+    std::cout << " -> " << monomorphName << "]\n";
+
+    // Prevent infinite recursion
+    if (currentlyAnalyzing.count(monomorphName) > 0) {
+        diag.error("Recursive generic instantiation detected for '" + monomorphName + "'", callSiteLine, callSiteColumn);
+        return nullptr;
+    }
+    currentlyAnalyzing.insert(monomorphName);
+
+    // Perform type substitution
+    Volta::TypeSubstitution substitution(genericDef->typeParams, typeArgs);
+    auto monomorphed = substitution.substituteFnDecl(genericDef->astNode);
+
+    // Update name to monomorphized version
+    monomorphed->name = monomorphName;
+
+    // Resolve GenericTypes in the function signature and body to their monomorphized struct types
+    // This ensures that return types like Pair<i64, i32> become Pair$i64$i32
+    monomorphed->returnType = resolveType(monomorphed->returnType);
+    for (auto& param : monomorphed->params) {
+        param.type = resolveType(param.type);
+    }
+
+    // Resolve types in the function body (recursively handle all statements)
+    // This is needed because the cloned AST may have GenericTypes that need to be resolved
+    for (auto& stmt : monomorphed->body) {
+        // Resolve types in variable declarations
+        if (auto* varDecl = dynamic_cast<VarDecl*>(stmt.get())) {
+            if (varDecl->typeAnnotation) {
+                varDecl->typeAnnotation = resolveType(varDecl->typeAnnotation);
+            }
+        }
+        // Could add more statement types here if needed (IfStmt, WhileStmt, etc.)
+    }
+
+    // Store the monomorphized function for later MIR lowering
+    FnDecl* result = monomorphed.get();
+    monomorphizedFunctions.push_back(std::move(monomorphed));
+    std::cout << "    [Stored monomorphized function '" << monomorphName << "', total count: " << monomorphizedFunctions.size() << "]\n";
+
+    // Remove recursion guard
+    currentlyAnalyzing.erase(monomorphName);
+
+    // Return raw pointer (ownership is in monomorphizedFunctions)
+    return result;
+}
+
+const Type::StructType* SemanticAnalyzer::monomorphizeStruct(
+    const std::string& genericName,
+    const std::vector<const Type::Type*>& typeArgs,
+    int useSiteLine,
+    int useSiteColumn
+) {
+    // Get generic definition
+    auto* genericDef = getGenericRegistry().getGenericStruct(genericName);
+    if (!genericDef) {
+        diag.error("Unknown generic struct '" + genericName + "'", useSiteLine, useSiteColumn);
+        return nullptr;
+    }
+
+    // Validate type argument count
+    if (typeArgs.size() != genericDef->typeParams.size()) {
+        diag.error(
+            "Generic struct '" + genericName + "' expects " +
+            std::to_string(genericDef->typeParams.size()) + " type argument(s), got " +
+            std::to_string(typeArgs.size()),
+            useSiteLine,
+            useSiteColumn
+        );
+        return nullptr;
+    }
+
+    // Generate monomorph name
+    std::string monomorphName = getGenericRegistry().getOrCreateMonomorphName(genericName, typeArgs, false);
+
+    // Check if already monomorphized
+    const auto* existingType = typeRegistry.getStruct(monomorphName);
+    if (existingType) {
+        return existingType;  // Already exists
+    }
+
+    // Prevent infinite recursion
+    if (currentlyAnalyzing.count(monomorphName) > 0) {
+        diag.error("Recursive generic instantiation detected for '" + monomorphName + "'", useSiteLine, useSiteColumn);
+        return nullptr;
+    }
+    currentlyAnalyzing.insert(monomorphName);
+
+    // Perform type substitution
+    Volta::TypeSubstitution substitution(genericDef->typeParams, typeArgs);
+    auto monomorphed = substitution.substituteStructDecl(genericDef->astNode);
+
+    // Update name to monomorphized version
+    monomorphed->name = Token{TokenType::Identifier, static_cast<size_t>(useSiteLine), static_cast<size_t>(useSiteColumn), monomorphName};
+
+    // Convert StructField to FieldInfo for registration
+    // IMPORTANT: Struct-typed fields are stored as pointers (all structs are heap-allocated)
+    std::vector<Type::FieldInfo> fields;
+    fields.reserve(monomorphed->fields.size());
+    for (const auto& field : monomorphed->fields) {
+        // Resolve GenericTypes in field types to their monomorphized struct types
+        const Type::Type* resolvedFieldType = resolveType(field.type);
+        // Convert struct types to pointers (all structs are heap-allocated in Volta)
+        if (resolvedFieldType->kind == Type::TypeKind::Struct) {
+            resolvedFieldType = typeRegistry.getPointer(resolvedFieldType);
+        }
+        fields.emplace_back(field.name.lexeme, resolvedFieldType, field.isPublic);
+    }
+
+    // Register the struct type (without analyzing methods yet - they'll be analyzed on-demand)
+    typeRegistry.registerStruct(monomorphName, fields);
+
+    // Store the monomorphized AST for later
+    monomorphizedStructs.push_back(std::move(monomorphed));
+
+    // Remove recursion guard
+    currentlyAnalyzing.erase(monomorphName);
+
+    return typeRegistry.getStruct(monomorphName);
 }
 
 } // namespace Semantic

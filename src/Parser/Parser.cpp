@@ -137,18 +137,10 @@ const Type::Type* Parser::parseType() {
     if (check(TokenType::Identifier)) {
         std::string typeStr = advance().lexeme;
 
-        if (check(TokenType::LessThan)) {
-            advance();
+        // Try to parse type arguments (e.g., <T>, <T, U>, <i32>)
+        std::vector<const Type::Type*> typeParams = parseTypeArguments();
 
-            std::vector<const Type::Type*> typeParams;
-            typeParams.push_back(parseType());
-
-            while (match({TokenType::Comma})) {
-                typeParams.push_back(parseType());
-            }
-
-            expect(TokenType::GreaterThan);
-
+        if (!typeParams.empty()) {
             // Special case: ptr<T> is a pointer type, not a generic
             if (typeStr == "ptr") {
                 if (typeParams.size() != 1) {
@@ -175,6 +167,44 @@ const Type::Type* Parser::parseType() {
     return types.getPrimitive(Type::PrimitiveKind::I32); // Default fallback type
 }
 
+std::vector<const Type::Type*> Parser::parseTypeArguments() {
+    std::vector<const Type::Type*> typeArgs;
+
+    if (!match({TokenType::LessThan})) {
+        return typeArgs; // Empty vector if no '<'
+    }
+
+    // Parse first type argument
+    typeArgs.push_back(parseType());
+
+    // Parse remaining type arguments
+    while (match({TokenType::Comma})) {
+        typeArgs.push_back(parseType());
+    }
+
+    expect(TokenType::GreaterThan);
+
+    return typeArgs;
+}
+
+std::vector<Token> Parser::parseTypeParameters() {
+    std::vector<Token> typeParams;
+
+    if (!match({TokenType::LessThan})) {
+        return typeParams;
+    }
+
+    typeParams.push_back(expect(TokenType::Identifier));
+
+    while (match({TokenType::Comma})) {
+        typeParams.push_back(expect(TokenType::Identifier));
+    }
+    
+    expect(TokenType::GreaterThan);
+
+    return typeParams;
+}
+
 
 std::unique_ptr<FnDecl> Parser::parseFnSignature() {
     bool isPub = false;
@@ -185,6 +215,7 @@ std::unique_ptr<FnDecl> Parser::parseFnSignature() {
 
     Token fnToken = expect(TokenType::Function);
     Token name = expect(TokenType::Identifier);
+    std::vector<Token> typeParams = parseTypeParameters();
 
     expect(TokenType::LParen);
     std::vector<Param> params;
@@ -250,7 +281,7 @@ std::unique_ptr<FnDecl> Parser::parseFnSignature() {
         returnType = parseType();
     }
 
-    return std::make_unique<FnDecl>(name.lexeme, std::move(params), returnType,
+    return std::make_unique<FnDecl>(name.lexeme, typeParams, std::move(params), returnType,
                                     std::vector<std::unique_ptr<Stmt>>(), false, isPub, fnToken.line, fnToken.column);
 }
 
@@ -265,8 +296,9 @@ std::unique_ptr<Stmt> Parser::parseFnDef() {
 
 std::unique_ptr<StructDecl> Parser::parseStructDecl() {
     bool isPublic = match({TokenType::Pub});
-    expect(TokenType::Struct);  // Consume 'struct' keyword
+    expect(TokenType::Struct); 
     Token structName = expect(TokenType::Identifier);
+    std::vector<Token> typeParams = parseTypeParameters();
     expect(TokenType::LBrace);
 
     std::vector<StructField> fields;
@@ -304,7 +336,7 @@ std::unique_ptr<StructDecl> Parser::parseStructDecl() {
 
     expect(TokenType::RBrace);
 
-    return std::make_unique<StructDecl>(isPublic, structName, std::move(fields), std::move(methods));
+    return std::make_unique<StructDecl>(isPublic, structName, typeParams, std::move(fields), std::move(methods));
 }
 
 std::unique_ptr<Stmt> Parser::parseExternBlock() {
@@ -714,22 +746,6 @@ std::unique_ptr<Expr> Parser::parsePostfix() {
     return expr;
 }
 
-std::unique_ptr<Expr> Parser::parseFunctionCall() {
-    Token name = expect(TokenType::Identifier);
-    expect(TokenType::LParen);
-
-    std::vector<std::unique_ptr<Expr>> args;
-    if (!check(TokenType::RParen)) {
-        do {
-            args.push_back(parseExpression());
-        } while (match({TokenType::Comma}));
-    }
-
-    expect(TokenType::RParen);
-
-    return std::make_unique<FnCall>(name.lexeme, std::move(args), name.line, name.column);
-}
-
 std::unique_ptr<Expr> Parser::parsePrimary() {
     // Literals
     if (isLiteralExpr()) {
@@ -744,47 +760,79 @@ std::unique_ptr<Expr> Parser::parsePrimary() {
     }
 
     if (check(TokenType::Identifier)) {
-        // Check for static method call: Type::method(...)
-        if (check(TokenType::DoubleColon, 1)) {
-            Token typeName = advance();
-            expect(TokenType::DoubleColon);
-            Token methodName = expect(TokenType::Identifier);
-            expect(TokenType::LParen);
+        Token name = advance();
 
+        // Only try to parse type arguments if followed by '('
+        // This disambiguates: foo<T>() vs x < 10
+        std::vector<const Type::Type*> typeArgs;
+        if (check(TokenType::LessThan)) {
+            // Speculatively try to parse type arguments
+            // Save state in case this is actually a comparison operator
+            size_t savedIdx = idx;
+
+            // Suppress error reporting during speculative parse
+            diag.setSuppressErrors(true);
+            std::vector<const Type::Type*> tentativeTypeArgs = parseTypeArguments();
+            diag.setSuppressErrors(false);
+
+            // Check if parsing succeeded and is followed by '('
+            // We don't check for '{' because that could be a block, not a struct literal
+            // Example: "if x < y {" - the { is the if-body, not a struct literal
+            bool isGenericCall = !tentativeTypeArgs.empty() && check(TokenType::LParen);
+
+            if (isGenericCall) {
+                // This looks like foo<T>(), keep the type args
+                typeArgs = std::move(tentativeTypeArgs);
+            } else {
+                // This is probably x < 10, backtrack tokens
+                idx = savedIdx;
+            }
+        }
+
+        // Check what follows to determine the expression type
+        if (check(TokenType::LParen)) {
+            // Function call: foo(...) or foo<T>(...)
+            expect(TokenType::LParen);
             std::vector<std::unique_ptr<Expr>> args;
             if (!check(TokenType::RParen)) {
                 do {
                     args.push_back(parseExpression());
                 } while (match({TokenType::Comma}));
             }
-
             expect(TokenType::RParen);
-            return std::make_unique<StaticMethodCall>(typeName, methodName, std::move(args), typeName.line, typeName.column);
+            return std::make_unique<FnCall>(name.lexeme, std::move(typeArgs), std::move(args), name.line, name.column);
         }
 
-        if (check(TokenType::LParen, 1)) {
-            return parseFunctionCall();
-        }
+        if (check(TokenType::LBrace)) {
+            // Could be struct literal: Point { x: 1 }
+            // Or just a variable before a block: if condition { ... }
+            // Lookahead to disambiguate: struct literals have "identifier:" after {
+            size_t savedIdx = idx;
+            advance(); // consume {
 
-        // Check for struct literal: StructName { ... }
-        // Use lookahead to distinguish struct literals from other constructs
-        // Struct literals have pattern: Identifier { Identifier : Expr } or Identifier { }
-        if (check(TokenType::LBrace, 1)) {
-            // Check for empty struct literal: Point {}
-            if (check(TokenType::RBrace, 2)) {
-                Token structName = advance();
-                return parseStructLiteral(structName);
+            bool isStructLiteral = false;
+            if (check(TokenType::Identifier)) {
+                advance(); // consume identifier
+                if (check(TokenType::Colon)) {
+                    isStructLiteral = true; // Pattern: identifier :
+                }
+            } else if (check(TokenType::RBrace)) {
+                // Empty braces could be empty struct literal
+                isStructLiteral = true;
             }
-            // Check for struct literal with fields: Point { x: 1, ... }
-            if (check(TokenType::Identifier, 2) && check(TokenType::Colon, 3)) {
-                Token structName = advance();
-                return parseStructLiteral(structName);
+
+            // Backtrack
+            idx = savedIdx;
+
+            if (isStructLiteral) {
+                return parseStructLiteral(name, std::move(typeArgs));
             }
-            // Not a struct literal pattern, treat as variable
+            // Otherwise fall through to Variable case
         }
 
-        Token token = advance();
-        return std::make_unique<Variable>(token);
+        // Variable reference
+        // Note: type args are not expected here anymore, so typeArgs should be empty
+        return std::make_unique<Variable>(name, std::move(typeArgs));
     }
 
     // Parenthesized expression
@@ -864,8 +912,8 @@ std::unique_ptr<Expr> Parser::parseRangeExpr() {
     return std::make_unique<Range>(std::move(lhs), std::move(rhs), inclusive, rangeToken.line, rangeToken.column);
 }
 
-std::unique_ptr<StructLiteral> Parser::parseStructLiteral(const Token& structName) {
-    // Already consumed the struct name, now consume the opening '{'
+std::unique_ptr<StructLiteral> Parser::parseStructLiteral(const Token& structName, std::vector<const Type::Type*> typeArgs) {
+    // Already consumed the struct name and type args, now consume the opening '{'
     expect(TokenType::LBrace);
 
     std::vector<std::pair<Token, std::unique_ptr<Expr>>> fields;
@@ -884,6 +932,6 @@ std::unique_ptr<StructLiteral> Parser::parseStructLiteral(const Token& structNam
 
     expect(TokenType::RBrace);
 
-    return std::make_unique<StructLiteral>(structName, std::move(fields),
+    return std::make_unique<StructLiteral>(structName, std::move(typeArgs), std::move(fields),
                                             structName.line, structName.column);
 }

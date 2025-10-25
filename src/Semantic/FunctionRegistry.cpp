@@ -13,6 +13,21 @@ void FunctionRegistry::registerFunction(const std::string& name,
 void FunctionRegistry::collectFromHIR(const HIR::HIRProgram& hir, const std::string& moduleName) {
     for (const auto& stmt : hir.statements) {
         if (auto* fnDecl = dynamic_cast<HIR::HIRFnDecl*>(stmt.get())) {
+            // Skip generic function templates (they have unresolved types)
+            bool isGeneric = false;
+            if (fnDecl->returnType->kind == Type::TypeKind::Unresolved) {
+                isGeneric = true;
+            }
+            for (const auto& param : fnDecl->params) {
+                if (param.type->kind == Type::TypeKind::Unresolved) {
+                    isGeneric = true;
+                    break;
+                }
+            }
+            if (isGeneric) {
+                continue;  // Skip generic templates
+            }
+
             // Convert HIR::Param to FunctionParameter
             std::vector<FunctionParameter> funcParams;
             funcParams.reserve(fnDecl->params.size());

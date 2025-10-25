@@ -153,7 +153,146 @@ let id = h.get_id();            // OK - calls instance method
 // let h2 = OpaqueHandle { internal_id: 42, internal_ptr: ... };  // ERROR: private fields
 ```
 
-Note: Generic structs will be supported in a future version.
+##### Generics
+
+Volta supports parametric polymorphism through generics, allowing you to write code that works with multiple types while maintaining type safety. Generics are implemented via monomorphization at compile-time, meaning each unique instantiation generates specialized code with zero runtime overhead.
+
+**Type Parameters:**
+
+Type parameters are declared in angle brackets `<>` and can use any valid identifier (not just single letters). Common conventions include:
+- Single uppercase letters: `T`, `U`, `V`, `K` (Key), `V` (Value)
+- Descriptive names: `Item`, `Element`, `Key`, `Value`
+
+Type parameters must be unique within their scope and cannot shadow local variables or other type parameters.
+
+**Generic Functions:**
+
+Functions can be generic over one or more type parameters. Type arguments must be explicitly provided at the call site.
+
+```volta
+// Single type parameter
+fn swap<T>(a: mut ref T, b: mut ref T) -> void {
+    let temp: T = a;
+    a = b;
+    b = temp;
+}
+
+// Multiple type parameters with descriptive names
+fn pair<First, Second>(a: First, b: Second) -> Pair<First, Second> {
+    return Pair<First, Second> { first: a, second: b };
+}
+
+// Usage - type arguments are required
+let x: i32 = 5;
+let y: i32 = 10;
+swap<i32>(x, y);
+
+let p = pair<i32, f64>(42, 3.14);
+```
+
+**Generic Structs:**
+
+Structs can be parameterized over types, creating flexible data structures.
+
+```volta
+// Simple generic container
+pub struct Box<T> {
+    pub value: T
+}
+
+// Generic with multiple parameters
+pub struct Pair<T, U> {
+    pub first: T,
+    pub second: U
+}
+
+// Generic struct with methods
+pub struct Container<Element> {
+    data: Element,
+    count: i32
+
+    // Static method - returns generic type
+    pub fn new(value: Element) -> Container<Element> {
+        return Container<Element> { data: value, count: 1 };
+    }
+
+    // Instance method using type parameter
+    pub fn get(self) -> Element {
+        return self.data;
+    }
+
+    // Instance method with mutable self
+    pub fn set(mut self, value: Element) -> void {
+        self.data = value;
+    }
+}
+
+// Usage - type arguments required for instantiation
+let box_int: Box<i32> = Box<i32> { value: 42 };
+let box_str: Box<String> = Box<String> { value: "hello" };
+
+// Type arguments on static method calls
+let container = Container<i32>.new(100);
+let value = container.get();
+
+// Type inference from variable declaration
+let pair: Pair<i32, f64> = Pair<i32, f64> { first: 1, second: 3.14 };
+```
+
+**Nested Generics:**
+
+Generic types can be nested arbitrarily.
+
+```volta
+let nested: Box<Pair<i32, f64>> = Box<Pair<i32, f64>> {
+    value: Pair<i32, f64> { first: 1, second: 2.0 }
+};
+
+let array_of_boxes: [Box<i32>; 3] = [
+    Box<i32> { value: 1 },
+    Box<i32> { value: 2 },
+    Box<i32> { value: 3 }
+];
+```
+
+**Monomorphization:**
+
+Volta uses compile-time monomorphization, similar to C++ templates and Rust generics. When you use a generic function or struct with concrete types, the compiler generates a specialized version of that code.
+
+```volta
+swap<i32>(a, b);  // Generates swap$i32
+swap<f64>(x, y);  // Generates swap$f64
+```
+
+**Restrictions:**
+
+1. **No recursive type bounds**: Currently, generic parameters cannot reference themselves or create cycles
+2. **Explicit type arguments**: Type inference at call sites is not yet supported - you must always provide type arguments explicitly
+3. **No higher-kinded types**: Cannot abstract over generic types themselves (e.g., cannot write `Container<Box>` where `Box` itself is generic)
+4. **No default type parameters**: All type parameters must be specified
+
+**Error Examples:**
+
+```volta
+// ERROR: Duplicate type parameter 'T'
+fn bad<T, T>(a: T, b: T) -> T { }
+
+// ERROR: Type parameter 'T' shadows local variable
+fn shadow<T>(x: i32) -> T {
+    let T: i32 = 42;  // Identifier 'T' conflicts with type parameter
+}
+
+// ERROR: Missing type arguments
+let b = Box { value: 42 };  // Must specify Box<i32>
+
+// ERROR: Wrong number of type arguments
+let p: Pair<i32> = ...;  // Pair requires 2 type arguments
+```
+
+**Future Extensions:**
+
+Traits (planned) will enable bounded generic programming, allowing you to constrain which types can be used with a generic function or struct based on their capabilities. See the Traits section for more details.
+
 ##### Functions
 
 Functions are defined with syntax `fn fn_name(arg1: type, arg2: type) -> Type {}`.
@@ -340,7 +479,6 @@ Note the usage of the opaque keyword, which is just a fancy way of declaring a v
 char* is a ptr<u8>, while numeric types can be directly translated with the supported Volta types. Conversion from utf8 string to C strings can be done by performing `my_string.to_c_str()` calls. The language also supports the use of the `addrof` keyword to obtain the address of a variable, in order to pass it to C definitiions.
 
 #### Struct Layout Compatibility
-
 When a Volta struct matches a C struct layout exactly (same field types, same order), pointers can be passed directly to C functions without conversion overhead. Volta generates LLVM struct types that are binary-compatible with C structs.
 
 Example:

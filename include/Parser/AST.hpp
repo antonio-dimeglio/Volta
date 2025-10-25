@@ -68,14 +68,16 @@ struct FnCall : Expr {
     }
 };
 
-// Static method call: Type::method(args)
+// Static method call: Type.method(args) or Type<T>.method(args)
+// Note: Desugared from InstanceMethodCall during HIR lowering when the object is a type name
 struct StaticMethodCall : Expr {
-    Token typeName;       // The type name (e.g., "Point")
+    Token typeName;       // The type name (e.g., "Point", "Container")
+    std::vector<const Type::Type*> typeArgs;  // Type arguments for generic types (e.g., <i32>)
     Token methodName;     // The method name (e.g., "new")
     std::vector<std::unique_ptr<Expr>> args;
 
-    StaticMethodCall(Token type, Token method, std::vector<std::unique_ptr<Expr>> args, int line = 0, int column = 0)
-        : Expr(line, column), typeName(std::move(std::move(type))), methodName(std::move(std::move(method))), args(std::move(args)) {}
+    StaticMethodCall(Token type, std::vector<const Type::Type*> typeArgs, Token method, std::vector<std::unique_ptr<Expr>> args, int line = 0, int column = 0)
+        : Expr(line, column), typeName(std::move(std::move(type))), typeArgs(std::move(typeArgs)), methodName(std::move(std::move(method))), args(std::move(args)) {}
 
     [[nodiscard]] std::string toString() const override;
 
@@ -161,10 +163,16 @@ struct Literal : Expr {
     }
 };
 
+// Variable expression representing an identifier reference
+// Note: typeArgs is used when a type name with generic parameters appears in expression context.
+// Example: Container<i32>.new() - here "Container<i32>" is parsed as a Variable with typeArgs,
+// which will later be desugared to a StaticMethodCall during HIR lowering.
 struct Variable : Expr {
     Token token;
+    std::vector<const Type::Type*> typeArgs;  // Type arguments for generic type names in expr context
 
-    explicit Variable(const Token& token) : Expr(token.line, token.column), token(token) {}
+    explicit Variable(const Token& token, std::vector<const Type::Type*> typeArgs = {})
+        : Expr(token.line, token.column), token(token), typeArgs(std::move(typeArgs)) {}
 
     [[nodiscard]] std::string toString() const override;
 
@@ -254,7 +262,7 @@ struct IndexExpr : Expr {
 
 struct AddrOf : Expr {
     std::unique_ptr<Expr> operand;
-    AddrOf(std::unique_ptr<Expr> operand, size_t line = 0, size_t column = 0) 
+    AddrOf(std::unique_ptr<Expr> operand, size_t line = 0, size_t column = 0)
         : Expr(line, column), operand(std::move(operand)) {}
 
     [[nodiscard]] std::string toString() const override;
@@ -265,6 +273,23 @@ struct AddrOf : Expr {
 
     const Type::Type* accept(ExprVisitor<const Type::Type*>& v) override {
         return v.visitAddrOf(*this);
+    }
+};
+
+struct SizeOf : Expr {
+    const Type::Type* type;  // The type to get the size of
+
+    SizeOf(const Type::Type* type, size_t line = 0, size_t column = 0)
+        : Expr(line, column), type(type) {}
+
+    [[nodiscard]] std::string toString() const override;
+
+    void accept(ExprVisitor<void>& v) override {
+        v.visitSizeOf(*this);
+    }
+
+    const Type::Type* accept(ExprVisitor<const Type::Type*>& v) override {
+        return v.visitSizeOf(*this);
     }
 };
 

@@ -10,8 +10,7 @@
 
 ```bash
 # After building
-./volta path/to/program.rv
-
+./volta path/to/program.vlt
 # Or from the build directory
-./volta ../examples/fibo.rv
+./volta ../examples/fibo.vlt
 ```

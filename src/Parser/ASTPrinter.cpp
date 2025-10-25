@@ -339,6 +339,23 @@ std::string ASTPrinterVisitor::exprToString(const Expr* expr) {
         }
         oss << ")";
         return oss.str();
+    } else if (const auto* structLit = dynamic_cast<const StructLiteral*>(expr)) {
+        std::ostringstream oss;
+        oss << structLit->structName.lexeme;
+        if (!structLit->typeArgs.empty()) {
+            oss << "<";
+            for (size_t i = 0; i < structLit->typeArgs.size(); ++i) {
+                oss << structLit->typeArgs[i]->toString() << (i < structLit->typeArgs.size() - 1 ? ", " : "");
+            }
+            oss << ">";
+        }
+        oss << " { ";
+        for (size_t i = 0; i < structLit->fields.size(); ++i) {
+            if (i > 0) { oss << ", "; }
+            oss << structLit->fields[i].first.lexeme << ": " << exprToString(structLit->fields[i].second.get());
+        }
+        oss << " }";
+        return oss.str();
     }
 
     return "<unknown expr>";
@@ -515,6 +532,23 @@ std::string exprToStringForHIR(const Expr* expr) {
         return oss.str();
     } else if (const auto* addrOf = dynamic_cast<const AddrOf*>(expr)) {
         return "ptr " + exprToStringForHIR(addrOf->operand.get());
+    } else if (const auto* structLit = dynamic_cast<const StructLiteral*>(expr)) {
+        std::ostringstream oss;
+        oss << structLit->structName.lexeme;
+        if (!structLit->typeArgs.empty()) {
+            oss << "<";
+            for (size_t i = 0; i < structLit->typeArgs.size(); ++i) {
+                oss << structLit->typeArgs[i]->toString() << (i < structLit->typeArgs.size() - 1 ? ", " : "");
+            }
+            oss << ">";
+        }
+        oss << " { ";
+        for (size_t i = 0; i < structLit->fields.size(); ++i) {
+            if (i > 0) { oss << ", "; }
+            oss << structLit->fields[i].first.lexeme << ": " << exprToStringForHIR(structLit->fields[i].second.get());
+        }
+        oss << " }";
+        return oss.str();
     }
 
     return "<unknown expr>";

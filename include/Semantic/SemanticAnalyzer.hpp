@@ -6,8 +6,10 @@
 #include "../Type/TypeRegistry.hpp"
 #include "SymbolTable.hpp"
 #include "FunctionRegistry.hpp"
+#include "GenericRegistry.hpp"
 #include "../Error/Error.hpp"
 #include <unordered_map>
+#include <set>
 
 namespace Semantic {
 
@@ -25,14 +27,36 @@ private:
     // Type map: stores computed type for each expression
     std::unordered_map<const Expr*, const Type::Type*> exprTypes;
 
+    // Map from sizeof() FnCall nodes to their computed size values (for MIR lowering)
+    std::unordered_map<const Expr*, size_t> sizeofValues;
+
     // Expected type context for top-down type inference (e.g., for array fill initialization)
     const Type::Type* expectedType = nullptr;
 
+    // NEW: Generic tracking and monomorphization
+    Volta::GenericRegistry genericRegistry;  // Local registry (used if external not provided)
+    Volta::GenericRegistry* externalGenericRegistry = nullptr;  // Shared registry across modules
+
+    // NEW: Store monomorphized AST nodes (we own these)
+    std::vector<std::unique_ptr<FnDecl>> monomorphizedFunctions;
+    std::vector<std::unique_ptr<StructDecl>> monomorphizedStructs;
+
+    // NEW: Prevent infinite recursion during monomorphization
+    std::set<std::string> currentlyAnalyzing;
+
+    // Helper to get the active generic registry (external if set, otherwise local)
+    Volta::GenericRegistry& getGenericRegistry() {
+        return externalGenericRegistry ? *externalGenericRegistry : genericRegistry;
+    }
+
 public:
-    SemanticAnalyzer(Type::TypeRegistry& types, DiagnosticManager& diag);
+    SemanticAnalyzer(Type::TypeRegistry& types, DiagnosticManager& diag, Volta::GenericRegistry* genRegistry = nullptr);
 
     // Set the function registry for cross-module function resolution
     void setFunctionRegistry(FunctionRegistry* registry) { functionRegistry = registry; }
+
+    // Set the generic registry for cross-module generic resolution
+    void setGenericRegistry(Volta::GenericRegistry* registry) { externalGenericRegistry = registry; }
 
     void analyzeProgram(const HIR::HIRProgram& program);
     SymbolTable& getSymbolTable() { return symbolTable; }
@@ -41,9 +65,15 @@ public:
     // Get the type map (for HIR to MIR lowering)
     [[nodiscard]] const std::unordered_map<const Expr*, const Type::Type*>& getExprTypes() const { return exprTypes; }
 
+    // Get the monomorphized functions (for HIR to MIR lowering)
+    [[nodiscard]] const std::vector<std::unique_ptr<FnDecl>>& getMonomorphizedFunctions() const { return monomorphizedFunctions; }
+
     // Public methods for cross-module type management
     void registerStructTypes(const HIR::HIRProgram& program);
     void resolveUnresolvedTypes(HIR::HIRProgram& program);
+
+    // NEW: Register generic templates from AST (must be called before HIR lowering or semantic analysis)
+    void registerGenericTemplates(const Program& ast);
 
     // HIR Statement visitors
     void visitVarDecl(HIR::HIRVarDecl& node) override;
@@ -70,6 +100,7 @@ public:
     const Type::Type* visitArrayLiteral(ArrayLiteral& node) override;
     const Type::Type* visitIndexExpr(IndexExpr& node) override;
     const Type::Type* visitAddrOf(AddrOf& node) override;
+    const Type::Type* visitSizeOf(SizeOf& node) override;
     const Type::Type* visitCompoundAssign(CompoundAssign& node) override;
     const Type::Type* visitIncrement(Increment& node) override;
     const Type::Type* visitDecrement(Decrement& node) override;
@@ -78,6 +109,25 @@ public:
     const Type::Type* visitFieldAccess(FieldAccess& node) override;
     const Type::Type* visitStaticMethodCall(StaticMethodCall& node) override;
     const Type::Type* visitInstanceMethodCall(InstanceMethodCall& node) override;
+
+    // NEW: Generic support
+    void validateTypeParameters(const std::vector<Token>& typeParams, int line, int column);
+    void registerGenericFunction(FnDecl* fn);
+    void registerGenericStruct(StructDecl* structDecl);
+
+    FnDecl* monomorphizeFunction(
+        const std::string& genericName,
+        const std::vector<const Type::Type*>& typeArgs,
+        int callSiteLine,
+        int callSiteColumn
+    );
+
+    const Type::StructType* monomorphizeStruct(
+        const std::string& genericName,
+        const std::vector<const Type::Type*>& typeArgs,
+        int useSiteLine,
+        int useSiteColumn
+    );
 
 private:
     void collectFunctionSignatures(const HIR::HIRProgram& program);
@@ -106,8 +156,14 @@ private:
     /// Check if type is a floating-point type
     static bool isFloatType(const Type::Type* type);
 
+    /// Check if a type contains a generic type parameter (recursively checks GenericType)
+    static bool containsGenericType(const Type::Type* type);
+
     /// Get bit width of a primitive type (returns 0 for non-primitives)
     static int getTypeBitWidth(const Type::Type* type);
+
+    /// Get size of a type in bytes (for sizeof implementation)
+    static size_t getTypeSize(const Type::Type* type);
 
     // ========================================================================
     // Type Compatibility Checking Utilities

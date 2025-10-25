@@ -12,6 +12,11 @@ namespace Color {
 
 void DiagnosticManager::report(DiagnosticLevel level, const std::string& message,
                                 size_t line, size_t column) {
+    // Don't record errors during speculative parsing
+    if (suppressErrors && level == DiagnosticLevel::Error) {
+        return;
+    }
+
     diagnostics.emplace_back(level, message, SourceLocation(line, column));
 
     if (level == DiagnosticLevel::Error) {

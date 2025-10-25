@@ -43,6 +43,10 @@ public:
     // Lower an entire HIR program to MIR
     MIR::Program lower(const HIR::HIRProgram& hirProgram);
 
+    // Lower an entire HIR program to MIR with monomorphized generic functions
+    MIR::Program lower(const HIR::HIRProgram& hirProgram,
+                      const std::vector<std::unique_ptr<FnDecl>>& monomorphizedFunctions);
+
 
 private:
 
@@ -73,6 +77,7 @@ private:
     Value visitArrayLiteral(::ArrayLiteral& node) override;
     Value visitIndexExpr(::IndexExpr& node) override;
     Value visitAddrOf(::AddrOf& node) override;
+    Value visitSizeOf(::SizeOf& node) override;
     Value visitCompoundAssign(::CompoundAssign& node) override;  // Should be lowered by HIR
     Value visitIncrement(::Increment& node) override;  // Should be lowered by HIR
     Value visitDecrement(::Decrement& node) override;  // Should be lowered by HIR

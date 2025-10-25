@@ -66,6 +66,11 @@ void RecursiveASTVisitor::visitAddrOf(AddrOf& node) {
     traverseExpr(node.operand.get());
 }
 
+void RecursiveASTVisitor::visitSizeOf(SizeOf& node) {
+    // SizeOf doesn't have any child expressions to traverse
+    // The type is already stored
+}
+
 void RecursiveASTVisitor::visitCompoundAssign(CompoundAssign& node) {
     traverseExpr(node.var.get());
     traverseExpr(node.value.get());

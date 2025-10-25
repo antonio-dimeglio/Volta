@@ -5,6 +5,13 @@
 namespace MIR {
     
 MIR::Program HIRToMIR::lower(const HIR::HIRProgram& hirProgram) {
+    // Delegate to the overload with empty monomorphized functions
+    std::vector<std::unique_ptr<FnDecl>> empty;
+    return lower(hirProgram, empty);
+}
+
+MIR::Program HIRToMIR::lower(const HIR::HIRProgram& hirProgram,
+                             const std::vector<std::unique_ptr<FnDecl>>& monomorphizedFunctions) {
     // Declare volta_gc_malloc as extern function
     std::vector<Value> gcMallocParams;
     const Type::Type* i64Type = typeRegistry.getPrimitive(Type::PrimitiveKind::I64);
@@ -16,6 +23,22 @@ MIR::Program HIRToMIR::lower(const HIR::HIRProgram& hirProgram) {
     for (const auto& topLvlStmt : hirProgram.statements) {
         // Handle function declarations
         if (auto* fnDecl = dynamic_cast<HIR::HIRFnDecl*>(topLvlStmt.get())) {
+            // Skip generic templates (they have unresolved or generic types)
+            bool isGeneric = false;
+            if (fnDecl->returnType->kind == Type::TypeKind::Unresolved ||
+                fnDecl->returnType->kind == Type::TypeKind::Generic) {
+                isGeneric = true;
+            }
+            for (const auto& param : fnDecl->params) {
+                if (param.type->kind == Type::TypeKind::Unresolved ||
+                    param.type->kind == Type::TypeKind::Generic) {
+                    isGeneric = true;
+                    break;
+                }
+            }
+            if (isGeneric) {
+                continue;  // Skip generic templates
+            }
             // Register function parameters for call site lookup
             functionParams[fnDecl->name] = &(fnDecl->params);
 
@@ -180,6 +203,14 @@ MIR::Program HIRToMIR::lower(const HIR::HIRProgram& hirProgram) {
         }
         // Imports don't need MIR lowering
     }
+
+    // Now lower monomorphized generic functions (from AST)
+    std::cout << "  [Lowering " << monomorphizedFunctions.size() << " monomorphized function(s) to MIR]\n";
+    for (const auto& astFn : monomorphizedFunctions) {
+        // Use the AST visitor to lower this function
+        visitFnDecl(const_cast<FnDecl&>(*astFn));
+    }
+
     return builder.getProgram();
 }
 
@@ -675,12 +706,18 @@ Value HIRToMIR::visitBinaryExpr(::BinaryExpr& expr) {
     Value rhs = lowerExpr(*expr.rhs);
 
     // Check type of operands
+    // Try to get type from semantic analysis first (for non-generic functions)
     const Type::Type* lhsType = getExprType(expr.lhs.get());
+
+    // If not found (e.g., monomorphized generic functions), use the lowered value's type
+    if (lhsType == nullptr) {
+        lhsType = lhs.type;
+    }
 
     bool isFloat = false;
     bool isUnsigned = false;
 
-    if (lhsType->kind == Type::TypeKind::Primitive) {
+    if (lhsType && lhsType->kind == Type::TypeKind::Primitive) {
         const auto* primType = dynamic_cast<const Type::PrimitiveType*>(lhsType);
         isFloat = (primType->kind == Type::PrimitiveKind::F32 ||
                    primType->kind == Type::PrimitiveKind::F64);
@@ -770,6 +807,30 @@ Value HIRToMIR::visitUnaryExpr(::UnaryExpr& expr) {
 }
 
 Value HIRToMIR::visitFnCall(::FnCall& call) {
+    // Check if this is the sizeof<T>() compiler builtin
+    if (call.name == "sizeof" && !call.typeArgs.empty() && call.args.empty()) {
+        // This is sizeof<T>() - replace with a constant
+        const Type::Type* sizeType = call.typeArgs[0];
+
+        // If the type is unresolved, we need to look it up
+        if (sizeType->kind == Type::TypeKind::Unresolved) {
+            const auto* unresolvedType = dynamic_cast<const Type::UnresolvedType*>(sizeType);
+            if (unresolvedType) {
+                // Try to resolve it by checking structs first
+                sizeType = typeRegistry.getStruct(unresolvedType->name);
+                if (!sizeType) {
+                    // Not a struct, try to parse it as a type name (handles primitives)
+                    sizeType = typeRegistry.parseTypeName(unresolvedType->name);
+                }
+            }
+        }
+
+        size_t size = getTypeSize(sizeType);
+
+        const Type::Type* u64Type = typeRegistry.getPrimitive(Type::PrimitiveKind::U64);
+        return builder.createConstantInt(static_cast<int64_t>(size), u64Type);
+    }
+
     // Try to look up the function to get parameter types
     Function* func = builder.getProgram().getFunction(call.name);
 
@@ -1078,6 +1139,13 @@ Value HIRToMIR::visitAddrOf(::AddrOf& node) {
     return {};
 }
 
+Value HIRToMIR::visitSizeOf(::SizeOf& node) {
+    // sizeof<T>() should have been replaced by a constant in semantic analysis
+    // If we reach here, something went wrong
+    diag.error("sizeof should have been replaced with a constant during semantic analysis", node.line, node.column);
+    return {};
+}
+
 Value HIRToMIR::visitCompoundAssign(::CompoundAssign& node) {
     diag.error("Compound assignments should be lowered in HIR", node.line, node.column);
     return {};
@@ -1101,6 +1169,23 @@ Value HIRToMIR::visitRange(::Range& node) {
 Value HIRToMIR::visitStructLiteral(::StructLiteral& node) {
     // Get the struct type
     const Type::Type* structType = getExprType(&node);
+
+    // For monomorphized functions, getExprType returns nullptr
+    // In that case, use the resolvedType from the node itself, or look up the monomorphized struct type
+    if (!structType) {
+        structType = node.resolvedType;
+    }
+
+    // If still no type, try to look up the monomorphized struct type from the registry
+    if (!structType && !node.typeArgs.empty()) {
+        // This is a generic struct instantiation - construct the monomorphized name
+        std::string baseName = node.structName.lexeme;
+        std::string monomorphName = baseName;
+        for (const auto* typeArg : node.typeArgs) {
+            monomorphName += "$" + typeArg->toString();
+        }
+        structType = typeRegistry.getStruct(monomorphName);
+    }
 
     // Allocate space on the GC heap for the struct
     size_t structSize = getTypeSize(structType);
@@ -1135,7 +1220,36 @@ Value HIRToMIR::visitStructLiteral(::StructLiteral& node) {
 
 Value HIRToMIR::visitFieldAccess(::FieldAccess& node) {
     Value structVal = lowerExpr(*node.object);
-    int fieldIndex = node.fieldIndex;
+
+    // Get the struct type (either from exprTypes or from the value itself)
+    const Type::Type* objType = getExprType(node.object.get());
+    if (!objType) {
+        objType = structVal.type;
+    }
+
+    // If it's a pointer, get the pointee type
+    const Type::StructType* structType = nullptr;
+    if (objType->kind == Type::TypeKind::Pointer) {
+        const auto* ptrType = dynamic_cast<const Type::PointerType*>(objType);
+        if (ptrType->pointeeType->kind == Type::TypeKind::Struct) {
+            structType = dynamic_cast<const Type::StructType*>(ptrType->pointeeType);
+        }
+    } else if (objType->kind == Type::TypeKind::Struct) {
+        structType = dynamic_cast<const Type::StructType*>(objType);
+    }
+
+    // Find the field index
+    int fieldIndex = node.fieldIndex;  // Use cached value if available
+    if (fieldIndex == -1 && structType) {
+        // Field index wasn't set (monomorphized function case), compute it now
+        for (size_t i = 0; i < structType->fields.size(); ++i) {
+            if (structType->fields[i].name == node.fieldName.lexeme) {
+                fieldIndex = static_cast<int>(i);
+                break;
+            }
+        }
+    }
+
 
     // Check if structVal is a pointer or a value
     Value structPtr;
@@ -1233,9 +1347,10 @@ Value HIRToMIR::visitInstanceMethodCall(::InstanceMethodCall& node) {
 const Type::Type* HIRToMIR::getExprType(const Expr* expr) const {
     auto it = exprTypes.find(expr);
     if (it == exprTypes.end()) {
-        // Type not found - this shouldn't happen if semantic analysis completed
-        // Return a default type to avoid crashes
-        return typeRegistry.getPrimitive(Type::PrimitiveKind::I32);
+        // Type not found - this can happen for monomorphized generic functions
+        // that weren't analyzed by semantic analysis. Return nullptr to signal
+        // that type should be inferred from MIR values.
+        return nullptr;
     }
     return it->second;
 }

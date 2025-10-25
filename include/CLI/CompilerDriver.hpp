@@ -10,6 +10,7 @@
 #include "../Semantic/SemanticAnalyzer.hpp"
 #include "../Semantic/ExportTable.hpp"
 #include "../Semantic/FunctionRegistry.hpp"
+#include "../Semantic/GenericRegistry.hpp"
 #include <llvm/IR/Module.h>
 #include <llvm/IR/LLVMContext.h>
 #include <vector>
@@ -36,6 +37,7 @@ private:
     CompilerOptions opts;
     DiagnosticManager diag;
     Type::TypeRegistry typeRegistry;
+    Volta::GenericRegistry genericRegistry;  // Shared across all modules
 
     std::vector<CompilationUnit> units;
     std::unique_ptr<llvm::LLVMContext> llvmContext;

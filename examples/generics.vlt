@@ -7,14 +7,9 @@ fn swap<T>(a: mut ref T, b: mut ref T) -> void {
     b = temp;
 }
 
-// Generic function that returns the first element
-fn first<T>(arr: [T]) -> T {
-    return arr[0];
-}
-
 // Generic struct with one type parameter
 struct Box<T> {
-    value: T
+    pub value: T
 }
 
 // Generic struct with multiple type parameters
@@ -48,7 +43,7 @@ fn main() -> i32 {
     let pair: Pair<i32, f64> = Pair<i32, f64> { first: 1, second: 3.14 };
 
     // Test generic struct with methods
-    let container: Container<i32> = Container<i32>::new(100);
+    let container: Container<i32> = Container<i32>.new(100);
     let val: i32 = container.get();
 
     return 0;
